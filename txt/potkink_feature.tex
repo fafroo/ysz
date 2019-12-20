@@ -1,0 +1,391 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[usenames,dvipsnames]{xcolor} %monochrome option to ignore red, blue etc
+\usepackage{amsmath,amssymb,graphicx, cancel, supertabular, booktabs, mathtools}
+\usepackage{tikz}
+\usepackage{siunitx, mhchem, comment}
+%, stmaryrd}
+\usepackage{bm}         % bold math fonts with \bm{}
+\usepackage[font=small,labelfont=bf]{caption} % Required for specifying captions to tables and figures
+\usepackage{pgfplotstable}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.9}
+%\usepackage{lipsum}
+%\frenchspacing
+% bibliography
+%\usepackage[backend=biber, style=numeric, bibencoding=UTF8]{biblatex}	% style=iso-numeric
+%\bibliography{library.bib} 
+%\journal{}
+% My own styles package...
+%\usepackage{customstyle}
+\usepackage{wrapfig, subcaption, caption}
+\usepackage{xargs}                      % Use more than one optional parameter in a new commands
+\usepackage[colorinlistoftodos,prependcaption,textsize=tiny]{todonotes}
+\newcommandx{\unsure}[2][1=]{\todo[linecolor=red,backgroundcolor=red!25,bordercolor=red,#1]{#2}}
+\newcommandx{\change}[2][1=]{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=blue,#1]{#2}}
+\newcommandx{\info}[2][1=]{\todo[linecolor=OliveGreen,backgroundcolor=OliveGreen!25,bordercolor=OliveGreen,#1]{#2}}
+\newcommandx{\improvement}[2][1=]{\todo[linecolor=Plum,backgroundcolor=Plum!25,bordercolor=Plum,#1]{#2}}
+\newcommandx{\thiswillnotshow}[2][1=]{\todo[disable,#1]{#2}}
+
+\numberwithin{equation}{section}
+
+\usepackage[normalem]{ulem}
+\usepackage[draft]{showkeys}
+
+\definecolor{colorRed}{rgb}{0.67,0.,0.}
+\definecolor{colorBlue}{rgb}{0.,0.,0.67}
+
+\newcommand{\BR}{\color{colorRed}}
+\newcommand{\ER}{\color{black}}
+\newcommand{\BB}{\color{colorBlue}}
+\newcommand{\EB}{\color{black}}
+
+%\newcommand{\ara}[1]{\renewcommand{\arraystretch}{#1}}
+\newcommand{\us}[1]{\underset{\textrm{s}}{#1}{}}
+
+\def\tilde{\widetilde}
+\def\cI{\mathcal{I}}
+\def\F{\textrm{F}}
+\def\e{\textrm{e}}
+\def\Ref{\mathit{ref}}
+
+\def\kB{k_\mathrm{B}}
+
+\def\Ox{\mathrm{O}}
+\def\oo{{\ce{O2}}}
+\def\nn{{\ce{N2}}}
+\def\Om{\mathrm{Om}}
+\def\Oi{\mathrm{Oi}}
+\def\Zr{\mathrm{Zr}}
+\def\Yi{\mathrm{Y }}
+
+\def\Mp{\mathrm{M^+}}
+\def\eM{\mathrm{e^-}}
+
+
+\def\MLC{M_\mathrm{C}^\mathrm{L}}
+\def\MLA{M_\mathrm{A}^\mathrm{L}}
+\def\nLA{n_\mathrm{A}^\mathrm{L}}
+\def\nLC{n_\mathrm{C}^\mathrm{L}}
+\def\nC{n_\mathrm{C}}
+\def\nG{n^\mathrm{g}}
+\def\nL{n_\mathrm{L}}
+\def\zL{z_\mathrm{L}}
+\def\zA{z_\mathrm{A}}
+\def\mL{m_\mathrm{L}}
+\def\vL{v_\mathrm{L}}
+\def\aL{a_\mathrm{L}}
+
+\def\DGA{\Delta G_\textrm{A}  }
+\def\DGR{\Delta G_\textrm{R}  }
+\def\eq{\textrm{eq}}
+
+\def \YSZ{\textrm{YSZ}}
+\def \M{\textrm{M}}
+
+\def \yY{y^\YSZ}
+\def \varphiY{\varphi^\YSZ}
+\def \neM{n_\textrm{e}^\M}
+\def \varphiM{\varphi^\M}
+
+\def \yYs{{\us y}^\YSZ}
+\def \neMs{\us \neM}
+
+\def\pD{\tilde{D}}
+\def\PF{P}
+
+
+\def\vau{{\BB\upsilon\EB}}
+
+%
+%Metadata
+\usepackage{hyperref}
+\hypersetup{pdftitle=Yttria-stabilized Zirconia}
+\hypersetup{pdfauthor=Petr Vagner}
+\begin{document}
+%\begin{frontmatter}
+\author{Petr Vágner, Clemens Guhlke, Rüdiger Müller, Jürgen Fuhrmann}
+\title{Diffuse layer capacitance of YSZ.}
+\maketitle
+%\address{Charles University, Weierstraß Institute}
+%\end{frontmatter}
+\begin{abstract}
+A simple thermodynamic model of yttria-stabilised zirconia is developed. 
+The framework of mixture theory coupled with the Maxwell's equations
+is used to investigate the capacitance of the diffuse double layer under equilibrium conditions.
+\end{abstract}
+%\section{YSZ characterization}
+%Exists in different crystalline forms, single crystal and polycrystalline shown in figures %\ref{fig:phase_d},\ref{fig:cryst}.
+%For further details consult \cite{ikeda1985electrical, viazzi2008structural}.
+%%\begin{figure}[h] 
+%%\includegraphics[width=0.5\textwidth]{./img/phase_diagram_Scott.png}
+%%\caption{}
+%%\label{fig:phase_d}
+%%\end{figure}
+%%\begin{figure}[h] 
+%%\includegraphics[width=0.7\textwidth]{./img/YSZ_crystalline_phases.png}
+%%\caption{}
+%%\label{fig:cryst}
+%%\end{figure}
+%\subsection{YSZ thermal expansion}
+%\cite{hayashi2005thermal}
+%Linear thermal expansion coefficient $\frac{\alpha_\textrm{V}}{3} =\alpha_\textrm{L} = \frac{1}{L}\frac{\did L}{\did T} \approx \SI{1e-6}{\per\kelvin}\text{	at }\SI{1000}{\kelvin}$.
+%Grüneisen's constant $\gamma \approx 1.4$, bulk modulus $K_\textrm{T} \approx \SI{205}{\giga\pascal}@\SI{298}{\kelvin}$
+%\subsection{YSZ ionic conductivity}
+%The main factor driving factor is definitely temperature.
+%The other factors steering the YSZ ionic conductivity are the mixing ratio $x$, crystalline structure and atmosphere.
+%\subsubsection{\citeauthor{bauerle1969study}~\cite{bauerle1969study}}
+%
+%\subsubsection{\citeauthor{fergus2006electrolytes}~\cite{fergus2006electrolytes}, review}
+%Conductivity od YSZ increases up to $8$ mole$\%$ and then decreases. The decrease at higher dopant contents might
+%be due to association of point defects, which leads to reduction in defect mobility and thus conductivity.
+%Size mismatch between $\ce{Zr}$ and $\ce{Y}$ leads to lower conductivity greater energy for defect association.
+%
+%Grain boundary conduction is said to be important.
+%\begin{figure}[h]
+%%\includegraphics[width=\linewidth]{./img/recherche/fergus2006_fig2.png}
+%\caption{YSZ conductivities taken from~\cite{fergus2006electrolytes}, 
+%apparently the value is around $\SIF{0.1}{\siemens\per\cm}$ at $\SIF{1000}{\celsius}$. }
+%\end{figure}
+%%
+%\subsubsection{\citeauthor{chen2002influence}~\cite{chen2002influence}, granular polycrystal}
+%Authors use fine-granular 8YSZ, measures EIS at temperature between $\SIF{300}{\celsius}$ and $\SIF{1000}{\celsius}$.
+%Authors distinguish between intra- and intergranular conductivity, which they obtain by fitting EIS to an equivalent circuit.
+%Specimen coated with a platinum paste a connected with platinum wire. Presumably air atmosphere was used.
+%
+%My opinion is that two different spectra are measured at high and low temperatures.
+%Reported total conductivity was around $\SIF{0.1}{\siemens\per\cm}$ at
+%$\SIF{1000}{\celsius}$.
+%\begin{figure}[h]
+%	\centering
+%	%\includegraphics[width=\linewidth]{./img/recherche/chen2002_fig1.png}
+%	\caption{Typical impedance spectra of YSZ at low temperature from \cite{chen2002influence}.}
+%	\label{fig:chen2002}
+%\end{figure}
+%\subsubsection{\citeauthor{zhang2007ionic}~\cite{zhang2007ionic}}
+%\begin{figure}[h]
+%	\centering
+%	%\includegraphics[width=\linewidth]{./img/recherche/zhang2007_fig2.png}
+%	\caption{The equivalent circuit}
+%	\label{fig:zhang2007}
+%\end{figure}
+%\subsubsection{\citeauthor{velle1991electrode}~\cite{velle1991electrode}}
+%
+%%\subsubsection{\citeauthor{manning1997kinetics}~\cite{manning1997kinetics}}
+%Manning used $\langle 100\rangle$ single crystal 9.5YSZ and reported $\SIF{3e-2}{\siemens\per\cm}$ in $\SI{1}{\bar}$ air at $\SIF{800}{\celsius}$
+%and slightly lower values in oxygen-free nitrogen.
+%\vfill\eject
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+\section{Summary of the model}
+A proper summary of the model is nesseccary for having good time during implementation and during the whole life. 
+
+\subsection{Model with dimensions}
+The finall model equations for a half-cell reads
+
+\begin{subequations}
+\begin{align}
+\partial_t \frac{m_\Ox m (1- \nu)}{\vL} y
++
+\partial_x 
+\left(
+	\left(
+		1
+		+
+		\frac{m_\Ox}{\mL} m (1 - \nu) y
+	\right)
+	\bm J_\Ox
+\right)
+&= 
+0,
+\\
+- \varepsilon_0 (1 + \chi) \partial_{xx} \varphi 
+&= 
+\frac{e_0}{\vL}
+\left(
+	z_\textrm{A} m (1 - \nu) y
+	+
+	\zL
+\right),
+\\
+\bm J_\Ox 
+=
+- \frac{D \ m_\Ox m (1 - \nu)}{\vL}
+\left(
+	1
+	+
+	\frac{m_\Ox}{\mL} m (1 - \nu) y
+\right)
+&\Bigg[
+	\frac	
+	{\partial_x y}
+	{(1- y)}
+	+ 
+	z_\textrm{A} y \frac{e_0}{\kB T}
+	\partial_x \varphi
+\Bigg]
+\end{align}
+\end{subequations}
+for bulk with the choise of mobility coefficient 
+$$M = D \frac{m_\Ox}{\kB} \rho_\Ox = D \frac{m_\Ox^2 m (1 - \nu) y}{\vL \ \kB},$$ 
+where $[D] = m^2 s^{-1}$ is a diffusion coefficient, and
+\begin{subequations}
+\begin{align}
+\partial_t &\frac{m_\Ox \us m (1- \us \nu)}{\aL} \us y
+-
+m_\Ox \us A_0 
+\left(
+	\frac{\DGA}{\kB T}
+	+
+	\ln \frac{y(1- \us y)}{\us y (1- y)}
+\right)
+=
+m_\Ox \us R,
+\\ \nonumber
+\\
+&\us R
+=
+\us R_0
+\Bigg[
+	\textrm{exp}
+	\left(
+		{-\beta A \frac{\DGR}{\kB T}}
+	\right)
+	\left(
+		\frac{\us y}{1- \us y}
+	\right)^{-\beta A}
+	{p_\Ox}^{\frac{\beta A}{2}}
+\\ \nonumber
+	&\quad \quad \quad \quad \quad \quad	
+	-
+	\textrm{exp}
+	\left(
+		{(1-\beta) A \frac{\DGR}{\kB T}}
+	\right)
+	\left(
+		\frac{\us y}{1- \us y}
+	\right)^{(1-\beta) A}
+	{p_\Ox}^{-\frac{(1-\beta) A}{2}}
+\Bigg],
+\end{align}
+\end{subequations}
+for surface with the choice of adsorbtion coefficient
+$$
+\us M = \us A_0  \frac{m_\Ox^2}{\kB},
+$$
+where $[\us A_0] = \textrm{m}^{-2} \textrm{s}^{-1}$ denotes the rate of adsorbtion. The electrochemical reaction is supposed to be
+\begin{align}
+\ce{\frac{1}{2} \Ox_2 + 2\textrm{e}^- <=> \Ox^{2-}}
+\end{align}
+and we define
+\begin{subequations}
+\begin{align}
+\DGA
+&=
+m_\Ox
+\left(
+	\psi_{\textrm{Om}}^\textrm{ref}
+	-
+	\us \psi_{\textrm{Om}}^\textrm{ref}
+\right)
+\\
+\DGR
+&= 
+m_\Ox
+\left(
+	\us \psi_{\textrm{Om}}^\textrm{ref}
+	-
+	\frac{\us \psi_{\Ox}^\textrm{ref}}{2}
+\right)
+-
+2 m_\textrm{e} \psi_{\textrm{e}}^\textrm{ref}.
+\end{align}
+\end{subequations}
+
+
+
+
+\section{TwoPointFlux feature - jump of derivatives at surface}
+Example for the desired feature in TwoPointFlux package allowing to define the jump in derivative between quantities at the surface. In addition, the size of jump can depend on other surface variables.
+
+Suppose we have a computaional domain $\Omega = (0, 1)$ and unknown bulk quantities $\yY, \varphiY$ for YSZ and $\neM, \varphiM$ for metal. Further let us assume unkwnown surfacial quantities $\yYs, \neMs, \us \varphi$. The idea is using the same computational domain for both bulks - YSZ and metal. (This is only the preliminary step. The final aim is to have two computational domains for YSZ and metal separated by the surface.)
+
+YSZ quantities obey the equations summarised in the previous section (supposing the identification $y = \yY, \varphi = \varphiY, \us y = \yYs$.
+
+Currently, we are investigating the proper equations for metal variables therefore let us assume some very simple equations serving only for this purpose
+
+\begin{subequations}
+\begin{align}
+\neM &= \textrm{const} = (\neM)_M,
+\\
+\partial_{xx} \varphiM &= 0,
+\\
+\neMs &= \neM = \textrm{electroneutral}
+\end{align}
+\end{subequations}
+
+And for the surface, we supose $\varphi$ continuous and we want to impose the crucial jump condition.
+
+
+\section{About the kink \& implementation}
+There are essentially two ways how to consider the boundary "kink" condition.
+
+\begin{enumerate}
+\item Considering only surface charge (reactions), which is proposed by Clemens in his paper \footnote{2015 Dreyer Modeling of electrochemical double layers in thermodynamic non-equilibrium}
+\begin{align}
+- [\![\epsilon_0 (1 - \chi) \partial_x \varphi]\!] = - \epsilon_0 (1-\chi_\YSZ) \partial_x \varphiY + \epsilon_0 (1-\chi_\M) \partial_x \varphiM  =   \alpha \ \us n^\textrm{F}.
+\end{align}
+
+
+\item Include also bulk charge (reaction) at the surface (which has formally zero measure)
+\begin{align}
+- [\![\epsilon_0 &(1 - \chi) \partial_x \varphi + n^\textrm{F} ] \!] 
+= \nonumber
+\\
+&- \epsilon_0 (1-\chi_\YSZ) \partial_x \varphiY - (n^\textrm{F})^{\YSZ}
++ 
+\epsilon_0 (1-\chi_\M) \partial_x \varphiM  
+=   
+\alpha \ \us n^\textrm{F}.
+\end{align}
+\end{enumerate}
+
+
+
+Suppose we have the equation in the form
+
+\begin{align}
+\partial_t S + \textrm{div} F + R &= 0  \label{abst:bulk}
+\\
+\partial_t \us S + \us R &= 0 \label{abst:surf}
+\\
+\textrm{boundary\_value[iphi, surface]} &= B
+\end{align}
+
+for source, flux and reaction.  And for simplicity, let's assume stationary case, i.e. $\partial_t S = 0, \partial_t \us S = 0$.
+
+General counterparts for the "kink" cases above are
+\begin{enumerate}
+\item without bulk charge
+$$ F^\YSZ - F^\M = B - \us R,$$
+
+\item with bulk charge
+$$ (F-R)^\YSZ - (F-R)^\M = B - \us R.$$
+\end{enumerate}
+
+
+As far as I know, implementation allows the second case. Before examining the potkink code, I had a wrong picture in mind because I thought it is rather the first case (due to Clemens). Nowadays, I have been a bit wondering which case makes physically more sence, but still I do not have a clear answer.
+\\
+\\
+Recently, I am going to test the code with several sets of parameters (with the better picture (second case) in mind) ... and hopefully find a working example. I will let you know.
+\\
+\\
+Does this make sence or am I wrong?
+\\
+\\
+%((Anyhow, maybe it would make sence to be able to implement both cases. I do not know how hard work it is, but now we have two mutually redundat "boundary conditions" $B$ and $\us R$, therefore one could belong to $1^{\textrm{st}}$ case and the another for $2^{\textrm{nd}}$. Just an idea (maybe wrong).))
+\end{document}
