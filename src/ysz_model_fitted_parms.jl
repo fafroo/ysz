@@ -84,7 +84,7 @@ function YSZParameters(this)
     this.T=1073                     
     this.nu=0.9                     # assumption
     this.nus=0.9                    # assumption
-    this.x_frac=0.08                # 8% YSZ
+    this.x_frac=0.13                # 8% YSZ
     this.chi=27.e0                  # from relative permitivity e_r = 6 = (1 + \chi) ... TODO reference
     this.m_par = 2                  
     this.ms_par = this.m_par        

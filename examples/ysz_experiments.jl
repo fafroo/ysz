@@ -1,4 +1,14 @@
 module ysz_experiments
+### WHAT was done since last commit ###############
+# * phi_out = (phi_previous + phi)/2.0
+#
+#
+###################################################
+
+
+
+
+
 
 using Printf
 using VoronoiFVM
@@ -9,21 +19,21 @@ using LeastSquaresOptim
 
 ##########################################
 # internal import of YSZ repo ############
-cur_dir=pwd()
-cd("../src")
-src_dir=pwd()
-cd(cur_dir)
 
-push!(LOAD_PATH,src_dir)
-
-using ysz_model_fitted_parms
-const label_ysz_model = ysz_model_fitted_parms
-
+include("../src/ysz_model_fitted_parms.jl")
+iphi = ysz_model_fitted_parms.iphi
+iy = ysz_model_fitted_parms.iy
+ib = ysz_model_fitted_parms.ib
 # --------- end of YSZ import ---------- #
 ##########################################
 
 
-function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=false ,pyplot=false, save_files=false, width=10.0e-9,  dx_exp=-9, voltammetry=false, EIS_TDS=false, EIS_IS=false, EIS_make_plots=false , dlcap=false, voltrate=0.005, upp_bound=0.5, low_bound=-0.5, sample=40, prms_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], nu_in=0.9)
+function run_new(;test=false, print_bool=false, debug_print_bool=false,
+                 verbose=false ,pyplot=false, save_files=false, width=10.0e-9,
+                 dx_exp=-9, voltammetry=false, EIS_TDS=false, EIS_IS=false,
+                 EIS_make_plots=false , dlcap=false, voltrate=0.005,
+                 upp_bound=0.5, low_bound=-0.5, sample=40,
+                 prms_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], nu_in=0.9)
 
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
@@ -45,7 +55,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
     grid=VoronoiFVM.Grid(X)
     #
     
-    parameters=label_ysz_model.YSZParameters()
+    parameters=ysz_model_fitted_parms.YSZParameters()
     # for a parametric study
     eV = parameters.e0   # electronvolt [J] = charge of electron * 1[V]
     parameters.A0 = 10.0^prms_in[1]      # [1 / s]
@@ -65,20 +75,20 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
     parameters.nu = nu_in
     
     # update the "computed" values in parameters
-    parameters = label_ysz_model.YSZParameters_update(parameters)
+    parameters = ysz_model_fitted_parms.YSZParameters_update(parameters)
 
     physics=VoronoiFVM.Physics(
         data=parameters,
         num_species=3,
-        storage=label_ysz_model.storage!,
-        flux=label_ysz_model.flux!,
-        reaction=label_ysz_model.reaction!,
-        breaction=label_ysz_model.breaction!,
-        bstorage=label_ysz_model.bstorage!
+        storage=ysz_model_fitted_parms.storage!,
+        flux=ysz_model_fitted_parms.flux!,
+        reaction=ysz_model_fitted_parms.reaction!,
+        breaction=ysz_model_fitted_parms.breaction!,
+        bstorage=ysz_model_fitted_parms.bstorage!
     )
     #
     if print_bool
-        label_ysz_model.printfields(parameters)
+        ysz_model_fitted_parms.printfields(parameters)
     end
 
     #sys=VoronoiFVM.SparseSystem(grid,physics)
@@ -101,7 +111,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
     inival.=0.0
     #
     
-    phi0 = label_ysz_model.equil_phi(parameters)
+    phi0 = ysz_model_fitted_parms.equil_phi(parameters)
     if print_bool
         println("phi0 = ",phi0)
     end
@@ -295,7 +305,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
                 #println("bound ",sys.boundary_values[iphi,1]," inival ",inival)
                 
                 solve!(U,inival,sys, control=control,tstep=tstep)
-                Qb= - integrate(sys,label_ysz_model.reaction!,U) # \int n^F            
+                Qb= - integrate(sys,ysz_model_fitted_parms.reaction!,U) # \int n^F            
                 dphi_end = U[iphi, end] - U[iphi, end-1]
                 dx_end = X[end] - X[end-1]
                 dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
@@ -305,7 +315,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
                 # for faster computation, solving of "dtstep problem" is not performed
                 U0 .= inival
                 inival.=U
-                Qb0 = - integrate(sys,label_ysz_model.reaction!,U0) # \int n^F
+                Qb0 = - integrate(sys,ysz_model_fitted_parms.reaction!,U0) # \int n^F
                 dphi0_end = U0[iphi, end] - U0[iphi, end-1]
                 dphiB0 = parameters.eps0*(1+parameters.chi)*(dphi0_end/dx_end)
                 Qs0 = (parameters.e0/parameters.areaL)*parameters.zA*U0[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
@@ -319,8 +329,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
                 
                 
                 # reaction average
-                reac = - 2*parameters.e0*label_ysz_model.electroreaction(parameters, U[ib,1])
-                reacd = - 2*parameters.e0*label_ysz_model.electroreaction(parameters,U0[ib,1])
+                reac = - 2*parameters.e0*ysz_model_fitted_parms.electroreaction(parameters, U[ib,1])
+                reacd = - 2*parameters.e0*ysz_model_fitted_parms.electroreaction(parameters,U0[ib,1])
                 Ir= 0.5*(reac + reacd)
 
                 #############################################################
@@ -407,6 +417,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
     if voltammetry
         istep=1
         phi=0
+        phi_prev = 0
+        phi_out = 0
     #        phi=phi0
 
         # inicializing storage lists
@@ -489,7 +501,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
                 if print_bool
                     print(direction_switch_count,", ")
                 end
-            end            
+            end       
             if state=="cv_is_on" && (dir > 0) && (phi > phi0 + 0.000001) && (direction_switch_count >=2*cv_cycles)
                 state = "cv_is_off"
             end
@@ -498,7 +510,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             # tstep to potential phi
             sys.boundary_values[iphi,1]=phi
             solve!(U,inival,sys, control=control,tstep=tstep)
-            Qb= - integrate(sys,label_ysz_model.reaction!,U) # \int n^F            
+            Qb= - integrate(sys,ysz_model_fitted_parms.reaction!,U) # \int n^F            
             dphi_end = U[iphi, end] - U[iphi, end-1]
             dx_end = X[end] - X[end-1]
             dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
@@ -508,7 +520,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             # for faster computation, solving of "dtstep problem" is not performed
             U0 .= inival
             inival.=U
-            Qb0 = - integrate(sys,label_ysz_model.reaction!,U0) # \int n^F
+            Qb0 = - integrate(sys,ysz_model_fitted_parms.reaction!,U0) # \int n^F
             dphi0_end = U0[iphi, end] - U0[iphi, end-1]
             dphiB0 = parameters.eps0*(1+parameters.chi)*(dphi0_end/dx_end)
             Qs0 = (parameters.e0/parameters.areaL)*parameters.zA*U0[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
@@ -522,8 +534,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             
             
             # reaction average
-            reac = - 2*parameters.e0*label_ysz_model.electroreaction(parameters, U[ib,1])
-            reacd = - 2*parameters.e0*label_ysz_model.electroreaction(parameters,U0[ib,1])
+            reac = - 2*parameters.e0*ysz_model_fitted_parms.electroreaction(parameters, U[ib,1])
+            reacd = - 2*parameters.e0*ysz_model_fitted_parms.electroreaction(parameters,U0[ib,1])
             Ir= 0.5*(reac + reacd)
 
             #############################################################
@@ -535,13 +547,13 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             #
             
             if debug_print_bool
-                @printf("t = %g     U = %g   state = %s  reac = %g  \n", istep*tstep, phi, state, Ir)
+                @printf("t = %g     U = %g   state = %s  Ir = %g  Is = %g  Ib = %g  \n", istep*tstep, phi, state, Ir, - (Qs[1] - Qs0[1])/tstep, - (Qb[iphi] - Qb0[iphi])/tstep)
             end
             
             # storing data
             append!(y0_range,U[iy,1])
             append!(ys_range,U[ib,1])
-            append!(phi_range,phi)
+            append!(phi_range,phi_out)
             #
             append!(Ib_range,Ib)
             append!(Is_range,Is)
@@ -553,9 +565,9 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             if state=="cv_is_on"
                 if save_files
                     if dlcap
-                        push!(out_df,[(istep-istep_cv_start)*tstep   phi-phi0    (Ib+Is+Ir)/voltrate    Ib/voltrate    Is/voltrate    Ir/voltrate])
+                        push!(out_df,[(istep-istep_cv_start)*tstep   phi_out-phi0    (Ib+Is+Ir)/voltrate    Ib/voltrate    Is/voltrate    Ir/voltrate])
                     else
-                        push!(out_df,[(istep-istep_cv_start)*tstep   phi-phi0    Ib+Is+Ir    Ib    Is    Ir])
+                        push!(out_df,[(istep-istep_cv_start)*tstep   phi_out-phi0    Ib+Is+Ir    Ib    Is    Ir])
                     end
                 end
             end
@@ -635,7 +647,9 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
                 relax_counter += 1
                 #println("relaxation ... ",relax_counter/sample*100,"%")
             else
+                phi_prev = phi
                 phi+=voltrate*dir*tstep
+                phi_out = (phi_prev + phi)/2.0
             end
         end
         
@@ -782,7 +796,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             end
         end
         if test
-            I1 = integrate(sys, label_ysz_model.reaction!, U)
+            I1 = integrate(sys, ysz_model_fitted_parms.reaction!, U)
             #println(I1)
             return I1[1]
         end
