@@ -9,6 +9,9 @@ include("./import_experimental_data.jl")
 # - bug in CV_get_I_values >> nekrici, kdyz CV zacina az nad start_i
 #########
 
+
+
+## general functions
 function is_between(x, a, b)
     if (b - a) > 0
         if (a <= x) & (x <= b)

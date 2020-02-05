@@ -25,7 +25,7 @@ iphi = ysz_model_new_prms.iphi
 iy = ysz_model_new_prms.iy
 ib = ysz_model_new_prms.ib
 
-include("../src/fitting_stuff.jl")
+include("../src/CV_fitting_supporting_stuff.jl")
 #include("../src/import_external_data")
 # --------- end of YSZ import ---------- #
 ##########################################

@@ -3,24 +3,34 @@ module ysz_fitting
 using PyPlot
 using DataFrames
 
-include("../examples/ysz_voltammetry_like.jl")
-include("../src/fitting_stuff.jl")
+include("../examples/ysz_experiments.jl")
+include("../src/CV_fitting_supporting_stuff.jl")
+include("../src/EIS_fitting_supporting_stuff.jl")
 include("../src/import_experimental_data.jl")
 
 
 
 
-function simple_run()
+function CV_simple_run()
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
-    ysz_voltammetry_like.run_new(
-            out_df_bool=true, voltammetry=true, sample=40, pyplot_finall=true,
-            prms_in=[19.50, 19.00, 0.0905748, -0.708014, 0.6074566741435283, -1.5]
-            )
+   @time  ysz_experiments.run_new(
+        out_df_bool=true, voltammetry=true, sample=40, pyplot_finall=true,
+        prms_in=[19.50, 19.00, 0.0905748, -0.708014, 0.6074566741435283, -1.5]
+    )
     return
 end
 
+function EIS_simple_run()
+    old_prms =  [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
+    @time  ysz_experiments.run_new(
+        pyplot=false, EIS_IS=true, out_df_bool=false, 
+        tref=0,
+        prms_in= [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1],  
+        nu_in=0.9, pO2_in=1.0, DD_in=9.5658146540360312e-10
+    )
+end
 
-function finall_plot(df, label)
+function finall_plot(df, label="")
 #    plot(df.U, df.Ib ,"blue"    ,label="bulk")
     #plot(phi_range[cv_range].-phi0, Ibb_range[cv_range] ,label="bulk_grad")
 #    plot(df.U, df.Is, "green"   ,label="surf")
@@ -30,6 +40,7 @@ function finall_plot(df, label)
     PyPlot.title("CV curve")
     PyPlot.xlabel(L"\eta \ (V)")
     PyPlot.ylabel(L"I \ (A)")
+    
     PyPlot.legend(loc="best")
     PyPlot.grid()
 end
@@ -241,12 +252,12 @@ function scan_2D_recursive(;pyplot=false,
                             #rprm2=range(15, stop=20, length=3),
                             #rprm1=range(18.4375, stop=18.59375, length=3),
                             #rprm2=range(20.59375, stop=21, length=3),
-                            rprm1=range(13.0, stop=25., length=8),
+                            rprm1=range(10.0, stop=28., length=4),
                             #rprm2=range(15.0, stop=23, length=7),
-                            rprm2=range(-1.5, stop=1.5, length=8),
-                            nx=200, ny=200,
+                            rprm2=range(-2.5, stop=1.0, length=4),
+                            nx=100, ny=100,
                             wp=[1, 1, 0, 0, 0, 0], #TODO !!!
-                            depth_remaining=5,
+                            depth_remaining=3,
                             approx_min=Inf,
                             approx_min_position=[0, 0],
                             recursive=false,
@@ -297,7 +308,7 @@ function scan_2D_recursive(;pyplot=false,
                     A = rprm2[i2]
                     ##########################################
                     
-                    CV_matrix[i1,i2] = ysz_voltammetry_like.run_new(
+                    CV_matrix[i1,i2] = ysz_experiments.run_new(
                         out_df_bool=true, voltammetry=true, sample=10, #pyplot=true,
                         prms_in=[A0, R0, DGA, DGR, beta, A]
                         )
@@ -455,7 +466,7 @@ end
 #                     R0 = rprm2[i2]
 #                     ##########################################
 #                     
-#                     CV_matrix[i1,i2] = ysz_voltammetry_like.run_new(
+#                     CV_matrix[i1,i2] = ysz_experiments.run_new(
 #                         out_df_bool=true, voltammetry=true, sample=10, #pyplot=true,
 #                         prms_in=[A0, R0, DGA, DGR, beta, A]
 #                         )
@@ -598,7 +609,7 @@ function comparison()
     for R0 in [20.53]
         println(A)
         ww=DataFrame()
-        push!(CV_list,ysz_voltammetry_like.run_new(
+        push!(CV_list,ysz_experiments.run_new(
             out_df_bool=true, voltammetry=true, sample=10,
             prms_in=[21.71975544711280, R0, 0.0905748, -0.708014, 0.6074566741435283, A]
             )
@@ -641,7 +652,7 @@ function scan_1D()
         A = rprms[i]
         ########
         
-        push!(CV_list,ysz_voltammetry_like.run_new(
+        push!(CV_list,ysz_experiments.run_new(
             out_df_bool=true, voltammetry=true, sample=10, #pyplot=true,
             prms_in=[A0, R0, DGA, DGR, beta, A]
             )
