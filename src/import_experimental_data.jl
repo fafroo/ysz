@@ -36,7 +36,9 @@ function import_EIStoDataFrame_path(f_name)
             end
         end
     end
-    df
+    df.f = reverse(df.f)
+    df.Z = reverse(df.Z)
+    return df
 end
 
 function import_CVtoDataFrame(;T,pO2)

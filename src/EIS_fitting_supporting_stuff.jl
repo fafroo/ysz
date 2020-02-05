@@ -94,18 +94,18 @@ end
 
 function EIS_get_checknodes_short()
     # frequency nodes to compare
-    # must be sorted downwards
+    # must be sorted upwards
     checknodes = (
-        1.0e+3,
-        1.0e+2,
+        1.0e+0,
         1.0e+1,
-        1.0e+0
+        1.0e+2,
+        1.0e+3
     )
 end
 
 function EIS_get_checknodes_geometrical(start_n, end_n, n_fac)
     # frequency nodes to compare
-    # must be sorted downwards
+    # must be sorted upwards
     w_list = zeros(0)
     w = start_n
     if start_n == end_n
@@ -120,7 +120,7 @@ function EIS_get_checknodes_geometrical(start_n, end_n, n_fac)
         append!(w_list, w)
         w *= n_fac
     end    
-    return reverse(w_list)
+    return w_list
 end
 
 function main()

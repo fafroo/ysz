@@ -23,7 +23,7 @@ end
 function EIS_simple_run()
     old_prms =  [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     @time  ysz_experiments.run_new(
-        pyplot=false, EIS_IS=true, out_df_bool=false, 
+        pyplot=false, EIS_IS=true, out_df_bool=true, 
         tref=0,
         prms_in= [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1],  
         nu_in=0.9, pO2_in=1.0, DD_in=9.5658146540360312e-10
@@ -88,6 +88,29 @@ function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
     finall_plot(CV_exp, "exp")
 end
 
+function plot_EIS_matrix(EIS_matrix, ok_matrix, rprm1, rprm2, T, pO2, EIS_bias=0.0)
+    PyPlot.figure(figsize=(6,4))
+    
+    
+    for i1 in 1:size(rprm1,1)
+        for i2 in 1:size(rprm2,1)
+            if Bool(ok_matrix[i1,i2])
+                #println(" ploting i1 / i2 : ",i1, " / ", i2)
+                Nyquist_plot(
+                    EIS_matrix[i1,i2],
+                    string("prms = ", rprm1[i1], " / ", rprm2[i2])
+                )
+            end
+        end
+    end
+
+    EIS_raw = import_EIStoDataFrame(;T=T,pO2=pO2,bias=EIS_bias)
+    checknodes =  EIS_get_checknodes_geometrical(1, 8000, 2)
+    EIS_exp = DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_raw, checknodes))
+    
+    Nyquist_plot(EIS_exp, "exp")
+end
+
 
 #####################
 ## 2D optimization ##
@@ -111,7 +134,7 @@ function surfplot_FF_2D(FF::FF_2D; my_title="Objective function")
 end
 
 
-function get_FF_interp_2D(CV_list, prm1_list, prm2_list; nx=20, ny=20, T=800, pO2=100)
+function CV_get_FF_interp_2D(CV_list, prm1_list, prm2_list; nx=20, ny=20, T=800, pO2=100)
     # ordered for prms A, B as [(A1,B1), (A1,B2), (A2,B1), (A2, B2)]
     # prms_list ordered as [A1 B1 A2 B2]
     CV_raw = import_CVtoDataFrame(;T=T,pO2=pO2)
@@ -145,6 +168,48 @@ function get_FF_interp_2D(CV_list, prm1_list, prm2_list; nx=20, ny=20, T=800, pO
                             CV_with_checknodes_list[3],
                             CV_with_checknodes_list[4],
                             rx[ix],ry[iy]).I
+                    )
+                )
+        end
+    end
+    
+    return FF_2D(x_matrix, y_matrix, err_matrix)
+end
+
+function EIS_get_FF_interp_2D(EIS_list, prm1_list, prm2_list; nx=20, ny=20, T=800, pO2=100, EIS_bias=0.0)
+    # ordered for prms A, B as [(A1,B1), (A1,B2), (A2,B1), (A2, B2)]
+    # prms_list ordered as [A1 B1 A2 B2]
+    EIS_raw = import_EIStoDataFrame(;T=T,pO2=pO2,bias=EIS_bias)
+    checknodes =  EIS_get_checknodes_geometrical(1, 8000, 2)
+    EIS_exp = DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_raw, checknodes))
+    
+    EIS_with_checknodes_list = []
+    
+    for i in 1:size(EIS_list,1)
+        push!(EIS_with_checknodes_list, DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_list[i], checknodes)))
+    end
+    
+    # bilinear interpolation
+    rx = range(0.0, stop=1.0, length=nx)
+    ry = range(0.0, stop=1.0, length=ny)
+    
+    x_matrix = zeros(nx,ny)
+    y_matrix = zeros(nx,ny)
+    err_matrix = zeros(nx,ny)
+    for ix in 1:nx
+        for iy in 1:ny
+            x_matrix[ix, iy] = rx[ix]*(prm1_list[2]-prm1_list[1]).+prm1_list[1]
+            y_matrix[ix, iy] = ry[iy]*(prm2_list[2]-prm2_list[1]).+prm2_list[1]
+            err_matrix[ix, iy] = EIS_fitnessFunction(
+                    EIS_exp,
+                    DataFrame(
+                        f = checknodes[:], 
+                        Z = EIS_biliComb(
+                            EIS_with_checknodes_list[1],
+                            EIS_with_checknodes_list[2],
+                            EIS_with_checknodes_list[3],
+                            EIS_with_checknodes_list[4],
+                            rx[ix],ry[iy]).Z
                     )
                 )
         end
@@ -247,17 +312,18 @@ function pickup_min(min_count, min_values, min_positions)
 end
 
 function scan_2D_recursive(;pyplot=false, 
-                            T=800, pO2=100,
+                            EIS_bool=true,
+                            T=800, pO2=100, EIS_bias=0.0,
                             #rprm1=range(15, stop=20, length=3),
                             #rprm2=range(15, stop=20, length=3),
                             #rprm1=range(18.4375, stop=18.59375, length=3),
                             #rprm2=range(20.59375, stop=21, length=3),
-                            rprm1=range(10.0, stop=28., length=4),
+                            rprm1=range(16.0, stop=21., length=8),
                             #rprm2=range(15.0, stop=23, length=7),
-                            rprm2=range(-2.5, stop=1.0, length=4),
-                            nx=100, ny=100,
+                            rprm2=range(-3.0, stop=1.0, length=8),
+                            nx=50, ny=50,
                             wp=[1, 1, 0, 0, 0, 0], #TODO !!!
-                            depth_remaining=3,
+                            depth_remaining=1,
                             approx_min=Inf,
                             approx_min_position=[0, 0],
                             recursive=false,
@@ -286,6 +352,8 @@ function scan_2D_recursive(;pyplot=false,
     DGR = -0.708014
     beta = 0.6074566741435283
     A = -0.356
+    
+    (A0, R0, DGA, DGR, beta, A) = (21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1)
 
     println(recursive_string,"computing 2D scan... ")
     lrprm1 = size(rprm1,1)
@@ -296,7 +364,11 @@ function scan_2D_recursive(;pyplot=false,
     
     CV_matrix = Array{DataFrame}(undef,lrprm1, lrprm2)
     ok_matrix = Array{Int32}(undef,lrprm1, lrprm2)
-    println(recursive_string,"Computing CVs")
+    if EIS_bool
+        println(recursive_string,"Computing EISs")
+    else
+        println(recursive_string,"Computing CVs")
+    end
     @time(
         for i1 in 1:lrprm1
             for i2 in 1:lrprm2
@@ -308,10 +380,20 @@ function scan_2D_recursive(;pyplot=false,
                     A = rprm2[i2]
                     ##########################################
                     
-                    CV_matrix[i1,i2] = ysz_experiments.run_new(
-                        out_df_bool=true, voltammetry=true, sample=10, #pyplot=true,
-                        prms_in=[A0, R0, DGA, DGR, beta, A]
+                   if EIS_bool 
+                        CV_matrix[i1,i2] = ysz_experiments.run_new(
+                            pyplot=false, EIS_IS=true, out_df_bool=true, 
+                            tref=0,
+                            prms_in=[A0, R0, DGA, DGR, beta, A],  
+                            nu_in=0.9, pO2_in=1.0, DD_in=9.5658146540360312e-10
                         )
+                    else
+                        
+                        CV_matrix[i1,i2] = ysz_experiments.run_new(
+                            out_df_bool=true, voltammetry=true, sample=10, #pyplot=true,
+                            prms_in=[A0, R0, DGA, DGR, beta, A]
+                        )
+                    end
                     ok_matrix[i1, i2] = 1
                     println("  .. ok :)")
                 catch e
@@ -344,13 +426,23 @@ function scan_2D_recursive(;pyplot=false,
                 if all_four_nodes_ok(ok_matrix,i1,i2)
                     print(recursive_string," intrp i1 / i2 : ",i1, " / ", i2, " for prms: ", rprm1[i1], " / ", rprm2[i2])
                     
-                    FF=get_FF_interp_2D(
-                        [CV_matrix[i1,i2], CV_matrix[i1,i2+1], CV_matrix[i1+1,i2], CV_matrix[i1+1,i2+1]], 
-                        rprm1[i1:i1+1],
-                        rprm2[i2:i2+1];
-                        nx=nx, ny=ny,
-                        T=T, pO2=pO2
-                    )
+                    if EIS_bool
+                         FF=EIS_get_FF_interp_2D(
+                            [CV_matrix[i1,i2], CV_matrix[i1,i2+1], CV_matrix[i1+1,i2], CV_matrix[i1+1,i2+1]], 
+                            rprm1[i1:i1+1],
+                            rprm2[i2:i2+1];
+                            nx=nx, ny=ny,
+                            T=T, pO2=pO2, EIS_bias=EIS_bias
+                        )                       
+                    else
+                        FF=CV_get_FF_interp_2D(
+                            [CV_matrix[i1,i2], CV_matrix[i1,i2+1], CV_matrix[i1+1,i2], CV_matrix[i1+1,i2+1]], 
+                            rprm1[i1:i1+1],
+                            rprm2[i2:i2+1];
+                            nx=nx, ny=ny,
+                            T=T, pO2=pO2
+                        )
+                    end
                     
                     min_count, min_values, min_positions, min_curv, hard_min = find_mins(
                         FF, 
@@ -406,10 +498,189 @@ function scan_2D_recursive(;pyplot=false,
     
     
     if pyplot && !(recursive)
-        plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
+        if EIS_bool 
+            plot_EIS_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2, EIS_bias)
+        else
+            plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
+        end
     end
     return global_min, global_min_position
 end
+
+
+# # # # function scan_2D_recursive(;pyplot=false, 
+# # # #                             T=800, pO2=100,
+# # # #                             #rprm1=range(15, stop=20, length=3),
+# # # #                             #rprm2=range(15, stop=20, length=3),
+# # # #                             #rprm1=range(18.4375, stop=18.59375, length=3),
+# # # #                             #rprm2=range(20.59375, stop=21, length=3),
+# # # #                             rprm1=range(10.0, stop=28., length=4),
+# # # #                             #rprm2=range(15.0, stop=23, length=7),
+# # # #                             rprm2=range(-2.5, stop=1.0, length=4),
+# # # #                             nx=100, ny=100,
+# # # #                             wp=[1, 1, 0, 0, 0, 0], #TODO !!!
+# # # #                             depth_remaining=1,
+# # # #                             approx_min=Inf,
+# # # #                             approx_min_position=[0, 0],
+# # # #                             recursive=false,
+# # # #                             recursive_string="",
+# # # #                             )
+# # # # 
+# # # #     println("nx = ",nx, " ..... ny = ",ny)
+# # # #     #PyPlot.close()
+# # # #     #PyPlot.close()
+# # # #     
+# # # #     ######################################################
+# # # #     #rprm1 = collect(-5.0 : 1.0 : 5.0)
+# # # #     #rprm1 = collect(-3. : 0.5 : 3.0)
+# # # #     #rprm1=range(15, stop=20, length=3)
+# # # #     
+# # # #     #rprm2 = collect(-3. : 0.5 : 3.0)
+# # # #     #rprm2=range(15, stop=20, length=3)
+# # # #     ######################################################
+# # # #     
+# # # #     wpn = ["A0","R0","DGA","DGR","beta","A"]
+# # # #     #A0 = 21.71975544711280
+# # # #     #R0 = 19.53
+# # # #     A0 = 19.50
+# # # #     R0 = 19.85
+# # # #     DGA = 0.0905748
+# # # #     DGR = -0.708014
+# # # #     beta = 0.6074566741435283
+# # # #     A = -0.356
+# # # # 
+# # # #     println(recursive_string,"computing 2D scan... ")
+# # # #     lrprm1 = size(rprm1,1)
+# # # #     lrprm2 = size(rprm2,1)
+# # # #     
+# # # #     global_min = Inf
+# # # #     global_min_position = [0,0]
+# # # #     
+# # # #     CV_matrix = Array{DataFrame}(undef,lrprm1, lrprm2)
+# # # #     ok_matrix = Array{Int32}(undef,lrprm1, lrprm2)
+# # # #     println(recursive_string,"Computing CVs")
+# # # #     @time(
+# # # #         for i1 in 1:lrprm1
+# # # #             for i2 in 1:lrprm2
+# # # #                 try
+# # # #                     print(recursive_string,rprm1[i1], " / ", rprm2[i2])
+# # # #                     
+# # # #                     ##########################################
+# # # #                     R0 = rprm1[i1]
+# # # #                     A = rprm2[i2]
+# # # #                     ##########################################
+# # # #                     
+# # # #                    if true
+# # # #                         CV_matrix[i1,i2] = ysz_experiments.run_new(
+# # # #                             out_df_bool=true, voltammetry=true, sample=10, #pyplot=true,
+# # # #                             prms_in=[A0, R0, DGA, DGR, beta, A]
+# # # #                         )
+# # # #                     else
+# # # #                         CV_matrix[i1,i2] = ysz_experiments.run_new(
+# # # #                             pyplot=false, EIS_IS=true, out_df_bool=false, 
+# # # #                             tref=0,
+# # # #                             prms_in=[A0, R0, DGA, DGR, beta, A],  
+# # # #                             nu_in=0.9, pO2_in=1.0, DD_in=9.5658146540360312e-10
+# # # #                         )
+# # # #                     end
+# # # #                     ok_matrix[i1, i2] = 1
+# # # #                     println("  .. ok :)")
+# # # #                 catch e
+# # # #                     if e isa InterruptException
+# # # #                         rethrow(e)
+# # # #                     else
+# # # #                         ok_matrix[i1, i2] = 0
+# # # #                         println("  :(   ")
+# # # #                         continue
+# # # #                     end
+# # # #                 end
+# # # #             end
+# # # #         end
+# # # #     )
+# # # #     
+# # # #     #PyPlot.figure(figsize=(6,4))
+# # # #     #xlabel("parameter")
+# # # #     #zlabel("error")
+# # # #     #title("Fitness Function")
+# # # # 
+# # # #     if pyplot && !(recursive)
+# # # #         figure(figsize=(3,3))
+# # # #     end
+# # # #     #print_ok_matrix(ok_matrix)
+# # # #     
+# # # #     println(recursive_string,"Computing interpolation ... ")
+# # # #     @time(
+# # # #         for i1 in 1:lrprm1-1
+# # # #             for i2 in 1:lrprm2-1
+# # # #                 if all_four_nodes_ok(ok_matrix,i1,i2)
+# # # #                     print(recursive_string," intrp i1 / i2 : ",i1, " / ", i2, " for prms: ", rprm1[i1], " / ", rprm2[i2])
+# # # #                     
+# # # #                     FF=get_FF_interp_2D(
+# # # #                         [CV_matrix[i1,i2], CV_matrix[i1,i2+1], CV_matrix[i1+1,i2], CV_matrix[i1+1,i2+1]], 
+# # # #                         rprm1[i1:i1+1],
+# # # #                         rprm2[i2:i2+1];
+# # # #                         nx=nx, ny=ny,
+# # # #                         T=T, pO2=pO2
+# # # #                     )
+# # # #                     
+# # # #                     min_count, min_values, min_positions, min_curv, hard_min = find_mins(
+# # # #                         FF, 
+# # # #                         [(rprm1[i1+1] - rprm1[i1])/nx,
+# # # #                          (rprm1[i2+1] - rprm1[i2])/ny]
+# # # #                     )
+# # # #                     print("... h_min = ",hard_min)
+# # # #                     
+# # # #                     
+# # # #                     if min_count > 0
+# # # #                         println(" ... min_c ", min_count, "\n    val ", min_values, "\n    pos ", min_positions, "\n    curv ", min_curv)
+# # # #                         #println(" ... min ", min_count)#
+# # # #                         
+# # # #                         approx_min, approx_min_position = pickup_min(min_count, min_values, min_positions)
+# # # #                         
+# # # #                         if depth_remaining > 0
+# # # #                             println(recursive_string,">> Going deeper in intrp i1 / i2 : ",i1, " / ", i2)
+# # # #                             new_min, new_min_position = scan_2D_recursive(;pyplot=true, 
+# # # #                                 T=T, pO2=pO2,
+# # # #                                 rprm1=range(rprm1[i1], stop=rprm1[i1+1], length=3),
+# # # #                                 rprm2=range(rprm2[i2], stop=rprm2[i2+1], length=3),
+# # # #                                 approx_min=approx_min,
+# # # #                                 approx_min_position=approx_min_position,
+# # # #                                 recursive=true,
+# # # #                                 depth_remaining=depth_remaining - 1,
+# # # #                                 recursive_string=string(recursive_string, "<", depth_remaining - 1, ">"),
+# # # #                                 nx = Int32(round(nx/1.2)), ny = Int32(round(ny/1.2))
+# # # #                             )
+# # # #                             if new_min < global_min
+# # # #                                 global_min = new_min
+# # # #                                 global_min_position =new_min_position
+# # # #                             end
+# # # #                         else
+# # # #                             if approx_min < global_min
+# # # #                                 global_min = approx_min
+# # # #                                 global_min_position = approx_min_position
+# # # #                             end
+# # # #                             if pyplot
+# # # #                                 surfplot_FF_2D(FF, my_title=string("Depth_remaining = ", depth_remaining))
+# # # #                             end
+# # # #                         end
+# # # #                     else
+# # # #                         if pyplot
+# # # #                             surfplot_FF_2D(FF, my_title=string("Depth_remaining = ", depth_remaining))
+# # # #                         end
+# # # #                         println()
+# # # #                     end
+# # # #                 end 
+# # # #             end
+# # # #         end
+# # # #     )
+# # # #     
+# # # #     
+# # # #     
+# # # #     if pyplot && !(recursive)
+# # # #         plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
+# # # #     end
+# # # #     return global_min, global_min_position
+# # # # end
 
 
 
