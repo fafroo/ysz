@@ -2,7 +2,7 @@ module ysz_fitting
 #######################
 # TODO 
 # [  ] general global search using projection to each variable
-# [  ] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
+# [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [  ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
 # [o] implement LM algorithm
 # [  ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
@@ -26,10 +26,17 @@ include("../src/import_experimental_data.jl")
 ###########
 
 
+function CV_get_shared_checknodes()
+    return get_checknodes(0.06,0.95,-0.95,-0.06,0.12)
+end
 
+function EIS_get_shared_omega_range()
+    # omegas = (w0, w1, w_fac)
+    return omega_range = (1, 7500, 1.2)
+end
 
-function EIS_get_universal_checknodes()
-    return EIS_get_checknodes_geometrical(1, 7500, 1.2)
+function EIS_get_shared_checknodes()
+    return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()[1], EIS_get_shared_omega_range()[2], EIS_get_shared_omega_range()[3])
 end
 
 function get_shared_prms() 
@@ -39,8 +46,8 @@ function get_shared_prms()
 end
 
 function get_shared_add_prms()
-    # cap_fit + resistance fit = (DD, nu, nus, ms_par) = (3.05e-13,    0.85,      0.21,   0.05)
-    return (DD, nu, nus, ms_par) = (3.05e-13,    0.85,      0.21,   0.05)
+    # cap_fit + resistance fit = (DD, nu, nus, ms_par) = (4.35e-13,    0.85,      0.21,   0.05)
+    return (DD, nu, nus, ms_par) = (4.35e-13,    0.85,      0.21,   0.05)
 end
 
 
@@ -55,7 +62,9 @@ end
 
 
 
-
+function CV_apply_checknodes(CV_in, checknodes)
+    DataFrame( U = checknodes[:,1], I = CV_get_I_values(CV_in, checknodes))
+end
 
 function EIS_apply_checknodes(EIS_in,checknodes)
     DataFrame( f = checknodes, Z = EIS_get_Z_values(EIS_in, checknodes))
@@ -71,28 +80,24 @@ function CV_simple_run()
     return
 end
 
-function EIS_simple_run()    
+function EIS_simple_run(;pyplot=false)    
     
     pO2_in_sim = 1.0
-    EIS_bias=0.0
+    EIS_bias=-0.5
     
     (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
-    A0 = 18
-    DGR=0.1
-    DGA=0.1
     
     (DD, nu, nus, ms_par) = get_shared_add_prms()
-    DD =  1.0e-12
     
     EIS_df = ysz_experiments.run_new(
-        pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias,
-        dx_exp=-11,
+        pyplot=pyplot, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+        dx_exp=-8,
         # TODO !!! T a pO2
         prms_in=[A0, R0, DGA, DGR, beta, A],
         add_prms_in=(DD, nu, nus, ms_par)
     )
     @show EIS_df
-    checknodes =  EIS_get_universal_checknodes()
+    checknodes =  EIS_get_shared_checknodes()
     Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r")
 end
 
@@ -213,7 +218,7 @@ end
 # # #                     if EIS_bool
 # # #                             EIS_list = [CV_matrix[i1,i2], CV_matrix[i1,i2+1], CV_matrix[i1+1,i2], CV_matrix[i1+1,i2+1]]
 # # #                             EIS_with_checknodes_list = []
-# # #                             checknodes =  EIS_get_universal_checknodes()
+# # #                             checknodes =  EIS_get_shared_checknodes()
 # # #                             for i in 1:size(EIS_list,1)
 # # #                                 push!(EIS_with_checknodes_list, DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_list[i], checknodes)))
 # # #                             end
@@ -235,7 +240,7 @@ end
 
 function EIS_view_exp(T=800, pO2=100, EIS_bias=0.0,)
     EIS_raw = import_EIStoDataFrame(;T=T,pO2=pO2,bias=EIS_bias)
-    checknodes =  EIS_get_universal_checknodes()
+    checknodes =  EIS_get_shared_checknodes()
     EIS_exp = DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_raw, checknodes))
     
     Nyquist_plot(EIS_exp,"exp")
@@ -254,27 +259,12 @@ function EIS_view_interpolation_at(Q_list, x, y)
     Nyquist_plot(EIS_intrp, string("x/y = ",x,"/",y))
 end
 
-function finall_plot(df, label="")
-#    plot(df.U, df.Ib ,"blue"    ,label="bulk")
-    #plot(phi_range[cv_range].-phi0, Ibb_range[cv_range] ,label="bulk_grad")
-#    plot(df.U, df.Is, "green"   ,label="surf")
-#    plot(df.U, df.Ir, "red"     ,label="reac")    
-    PyPlot.plot(df.U, df.I, label=label)
-
-    PyPlot.title("CV curve")
-    PyPlot.xlabel(L"\eta \ (V)")
-    PyPlot.ylabel(L"I \ (A)")
-    
-    PyPlot.legend(loc="best")
-    PyPlot.grid()
-end
-
 function plot_all(df_list, prms_list)
     PyPlot.figure(figsize=(6,4))
     #PyPlot.figure(figsize=(10,8))
     for i in 1:size(df_list,1)
         #println(i)
-        finall_plot(
+        CV_plot(
             df_list[i],
             string("prms = ",prms_list[i])
         )
@@ -282,10 +272,10 @@ function plot_all(df_list, prms_list)
     
     CV_orig = import_CVtoDataFrame(;T=800,pO2=100)
     #checknodes = get_checknodes(0.01,0.95,-0.95,-0.01,0.05)
-    checknodes = get_checknodes(0.01,0.95,-0.95,-0.01,0.1)
+    checknodes = CV_get_shared_checknodes()
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_orig, checknodes))
     
-    finall_plot(CV_exp, "exp")
+    CV_plot(CV_exp, "exp")
 end
 
 function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
@@ -296,7 +286,7 @@ function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
         for i2 in 1:size(rprm2,1)
             if Bool(ok_matrix[i1,i2])
                 #println(" ploting i1 / i2 : ",i1, " / ", i2)
-                finall_plot(
+                CV_plot(
                     CV_matrix[i1,i2],
                     string("prms = ", rprm1[i1], " / ", rprm2[i2])
                 )
@@ -306,10 +296,10 @@ function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
 
     CV_orig = import_CVtoDataFrame(;T=T,pO2=pO2)
     #checknodes = get_checknodes(0.01,0.95,-0.95,-0.01,0.05)
-    checknodes = get_checknodes(0.01,0.95,-0.95,-0.01,0.1)
+    checknodes = CV_get_shared_checknodes()
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_orig, checknodes))
     
-    finall_plot(CV_exp, "exp")
+    CV_plot(CV_exp, "exp")
 end
 
 
@@ -317,7 +307,7 @@ end
 function plot_EIS_matrix(EIS_matrix, ok_matrix, rprm1, rprm2, T, pO2, EIS_bias=0.0)
     PyPlot.figure(figsize=(6,4))
     
-    checknodes =  EIS_get_universal_checknodes()  
+    checknodes =  EIS_get_shared_checknodes()  
     
     for i1 in 1:size(rprm1,1)
         for i2 in 1:size(rprm2,1)
@@ -408,7 +398,7 @@ function EIS_get_FF_interp_2D(EIS_list, prm1_list, prm2_list; nx=20, ny=20, T=80
     # ordered for prms A, B as [(A1,B1), (A1,B2), (A2,B1), (A2, B2)]
     # prms_list ordered as [A1 B1 A2 B2]
     EIS_raw = import_EIStoDataFrame(;T=T,pO2=pO2,bias=EIS_bias)
-    checknodes =  EIS_get_universal_checknodes()
+    checknodes =  EIS_get_shared_checknodes()
     EIS_exp = DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_raw, checknodes))
     
     EIS_with_checknodes_list = []
@@ -544,9 +534,9 @@ function scan_2D_recursive(;pyplot=false,
                             T=800, pO2=100, EIS_bias=0.0,
                             
                             wp=[1, 1, 0, 0, 0, 0], #TODO !!!
-                            rprm1=range(17, stop=18, length=2),
+                            rprm1=range(0.1, stop=0.9, length=10),
                            #rprm2=range(15.0, stop=23, length=7),
-                            rprm2=range(18, stop=19, length=2),
+                            rprm2=range(0.8, stop=1.0, length=4),
                             
                             nx=30, ny=30,
 
@@ -597,14 +587,14 @@ function scan_2D_recursive(;pyplot=false,
                     print(recursive_string,rprm1[i1], " / ", rprm2[i2])
                     
                     ##########################################
-                    A0 = rprm1[i1]
-                    R0 = rprm2[i2]
+                    beta = rprm1[i1]
+                    A = rprm2[i2]
                     ##########################################
                     
                    if EIS_bool
                         CV_matrix[i1,i2] = ysz_experiments.run_new(
-                            pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias,
-                            dx_exp=-11,
+                            pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+                            dx_exp=-8,
                             # TODO !!! T a pO2
                             prms_in=[A0, R0, DGA, DGR, beta, A],
                             add_prms_in=(DD, nu, nus, ms_par)
@@ -1190,78 +1180,117 @@ end
 ######## Levenberg-Maquard ##########
 ####################################
 
-function prepare_prms(mask, x0, x)
-    prms = zeros(0)
-    xi = 1
-    for i in collect(1 : 1 :length(mask))
-        if convert(Bool,mask[i])
-            append!(prms, x[xi])
-            xi += 1
-        else
-            append!(prms, x0[i])
+function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
+    function prepare_prms(mask, x0, x)
+        prms = zeros(0)
+        xi = 1
+        for i in collect(1 : 1 :length(mask))
+            if convert(Bool,mask[i])
+                append!(prms, x[xi])
+                xi += 1
+            else
+                append!(prms, x0[i])
+            end
         end
+        return prms
     end
-    return prms
-end
 
-function LM_optimize()
-    function to_optimize(x) 
+   function to_optimize(x) 
         #err = run_new(print_bool=false, fitting=true, voltametry=true, pyplot=false, voltrate=0.005, sample=8, bound=0.41, 
         #    prms_in=x)
         prms = prepare_prms(mask, x0, x)
         print(" >> mask = ",mask)
         print(" || prms = ",prms)
         
-        #err = run_new(print_bool=false, fitting=true, voltametry=true, pyplot=true, voltrate=0.005, sample=50, upp_bound=0.474, low_bound=-0.429, 
-        #    prms_in=prms)
-            
-        err = run_new(print_bool=true, fitting=true, voltametry=true, dlcap=false, pyplot=true, voltrate=0.001, sample=10, upp_bound=0.55, low_bound=-0.548, 
-            prms_in=prms, width=0.45e-3)
+       
+        (DD, nu, nus, ms_par) = get_shared_add_prms()
         
-        println(" || err =", err)
+        err = 0.0
+        err_string = ""
+        if CV_opt_bool
+            CV_sim = ysz_experiments.run_new(
+                            out_df_bool=true, voltammetry=true, sample=8, #pyplot=true,
+                            prms_in=prms,
+                            add_prms_in=(DD, nu, nus, ms_par)
+                        )
+            if pyplot
+                figure(1)
+                CV_plot(CV_sim)
+            end
+            
+            err += fitnessFunction(
+                CV_apply_checknodes(CV_sim, CV_get_shared_checknodes()), 
+                CV_exp
+            )
+            err_string = string(err_string," CV ")
+        end
+        if EIS_opt_bool
+            EIS_sim = ysz_experiments.run_new(
+                            pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+                            dx_exp=-8,
+                            # TODO !!! T a pO2
+                            prms_in=prms,
+                            add_prms_in=(DD, nu, nus, ms_par)
+                        )
+
+            
+            if pyplot
+                figure(2)
+                Nyquist_plot(EIS_sim)
+            end
+            
+            err += EIS_fitnessFunction(EIS_sim, EIS_exp)
+            err_string = string(err_string," EIS ")
+        end
+        println(" || ",err_string,": err =", err)
         return [err]
     end
+    
+
+    
+    T=800
+    pO2 = 100
+    EIS_bias=0.0
+    
+    if pyplot
+        PyPlot.close()
+    end
+    
+    if CV_opt_bool
+        CV_exp = CV_apply_checknodes(
+            import_CVtoDataFrame(T=T, pO2=pO2),
+            CV_get_shared_checknodes()
+        )
+        if pyplot
+            figure(1)
+            CV_plot(CV_exp, "exp")
+        end
+    end
+    
+    if EIS_opt_bool
+        EIS_exp = EIS_apply_checknodes(
+            import_EIStoDataFrame(T=T,pO2=pO2,bias=EIS_bias),
+            EIS_get_shared_checknodes()
+        )
+
+        if pyplot
+            figure(2)
+            Nyquist_plot(EIS_exp, "exp")
+        end
+    end
+            
     #x0 = zeros(2)
     #optimize(rosenbrock, x0, LevenbergMarquardt())
     
-    lower_bounds = [-20, -20, -1.2, -1.2, 0.1, 0.1]
-    upper_bounds = [15, 22, 0.2, 0.2, 0.9, 1.0]
+    lower_bounds = [-20, -20, -1.2, -1.2, 0.1, -1.0]
+    upper_bounds = [22, 22, 0.5, 0.5, 0.9, 1.0]
     
-    #x0 = [3.1149, -9.59917, 0.498534, -0.597552, 0.724949, 1.17139]
-    #x0 = [3.40882, -4.1195, 0.0, 0.0, 0.5, 1.17139]
-    #x0 = [4.42991, 19.03254, 0.0, 0.0, 0.5, 0.301]
-    #x0 = [4.42991, 20.03254, 0.0, 0.0, 0.5, 0.151]
+    #x0 = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
+    x0 = (20.8, 19.2,     -0.14,      0.0,   0.6074566741435283,   0.156)
+    x0 = [20.33593076473848, 19.03903812609013, -0.5950818911594278, 0.02485398906461962, 0.6789640127849936, 0.15628515354230042]
     
-    #x0 = [9.00137, 20.1747, 0.5, 0.0, 0.5, 0.206002]
-    x0 = [2.3, 19.5, 1, -1, 0.6, 1.2]
-    #x0 = [2.32407, 18.4458, 1.0, -1.0, 0.769217, 1.03349]
-    #x0 = [2.34223, 18.4039, 1.0, -1.0, 0.72743, 0.95021] # quite good fit <<<<<<<<<<
-    #x0 = [2.34223, 20.8039, 1.0, -1.0, 0.52743, 0.25021] # hand fit <<< usable
-    #x0 = [2.74223, 19.7039, 1.0, -1.0, 0.58, 0.25021]
-    #x0 = [2.44223, 20.5039, 1.0, -1.0, 0.61, 0.25021] # not bad :)) <<<<<<<<<
     
-    # err metric <- check_nodes_long()
-    x0 = [2.54223, 20.5039, 1.0000000, -1.000000, 0.500000, 0.250210]  # by hand
-    x0 = [2.54223, 20.5039, 1.0000000, -1.000000, 0.632507, 0.250210] # fitted beta << GOOD << err =0.006814132871406775
-    x0 = [2.54223, 20.5039, 1.0000000, -1.000000, 0.632507, 0.253287] # fitted A  << err =0.006807257238292433
-    x0 = [2.54223, 20.5033, 1.0000000, -1.000000, 0.632507, 0.253287] # fitted R0 << err =0.0068072339219288356
-    x0 = [2.55263, 20.5033, 1.0000000, -1.000000, 0.632507, 0.253287] # fitted A0 << err =0.006745444782481952
-    x0 = [2.58082, 20.4100, 1.0000000, -1.000000, 0.632507, 0.253287] # fitted A0, R0 << err =0.006574359568544145
-    x0 = [2.58082, 20.4100, 0.0905748, -0.708014, 0.632507, 0.253287] # fitted DGA, DGR << err =0.006573859072513787
-    x0 = [2.70077, 20.5264, 0.0905748, -0.708014, 0.598817, 0.143269] # fittet 110011 << err =0.005685020802399199
-    
-    # err metric <- check_nodes_whole()
-    x0 = [2.74851, 20.5631, 0.0905748, -0.708014, 0.605159, 0.105409] # fitting... 110011 << err =0.0054800474768966585
-    x0 = [2.73650, 20.6063, 0.0905748, -0.708014, 0.607443, 0.100000] # fitting... 110011 << err =0.005415825589421705
-    x0 = [2.73645, 20.6064, 0.0905748, -0.708014, 0.607457, 0.100000] # fitted 110011 <<  err =0.0054158249335496105
-    x0 = [2.736451985137371, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1] # ACURATE FINALL FIT
-    # >> x0corr = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1] # ACURATE FINALL FIT
-    #x0 = [6.736451985137371, 24.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
-    #x0 = [2.736451985137371, 20.606423236896422, 0.0905748, -0.1508014, 0.6074566741435283, 0.1]
-    #x0 = [1.736451985137371, 15.106423236896422, 0.0905748, -0.108014, 0.6074566741435283, 0.1] # ploted to slides
-    # >> x0corr = [20.71975544711280, 15.106423236896422, 0.0905748, -0.108014, 0.6074566741435283, 0.1] # ploted to slides
-    
-    mask = [0, 0, 1, 1, 0, 0] # determining, which parametr should be fitted
+    mask = [1, 1, 1, 1, 1, 1] # determining, which parametr should be fitted
     
     x0M = zeros(0)
     lowM = zeros(0)
@@ -1274,10 +1303,12 @@ function LM_optimize()
         end
     end
     
-    PyPlot.close()
-    to_optimize(x0M)
-    #println(optimize(to_optimize, x0M, lower=lowM, upper=uppM, Δ=1000, f_tol=1.0e-14, g_tol=1.0e-14, LevenbergMarquardt()))
-    #optimize(to_optimize, x0M, Dogleg())
+   
+    
+    #to_optimize(x0M)
+    println(optimize(to_optimize, x0M, lower=lowM, upper=uppM, Δ=1000, f_tol=1.0e-14, g_tol=1.0e-14, LevenbergMarquardt()))
+    
+    ####optimize(to_optimize, x0M, Dogleg())
     return
 end
 

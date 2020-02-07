@@ -2,7 +2,9 @@ module ysz_experiments
 ### WHAT was done since last commit ###############
 # * phi_out = (phi_previous + phi)/2.0
 # * AreaEllyt added to EIS current computation
-#
+# 
+# TODO !!!
+# [  ] ramp for EIS steady state
 ###################################################
 
 
@@ -40,12 +42,12 @@ ib=ysz_model_new_prms.ib
 function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
-                pO2_in=1.0, T_in=800,
+                pO2_in=1.0, T_in=1073,
                 # prms = (A0, R0, DGA, DGR, beta, A)
                 prms_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
                 # add_prms = (DD, nu, nus, ms_par)
                 add_prms_in=[3.11e-13, 0.85, 0.21, 0.05],
-                EIS_IS=false,  EIS_bias=0.0, w0=0.9, w1=1.0e+5, w_fac=2,
+                EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
                 voltammetry=false, voltrate=0.010, upp_bound=0.95, low_bound=-0.95, sample=30, dlcap=false,
                 EIS_TDS=false, tref=0
                  )
@@ -92,6 +94,12 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     parameters.pO = pO2_in
     parameters.T = T_in
     
+    if debug_print_bool
+        println("NEW ---- ")
+        println("prms = ",prms_in)
+        println("add_prms = (",parameters.DD,",",parameters.nu,",",parameters.nus,",",parameters.ms_par,")")
+        println("rest_prms = (",parameters.T,",",parameters.pO,")")
+    end
     
     # update the "computed" values in parameters
     parameters = ysz_model_new_prms.YSZParameters_update(parameters)
@@ -157,8 +165,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     #control.tol_absolute=1.0e-4
     #control.max_iterations=3
     control.max_lureuse=0
-    control.damp_initial=1.0e-6
-    control.damp_growth=1.3
+    control.damp_initial=1.0e-4
+    control.damp_growth=1.6
     time=0.0
  
     
@@ -197,15 +205,15 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         # Calculate steady state solution
         steadystate = unknowns(sys)
 
-        phi_stat = phi0 + EIS_bias
-        phi_stat = 0.0
+        phi_steady = phi0 + EIS_bias
+        #phi_steady = 0.0
         
         excited_spec=iphi
         excited_bc=1
-        excited_bcval=phi_stat
+        excited_bcval=phi_steady
         
         # relaxation
-        sys.boundary_values[iphi,1]= phi_stat
+        sys.boundary_values[iphi,1]= phi_steady
         solve!(steadystate,inival,sys, control=control)
 
 
@@ -225,10 +233,10 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         z_freqdomain=zeros(Complex{Float64},0)
         all_w=zeros(0)
 
-        w = w0
+        w = omega_range[1]
 
         # Frequency loop
-        while w<w1
+        while w < omega_range[2]
             print_bool && @show w
             push!(all_w,w)
             if EIS_IS
@@ -252,7 +260,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             # growth factor such that there are 10 points in every order of magnitude
             # (which is consistent with "freq" list below)
             #w=w*1.25892
-            w = w*w_fac
+            w = w*omega_range[3]
         end
 
 
