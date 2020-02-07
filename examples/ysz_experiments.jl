@@ -1,7 +1,7 @@
 module ysz_experiments
 ### WHAT was done since last commit ###############
 # * phi_out = (phi_previous + phi)/2.0
-#
+# * AreaEllyt added to EIS current computation
 #
 ###################################################
 
@@ -38,19 +38,23 @@ ib=ysz_model_new_prms.ib
 
 
 function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
-                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
-                 width=0.0005, dx_exp=-9, tref=0, 
-                 prms_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], nu_in=0.9, pO2_in=1.0, DD_in=9.5658146540360312e-10,
-                 EIS_IS=false,  EIS_bias=0.0, EIS_TDS=false, EIS_make_plots=false , 
-                dlcap=false,
-                voltammetry=false, voltrate=0.010, upp_bound=0.95, low_bound=-0.95, sample=30
+                verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
+                width=0.0005, dx_exp=-9,
+                pO2_in=1.0, T_in=800,
+                # prms = (A0, R0, DGA, DGR, beta, A)
+                prms_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
+                # add_prms = (DD, nu, nus, ms_par)
+                add_prms_in=[3.11e-13, 0.85, 0.21, 0.05],
+                EIS_IS=false,  EIS_bias=0.0, w0=0.9, w1=1.0e+5, w_fac=2,
+                voltammetry=false, voltrate=0.010, upp_bound=0.95, low_bound=-0.95, sample=30, dlcap=false,
+                EIS_TDS=false, tref=0
                  )
 
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
-    AreaEllyt = 0.018849556         # m^2
+    AreaEllyt = 0.018849556 * 0.7        # m^2
     #width_Ellyt = 0.00045           # m     width of the half-cell
     #width_Ellyt = 0.0005           # m     width of the half-cell
     if dlcap
@@ -83,10 +87,10 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     parameters.beta = prms_in[5]       # [1]
     parameters.A = 10.0^prms_in[6]        # [1]
     
-
-    parameters.nu = nu_in
+    (parameters.DD, parameters.nu, parameters.nus, parameters.ms_par) = add_prms_in
+    
     parameters.pO = pO2_in
-    parameters.DD = DD_in
+    parameters.T = T_in
     
     
     # update the "computed" values in parameters
@@ -175,7 +179,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             dx_end = X[end] - X[end-1]
             dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
             Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-            meas[1]=-Qs[1]-Qb[iphi]
+            meas[1]= AreaEllyt*(-Qs[1]-Qb[iphi])
         end
 
         #
@@ -183,7 +187,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         #
         function meas_stdy(meas, u)
             U=reshape(u,sys)
-            meas[1]=-2*parameters.e0*ysz_model_new_prms.electroreaction(parameters, U[ib,1])
+            meas[1]=AreaEllyt*(-2*parameters.e0*ysz_model_new_prms.electroreaction(parameters, U[ib,1]))
         end
 
         #
@@ -221,13 +225,10 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         z_freqdomain=zeros(Complex{Float64},0)
         all_w=zeros(0)
 
-        w0 = 1.0e-6
-        w1 = 1.0e6
-        
         w = w0
 
         # Frequency loop
-        @time while w<w1
+        while w<w1
             print_bool && @show w
             push!(all_w,w)
             if EIS_IS
@@ -250,7 +251,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             
             # growth factor such that there are 10 points in every order of magnitude
             # (which is consistent with "freq" list below)
-            w=w*1.25892
+            #w=w*1.25892
+            w = w*w_fac
         end
 
 
