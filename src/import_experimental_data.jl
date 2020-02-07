@@ -60,7 +60,7 @@ function CV_plot(CV_df, my_label="")
     PyPlot.xlabel(L"\eta \ (V)")
     PyPlot.ylabel(L"I \ (A)")
     
-    PyPlot.plot(CV_df.U, CV_df.I, label=label)
+    PyPlot.plot(CV_df.U, CV_df.I, label=my_label)
 
     if !(my_label == "")
         legend(loc="best")
