@@ -1,10 +1,10 @@
 module ysz_fitting
 #######################
 # TODO 
-# [  ] general global search using projection to each variable
+# [o] general global search using projection to each variable
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [  ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
-# [o] implement LM algorithm
+# [x] implement LM algorithm
 # [  ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
 # [x] vymyslet novy relevantni vektor parametru
 # [  ] aplikovat masku pro fitting pro scan_2D_recursive
@@ -86,6 +86,7 @@ function EIS_simple_run(;pyplot=false)
     EIS_bias=-0.5
     
     (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
+    (A0, R0, DGA, DGR, beta, A) =[19.620786013494122,27.34421543847122, 0.6539832280099412,0.77515172426829546,0.23268062905804937,0.21181634115352904]
     
     (DD, nu, nus, ms_par) = get_shared_add_prms()
     
@@ -1288,7 +1289,9 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
     #x0 = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
     x0 = (20.8, 19.2,     -0.14,      0.0,   0.6074566741435283,   0.156)
     x0 = [20.33593076473848, 19.03903812609013, -0.5950818911594278, 0.02485398906461962, 0.6789640127849936, 0.15628515354230042]
-    
+    x0 = [20.84794940132141, 19.479956891781775, -0.8232180847274697, -0.17334101552015208, 0.2432389397701255, -0.0625559216024488]
+    x0 = [19.620786013494122,19.34421543847122,-0.6539832280099412,-0.37515172426829546,0.2326806290580494,-0.21181634115352901]
+    x0 = [19.620786013494122,19.34421543847122,-0.6539832280099412,-0.37515172426829546,0.23268062905804937,-0.21181634115352904]
     
     mask = [1, 1, 1, 1, 1, 1] # determining, which parametr should be fitted
     

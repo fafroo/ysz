@@ -4,7 +4,7 @@ module ysz_experiments
 # * AreaEllyt added to EIS current computation
 # 
 # TODO !!!
-# [  ] ramp for EIS steady state
+# [x] ramp for EIS steady state
 ###################################################
 
 
@@ -165,8 +165,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     #control.tol_absolute=1.0e-4
     #control.max_iterations=3
     control.max_lureuse=0
-    control.damp_initial=1.0e-4
-    control.damp_growth=1.6
+    control.damp_initial=1.0e-6
+    control.damp_growth=1.3
     time=0.0
  
     
@@ -212,9 +212,21 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         excited_bc=1
         excited_bcval=phi_steady
         
+        # ramp to phi_steady
+        phi_ramp = 0.0          # V
+        dir = sign(phi_steady)
+        steadystate_old = deepcopy(inival)
+        while abs(phi_ramp) < abs(phi_steady)
+           # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
+            sys.boundary_values[iphi,1] = phi_ramp
+            solve!(steadystate, steadystate_old, sys, control=control)
+            steadystate_old .= steadystate
+            phi_ramp += 0.05*dir 
+        end
+        
         # relaxation
-        sys.boundary_values[iphi,1]= phi_steady
-        solve!(steadystate,inival,sys, control=control)
+        sys.boundary_values[iphi,1] = phi_steady
+        solve!(steadystate, steadystate_old, sys, control=control)
 
 
         # Create impedance system
