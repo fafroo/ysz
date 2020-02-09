@@ -8,10 +8,13 @@ module ysz_fitting
 # [  ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
 # [x] vymyslet novy relevantni vektor parametru
 # [  ] aplikovat masku pro fitting pro scan_2D_recursive
+# [o] snehurka, velke objemy dat, maska a metafile
+#       [  ] save_dir preposilany parametrem a odlisit scripted_dir
+# [  ] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI"
 #######################
 
 
-
+using Printf
 using PyPlot
 using DataFrames
 using LeastSquaresOptim
@@ -50,6 +53,23 @@ function get_shared_add_prms()
     return (DD, nu, nus, ms_par) = (4.35e-13,    0.85,      0.21,   0.05)
 end
 
+function saving_format_prms(; save_dir="", prefix="", prms=Nothing)
+    out_path = string("./data/",save_dir)
+    
+    (A0_in, R0_in, DGA_in, DGR_in, beta_in, A_in) = prms;
+    out_name=string(
+    prefix,
+    "_A0",@sprintf("%.2f",A0_in),
+    "_R0",@sprintf("%.2f",R0_in),
+    "_DGA",@sprintf("%.2f",DGA_in),
+    "_DGR",@sprintf("%.2f",DGR_in),
+    "_beta",@sprintf("%.2f",beta_in),
+    "_A",@sprintf("%.2f",A_in),
+    )
+    #println("out_name = ",out_name)
+    (out_path, out_name)
+end
+
 
 
 
@@ -70,6 +90,27 @@ function EIS_apply_checknodes(EIS_in,checknodes)
     DataFrame( f = checknodes, Z = EIS_get_Z_values(EIS_in, checknodes))
 end
 
+function CV_save_file_prms(; save_dir="", prms=Nothing, df_out)
+    (out_path, out_name) = saving_format_prms( save_dir=save_dir, prefix="CV", prms=prms)
+    run(`mkdir -p $out_path`)
+
+    CSV.write(
+        string(out_path,out_name,".csv"),
+        df_out
+    )
+    return
+end
+
+function EIS_save_file_prms(; save_dir="", prms=Nothing, df_out)
+    (out_path, out_name) = saving_format_prms( save_dir=save_dir, prefix="EIS", prms=prms)
+    run(`mkdir -p $out_path`)
+
+    CSV.write(
+        string(out_path,out_name,".csv"),
+        DataFrame(f = df_out.f, Re = real(df_out.Z), Im = imag(df_out.Z))
+    )
+    return
+end
 
 function CV_simple_run()
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
@@ -99,7 +140,9 @@ function EIS_simple_run(;pyplot=false)
     )
     @show EIS_df
     checknodes =  EIS_get_shared_checknodes()
-    Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r")
+    if pyplot
+        Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r")
+    end
 end
 
 # # # function get_dfs_to_interpolate(
@@ -1314,6 +1357,131 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
     ####optimize(to_optimize, x0M, Dogleg())
     return
 end
+
+
+###############################
+###############################
+#### SNEHURKA COMPUTATION ####
+###############################
+
+
+function par_study(A0_str="0", R0_str="0", DGA_str="0", DGR_str="0", beta_str="0", A_str="0", CV_bool="false", EIS_bool="false", test="test"; pyplot=false)
+    
+    function py_collect(a, b, c)
+        return collect(a : b : c)
+    end
+    
+  CV_err_counter::Int32 = 0
+  CV_good_counter::Int32 = 0
+  EIS_err_counter::Int32 = 0
+  EIS_good_counter::Int32 = 0
+  all_counter::Int32 = 0
+  
+  CV_bool == "true" ? (CV_bool=true) : (CV_bool=false)
+  EIS_bool == "true" ? (EIS_bool=true) : (EIS_bool=false)
+
+  ##### TODO !!! ###
+  EIS_bias = 0.0
+  ################
+  
+  A0_list = [parse(Float32, A0_str)]
+  R0_list = [parse(Float32, R0_str)]
+  #DGA_list = [parse(Float32, DGA_str)]
+  #DGR_list = [parse(Float32, DGR_str)]
+  #beta_list = [parse(Float32, beta_str)]
+  #A_in = [parse(Float32, A_str)]
+  
+  #A0_list = py_collect(1.5 , 0.1 , 2.5)
+  #R0_list = py_collect(10 , 0.5 , 18)
+  DGA_list = py_collect(-0.5 , 1.0 , 0.5)
+  DGR_list = py_collect(-0.5 , 1.0 , 0.5)
+  beta_list = [0.4]
+  A_list = py_collect(0.2 , 1.2  , 0.6)
+  
+  save_dir = string(
+            "_A0",@sprintf("%.2f",A0_list[1]),
+            "_R0",@sprintf("%.2f",R0_list[1]),
+            "/"
+            )
+  #println(save_dir)
+
+  if test!="go"
+        println(" >> number of sets of parameters: ",
+        length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
+        @show CV_bool, EIS_bool
+  else
+    for A0_i in A0_list
+        for R0_i in R0_list
+            for DGA_i in DGA_list
+                for DGR_i in DGR_list
+                    for beta_i in beta_list
+                        for A_i in A_list
+                        
+                            all_counter = all_counter + 1
+                            println(string(" <><><><><><><><><><><><> all_counter <><><> calculating ",all_counter," of ", 
+                                length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list)))
+                            print("parameters: (A0, R0, DGA, DGR, beta, A) = (",A0_i,", ",R0_i,", ",DGA_i,", ",DGR_i,", ",beta_i,", ",A_i,")")
+                        
+                            prms = (A0_i, R0_i, DGA_i, DGR_i, beta_i, A_i)
+                            (DD, nu, nus, ms_par) = get_shared_add_prms()
+                            
+                            if CV_bool
+                                try
+                                    CV_sim = ysz_experiments.run_new(
+                                                    out_df_bool=true, voltammetry=true, sample=8, #pyplot=true,
+                                                    prms_in=prms,
+                                                    add_prms_in=(DD, nu, nus, ms_par)
+                                                )
+                                    CV_save_file_prms(; save_dir=save_dir, prms=prms, df_out=CV_sim)           
+                                    CV_good_counter += 1
+                                    print("   CV ok :)         ")
+                                 catch e
+                                    if e isa InterruptException
+                                        rethrow(e)
+                                    else
+                                        println(e)
+                                        CV_err_counter += 1
+                                        print("<<<<< CV FAIL! >>>>>")
+                                    end
+                                end
+                            end
+                            if EIS_bool
+                                try
+                                    EIS_sim = ysz_experiments.run_new(
+                                                pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+                                                dx_exp=-8,
+                                                # TODO !!! T a pO2
+                                                prms_in=prms,
+                                                add_prms_in=(DD, nu, nus, ms_par)
+                                            )
+                                    EIS_save_file_prms(; save_dir=save_dir, prms=prms, df_out=EIS_sim)           
+                                    EIS_good_counter += 1
+                                    print("   EIS ok :)        ")
+                                 catch e
+                                    if e isa InterruptException
+                                        rethrow(e)
+                                    else
+                                        println(e)
+                                        EIS_err_counter += 1
+                                        print("<<<<< EIS FAIL! >>>>")
+                                    end
+                                end
+                            end
+                        
+                            println()
+                        end
+                    end
+                end
+            end
+        end
+    end
+    println(string("<<<<< CV_err_count/ CV_good_count >>> ", CV_err_counter,"  /  ", CV_good_counter), 
+                    string(" |||||| EIS_err_count/ EIS_good_count >>> ", EIS_err_counter,"  /  ", EIS_good_counter, " >>>>>>>"))
+  end
+end
+
+
+        
 
 
 end
