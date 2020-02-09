@@ -1393,10 +1393,10 @@ function par_study(A0_str="0", R0_str="0", DGA_str="0", DGR_str="0", beta_str="0
   
   #A0_list = py_collect(1.5 , 0.1 , 2.5)
   #R0_list = py_collect(10 , 0.5 , 18)
-  DGA_list = py_collect(-0.5 , 1.0 , 0.5)
-  DGR_list = py_collect(-0.5 , 1.0 , 0.5)
+  DGA_list = py_collect(-0.7 , 0.2 , 0.7)
+  DGR_list = py_collect(-0.7 , 0.2 , 0.7)
   beta_list = [0.4]
-  A_list = py_collect(0.2 , 1.2  , 0.6)
+  A_list = py_collect(-0.2 , 0.2  , 0.8)
   
   save_dir = string(
             "_A0",@sprintf("%.2f",A0_list[1]),
