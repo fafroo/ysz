@@ -1,16 +1,20 @@
 module ysz_fitting
 #######################
 # TODO 
-# [o] general global search using projection to each variable
+# [!] general global search using projection to each variable
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
-# [  ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
+# [ ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
 # [x] implement LM algorithm
-# [  ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
+# [ ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
+# [ ] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
 # [x] vymyslet novy relevantni vektor parametru
-# [  ] aplikovat masku pro fitting pro scan_2D_recursive
+# [ ] aplikovat masku pro fitting pro scan_2D_recursive
 # [o] snehurka, velke objemy dat, maska a metafile
-#       [  ] save_dir preposilany parametrem a odlisit scripted_dir
-# [  ] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI"
+# ->[x] save_dir preposilany parametrem a odlisit scripted_dir
+# ->[ ] sneh - zadavani i jinych parametru nez prms
+# ->[ ] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
+# ->[ ] mozna pouzit precompile
+# [ ] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI" -> JUERGEN
 #######################
 
 
@@ -53,21 +57,35 @@ function get_shared_add_prms()
     return (DD, nu, nus, ms_par) = (4.35e-13,    0.85,      0.21,   0.05)
 end
 
-function saving_format_prms(; save_dir="", prefix="", prms=Nothing)
-    out_path = string("./data/",save_dir)
-    
-    (A0_in, R0_in, DGA_in, DGR_in, beta_in, A_in) = prms;
-    out_name=string(
-    prefix,
-    "_A0",@sprintf("%.2f",A0_in),
-    "_R0",@sprintf("%.2f",R0_in),
-    "_DGA",@sprintf("%.2f",DGA_in),
-    "_DGR",@sprintf("%.2f",DGR_in),
-    "_beta",@sprintf("%.2f",beta_in),
-    "_A",@sprintf("%.2f",A_in),
-    )
-    #println("out_name = ",out_name)
-    (out_path, out_name)
+
+function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple)
+
+  function consistency_check()
+    if (size(prms_names,1) != size(scripted_tuple,1) || 
+        size(prms_names,1) != size(prms,1))
+      return false
+    end
+    return true
+  end
+  
+  if !consistency_check()
+    println("ERROR: file_format_prms(): shape mismatch (!consistency_check())")
+    return throw(Exception)
+  end
+
+  scripted_dir = ""
+  out_name = prefix
+  for i in 1:size(scripted_tuple, 1)
+    if scripted_tuple[i] == 1
+      scripted_dir = string(scripted_dir,"_",prms_names[i],@sprintf("%.2f",prms[i]))
+    end
+    out_name = string(out_name, "_", prms_names[i], @sprintf("%.2f",prms[i]))
+  end
+  
+  out_path = string(save_dir,scripted_dir,"/")
+  out_name = string(out_name, ".csv")
+
+  (out_path, out_name)
 end
 
 
@@ -90,44 +108,74 @@ function EIS_apply_checknodes(EIS_in,checknodes)
     DataFrame( f = checknodes, Z = EIS_get_Z_values(EIS_in, checknodes))
 end
 
-function CV_save_file_prms(; save_dir="", prms=Nothing, df_out)
-    (out_path, out_name) = saving_format_prms( save_dir=save_dir, prefix="CV", prms=prms)
+function CV_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(0, 0, 0, 0, 0, 0))
+    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
+
+    CSV.read(
+        string(out_path,out_name),
+    )
+    return
+end
+
+function CV_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
+    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
     run(`mkdir -p $out_path`)
 
     CSV.write(
-        string(out_path,out_name,".csv"),
+        string(out_path,out_name),
         df_out
     )
     return
 end
 
-function EIS_save_file_prms(; save_dir="", prms=Nothing, df_out)
-    (out_path, out_name) = saving_format_prms( save_dir=save_dir, prefix="EIS", prms=prms)
+function EIS_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(0, 0, 0, 0, 0, 0))
+    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="EIS", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
+    
+    df = CSV.read(string(out_path, out_name))
+    DataFrame(f = df.f, Z = (df.Re .+ df.Im.*im))
+end
+
+function EIS_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
+    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="EIS", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
     run(`mkdir -p $out_path`)
 
     CSV.write(
-        string(out_path,out_name,".csv"),
+        string(out_path,out_name),
         DataFrame(f = df_out.f, Re = real(df_out.Z), Im = imag(df_out.Z))
     )
     return
 end
 
-function CV_simple_run()
+function CV_simple_run(;pyplot=false)
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
-   @time  ysz_experiments.run_new(
-        out_df_bool=true, voltammetry=true, sample=40, pyplot_finall=true,
-        prms_in=[19.50, 19.00, 0.0905748, -0.708014, 0.6074566741435283, -1.5]
+    
+    (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
+    (A0, R0, DGA, DGR, beta, A) =[23.0,   23.,    0.4,    0.4,    0.4,    0.8]
+    
+    (DD, nu, nus, ms_par) = get_shared_add_prms()
+    
+   CV_sim =  ysz_experiments.run_new(
+        out_df_bool=true, voltammetry=true, sample=8, pyplot_finall=true,
+        prms_in= (A0, R0, DGA, DGR, beta, A),
+        add_prms_in=(DD, nu, nus, ms_par)
     )
+    @show CV_sim
+    checknodes =  CV_get_shared_checknodes()
+    if pyplot
+        figure(1)
+        CV_plot(CV_apply_checknodes(CV_sim,checknodes), "s_r")
+        CV_plot(CV_apply_checknodes(import_CVtoDataFrame(T=800, pO2=100),CV_get_shared_checknodes()), "exp")
+    end    
     return
 end
 
 function EIS_simple_run(;pyplot=false)    
     
-    pO2_in_sim = 1.0
-    EIS_bias=-0.5
+#     pO2_in_sim = 1.0
+#     EIS_bias=-0.5
     
     (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
-    (A0, R0, DGA, DGR, beta, A) =[19.620786013494122,27.34421543847122, 0.6539832280099412,0.77515172426829546,0.23268062905804937,0.21181634115352904]
+    (A0, R0, DGA, DGR, beta, A) =[29.620786013494122,   25.34421543847122,    0.4,    0.4,    0.43268062905804937,    0.21181634115352904]
     
     (DD, nu, nus, ms_par) = get_shared_add_prms()
     
@@ -138,10 +186,12 @@ function EIS_simple_run(;pyplot=false)
         prms_in=[A0, R0, DGA, DGR, beta, A],
         add_prms_in=(DD, nu, nus, ms_par)
     )
-    @show EIS_df
+    #@show EIS_df
     checknodes =  EIS_get_shared_checknodes()
     if pyplot
+        figure(2)
         Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r")
+        Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=0.0),EIS_get_shared_checknodes()), "exp")
     end
 end
 
@@ -1365,12 +1415,25 @@ end
 ###############################
 
 
-function par_study(A0_str="0", R0_str="0", DGA_str="0", DGR_str="0", beta_str="0", A_str="0", CV_bool="false", EIS_bool="false", test="test"; pyplot=false)
+
+function par_study(;A0_list=17, 
+                    R0_list=16, 
+                    DGA_list=0, 
+                    DGR_list=0, 
+                    beta_list=0.4, 
+                    A_list=0.2, 
+                    save_dir="../snehurka/data/par_study_default/", scripted_tuple=(1, 0, 1, 0, 0, 0), prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), 
+                    CV_bool="false", EIS_bool="false", mode="test")
     
-    function py_collect(a, b, c)
-        return collect(a : b : c)
-    end
-    
+  function consistency_check()
+      
+      
+      # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      # (ale az v pripade, ze to bude obecne napsane)
+      
+      return true
+  end
+
   CV_err_counter::Int32 = 0
   CV_good_counter::Int32 = 0
   EIS_err_counter::Int32 = 0
@@ -1383,33 +1446,32 @@ function par_study(A0_str="0", R0_str="0", DGA_str="0", DGR_str="0", beta_str="0
   ##### TODO !!! ###
   EIS_bias = 0.0
   ################
-  
-  A0_list = [parse(Float32, A0_str)]
-  R0_list = [parse(Float32, R0_str)]
-  #DGA_list = [parse(Float32, DGA_str)]
-  #DGR_list = [parse(Float32, DGR_str)]
-  #beta_list = [parse(Float32, beta_str)]
-  #A_in = [parse(Float32, A_str)]
-  
-  #A0_list = py_collect(1.5 , 0.1 , 2.5)
-  #R0_list = py_collect(10 , 0.5 , 18)
-  DGA_list = py_collect(-0.7 , 0.2 , 0.7)
-  DGR_list = py_collect(-0.7 , 0.2 , 0.7)
-  beta_list = [0.4]
-  A_list = py_collect(-0.2 , 0.2  , 0.8)
-  
-  save_dir = string(
-            "_A0",@sprintf("%.2f",A0_list[1]),
-            "_R0",@sprintf("%.2f",R0_list[1]),
-            "/"
-            )
-  #println(save_dir)
 
-  if test!="go"
+  
+
+
+  if mode!="go"
         println(" >> number of sets of parameters: ",
         length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
+        @show A0_list
+        @show R0_list
+        @show DGA_list 
+        @show DGR_list 
+        @show beta_list
+        @show A_list
         @show CV_bool, EIS_bool
+        return
   else
+    println(" >> number of sets of parameters: ",
+        length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
+    @show A0_list
+    @show R0_list
+    @show DGA_list
+    @show DGR_list 
+    @show beta_list
+    @show A_list
+    @show CV_bool, EIS_bool
+        
     for A0_i in A0_list
         for R0_i in R0_list
             for DGA_i in DGA_list
@@ -1428,11 +1490,11 @@ function par_study(A0_str="0", R0_str="0", DGA_str="0", DGR_str="0", beta_str="0
                             if CV_bool
                                 try
                                     CV_sim = ysz_experiments.run_new(
-                                                    out_df_bool=true, voltammetry=true, sample=8, #pyplot=true,
+                                                    out_df_bool=true, voltammetry=true, sample=10,
                                                     prms_in=prms,
                                                     add_prms_in=(DD, nu, nus, ms_par)
                                                 )
-                                    CV_save_file_prms(; save_dir=save_dir, prms=prms, df_out=CV_sim)           
+                                    CV_save_file_prms(CV_sim, save_dir, prms, prms_names, scripted_tuple)           
                                     CV_good_counter += 1
                                     print("   CV ok :)         ")
                                  catch e
@@ -1454,7 +1516,7 @@ function par_study(A0_str="0", R0_str="0", DGA_str="0", DGR_str="0", beta_str="0
                                                 prms_in=prms,
                                                 add_prms_in=(DD, nu, nus, ms_par)
                                             )
-                                    EIS_save_file_prms(; save_dir=save_dir, prms=prms, df_out=EIS_sim)           
+                                    EIS_save_file_prms(EIS_sim, save_dir, prms, prms_names, scripted_tuple)           
                                     EIS_good_counter += 1
                                     print("   EIS ok :)        ")
                                  catch e
@@ -1480,7 +1542,144 @@ function par_study(A0_str="0", R0_str="0", DGA_str="0", DGR_str="0", beta_str="0
   end
 end
 
+function par_study_script_wrap(
+                    prms_lists_string=("(17, [16, 17, 18], 0.0, 0.0, 0.4, [0.0, 0.2])"),
+                    save_dir="./kadinec/", 
+                    scripted_tuple_string=("(1, 0, 0, 0, 0, 0)"),
+                    prms_names_string="(\"A0\", \"R0\", \"DGA\", \"DGR\", \"beta\", \"A\")", 
+                    CV_bool="false", 
+                    EIS_bool="false", 
+                    mode="test")
+  
+  prms_lists = eval(Meta.parse(prms_lists_string))
+  scripted_tuple = eval(Meta.parse(scripted_tuple_string))
+  prms_names = eval(Meta.parse(prms_names_string))
+  
+  # TODO !!! more general for arbitraty number of parameters
+  par_study( 
+                    A0_list=prms_lists[1], 
+                    R0_list=prms_lists[2], 
+                    DGA_list=prms_lists[3], 
+                    DGR_list=prms_lists[4], 
+                    beta_list=prms_lists[5], 
+                    A_list=prms_lists[6], 
+                    save_dir=save_dir, 
+                    scripted_tuple=scripted_tuple, 
+                    prms_names=prms_names, 
+                    CV_bool=CV_bool, 
+                    EIS_bool=EIS_bool, 
+                    mode=mode)
+end
 
+function meta_run_par_study()  
+  function recursive_bash_call(output_prms_lists, active_idx)
+    if active_idx > size(scripted_tuple,1)
+      scripted_tuple_string = string(scripted_tuple)
+      output_prms_lists_string = string(output_prms_lists)
+      prms_names_string = string(prms_names)
+      if bash_command == ""
+        return run(`
+                    $run_file_name 
+                    $output_prms_lists_string 
+                    $save_dir 
+                    $scripted_tuple_string 
+                    $prms_names_string 
+                    $CV_bool 
+                    $EIS_bool 
+                    $mode
+        `)      
+      else
+        return run(`
+                    $bash_command  
+                    $run_file_name 
+                    $output_prms_lists_string 
+                    $save_dir 
+                    $scripted_tuple_string 
+                    $prms_names_string 
+                    $CV_bool 
+                    $EIS_bool 
+                    $mode
+        `)
+      end
+    end
+    if scripted_tuple[active_idx] == 1
+      for i in prms_lists[active_idx]
+        recursive_bash_call(push!(deepcopy(output_prms_lists),i), active_idx + 1)
+      end
+    else
+      recursive_bash_call(push!(deepcopy(output_prms_lists),prms_lists[active_idx]), active_idx + 1)
+    end
+  end
+  
+  function consistency_check()
+    if (size(prms_names,1) != size(scripted_tuple,1) || 
+        size(prms_names,1) != size(prms_lists,1))
+      return false
+    end
+    
+    for i in 1:size(prms_lists,1)
+      if size(prms_lists[i],1) < 1
+        return false
+      end
+    end
+    
+    return true
+  end
+  
+  # prms definition
+  prms_names = ("A0", "R0", "DGA", "DGR", "beta", "A")
+  scripted_tuple = (1, 0, 1, 0, 0, 0)
+  prms_lists = (
+    collect(13 : 5.0 : 14),  # A0
+    collect(13 : 4.0 : 13),  # R0
+    collect(-0.4 : 0.5 : 0.3), # DGA
+    collect(-0.7 : 1.5 : 0.0), # DGR
+    collect(0.4),  # beta
+    collect(-0.2 : 1.0 : 0.8) # A
+  )
+  
+  # preparing bash output
+  bash_command = "echo"
+  
+  #run_file_name = "kru_run_ysz_fitting_par_study_wrap.chi"
+  run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
+  
+  save_dir = "../snehurka/data/prvni_metavrh/"
+  CV_bool = "true"
+  EIS_bool = "true"
+  mode = "go"
+  
+  if !consistency_check()
+    println("ERROR: meta_run_par_study(): shape mismatch (!consistency_check())")
+    return throw(Exception)
+  end  
+  
+  # counter of output files ... TODO !!!
+  recursive_bash_call([], 1)
+    
+  # saving metafile   TODO!!!!
+  println()
+  metafile_string = "METAFILE for par_study\n"
+  prms_strings = [string(item) for item in prms_lists]
+  for (i,str) in enumerate(prms_strings)
+    metafile_string = string(metafile_string,prms_names[i],"_list=",str,"\n")
+  end
+  metafile_string = string(metafile_string,"prms_names=", prms_names,"\n")
+  metafile_string = string(metafile_string,"scripted_tuple=", scripted_tuple,"\n")
+  metafile_string = string(metafile_string,"save_dir=", save_dir,"\n")
+  metafile_string = string(metafile_string,"CV_bool=", CV_bool,"\n")  
+  metafile_string = string(metafile_string,"EIS_bool=", EIS_bool,"\n")
+  metafile_string = string(metafile_string,"mode=", mode,"\n")
+  metafile_string = string(metafile_string,"bash_command=", bash_command,"\n")
+  metafile_string = string(metafile_string,"run_file_name=", run_file_name,"\n")
+  metafile_string = string(metafile_string,"prms_lists=", prms_lists,"\n")
+  
+  println(metafile_string)
+  write("$(save_dir)/_metafile_par_study.txt", metafile_string)
+  
+  println("ok :) ")
+  
+end
         
 
 
