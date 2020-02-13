@@ -22,17 +22,17 @@ using LeastSquaresOptim
 ##########################################
 # internal import of YSZ repo ############
 
-include("../src/ysz_model_new_prms.jl")
+include("../src/models/ysz_model_new_prms_exp_ads.jl")
 include("../prototypes/timedomain_impedance.jl")
 
 
-iphi=ysz_model_new_prms.iphi
-iy=ysz_model_new_prms.iy
-ib=ysz_model_new_prms.ib
+iphi=ysz_model_new_prms_exp_ads.iphi
+iy=ysz_model_new_prms_exp_ads.iy
+ib=ysz_model_new_prms_exp_ads.ib
 
 
-#using ysz_model_new_prms
-#const label_ysz_model = ysz_model_new_prms
+#using ysz_model_new_prms_exp_ads
+#const label_ysz_model = ysz_model_new_prms_exp_ads
 
 # --------- end of YSZ import ---------- #
 ##########################################
@@ -73,7 +73,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     grid=VoronoiFVM.Grid(X)
     #
     
-    parameters=ysz_model_new_prms.YSZParameters()
+    parameters=ysz_model_new_prms_exp_ads.YSZParameters()
     # for a parametric study
     eV = parameters.e0   # electronvolt [J] = charge of electron * 1[V]
     parameters.A0 = 10.0^prms_in[1]      # [1 / s]
@@ -102,20 +102,20 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     end
     
     # update the "computed" values in parameters
-    parameters = ysz_model_new_prms.YSZParameters_update(parameters)
+    parameters = ysz_model_new_prms_exp_ads.YSZParameters_update(parameters)
 
     physics=VoronoiFVM.Physics(
         data=parameters,
         num_species=3,
-        storage=ysz_model_new_prms.storage!,
-        flux=ysz_model_new_prms.flux!,
-        reaction=ysz_model_new_prms.reaction!,
-        breaction=ysz_model_new_prms.breaction!,
-        bstorage=ysz_model_new_prms.bstorage!
+        storage=ysz_model_new_prms_exp_ads.storage!,
+        flux=ysz_model_new_prms_exp_ads.flux!,
+        reaction=ysz_model_new_prms_exp_ads.reaction!,
+        breaction=ysz_model_new_prms_exp_ads.breaction!,
+        bstorage=ysz_model_new_prms_exp_ads.bstorage!
     )
     #
     if print_bool
-        ysz_model_new_prms.printfields(parameters)
+        ysz_model_new_prms_exp_ads.printfields(parameters)
     end
 
     #sys=VoronoiFVM.SparseSystem(grid,physics)
@@ -139,7 +139,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     inival.=0.0
     #
     
-    phi0 = ysz_model_new_prms.equil_phi(parameters)
+    phi0 = ysz_model_new_prms_exp_ads.equil_phi(parameters)
     if print_bool
         println("phi0 = ",phi0)
     end
@@ -182,7 +182,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         #
         function meas_tran(meas, u)
             U=reshape(u,sys)
-            Qb= - integrate(sys,ysz_model_new_prms.reaction!,U) # \int n^F            
+            Qb= - integrate(sys,ysz_model_new_prms_exp_ads.reaction!,U) # \int n^F            
             dphi_end = U[iphi, end] - U[iphi, end-1]
             dx_end = X[end] - X[end-1]
             dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
@@ -195,7 +195,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         #
         function meas_stdy(meas, u)
             U=reshape(u,sys)
-            meas[1]=AreaEllyt*(-2*parameters.e0*ysz_model_new_prms.electroreaction(parameters, U[ib,1]))
+            meas[1]=AreaEllyt*(-2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters, U[ib,1]))
         end
 
         #
@@ -441,7 +441,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             # tstep to potential phi
             sys.boundary_values[iphi,1]=phi
             solve!(U,inival,sys, control=control,tstep=tstep)
-            Qb= - integrate(sys,ysz_model_new_prms.reaction!,U) # \int n^F            
+            Qb= - integrate(sys,ysz_model_new_prms_exp_ads.reaction!,U) # \int n^F            
             dphi_end = U[iphi, end] - U[iphi, end-1]
             dx_end = X[end] - X[end-1]
             dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
@@ -451,7 +451,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             # for faster computation, solving of "dtstep problem" is not performed
             U0 .= inival
             inival.=U
-            Qb0 = - integrate(sys,ysz_model_new_prms.reaction!,U0) # \int n^F
+            Qb0 = - integrate(sys,ysz_model_new_prms_exp_ads.reaction!,U0) # \int n^F
             dphi0_end = U0[iphi, end] - U0[iphi, end-1]
             dphiB0 = parameters.eps0*(1+parameters.chi)*(dphi0_end/dx_end)
             Qs0 = (parameters.e0/parameters.areaL)*parameters.zA*U0[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
@@ -465,8 +465,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             
             
             # reaction average
-            reac = - 2*parameters.e0*ysz_model_new_prms.electroreaction(parameters, U[ib,1])
-            reacd = - 2*parameters.e0*ysz_model_new_prms.electroreaction(parameters,U0[ib,1])
+            reac = - 2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters, U[ib,1])
+            reacd = - 2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters,U0[ib,1])
             Ir= 0.5*(reac + reacd)
 
             #############################################################
@@ -733,7 +733,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             end
         end
         if test
-            I1 = integrate(sys, ysz_model_new_prms.reaction!, U)
+            I1 = integrate(sys, ysz_model_new_prms_exp_ads.reaction!, U)
             #println(I1)
             return I1[1]
         end
