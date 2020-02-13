@@ -6,15 +6,18 @@ module ysz_fitting
 # [ ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
 # [x] implement LM algorithm
 # [ ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
-# [ ] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
+# [o] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
 # [x] vymyslet novy relevantni vektor parametru
-# [ ] aplikovat masku pro fitting pro scan_2D_recursive
-# [o] snehurka, velke objemy dat, maska a metafile
-# ->[x] save_dir preposilany parametrem a odlisit scripted_dir
-# ->[ ] sneh - zadavani i jinych parametru nez prms
-# ->[ ] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
-# ->[ ] mozna pouzit precompile
+# [?] aplikovat masku pro fitting pro scan_2D_recursive
+# [ ] snehurka, velke objemy dat, maska a metafile
+# --[x] save_dir preposilany parametrem a odlisit scripted_dir
+# --[ ] sneh - zadavani i jinych parametru nez prms
+# --[x] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
+# --[?] mozna pouzit precompile
+# --[ ] nechat meta_run_par_study() vytvorit skriptovaci soubor (dle poctu parametru)
 # [ ] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI" -> JUERGEN
+# [ ] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry
+# --[ ] a taky geometriemi :)
 #######################
 
 
@@ -38,15 +41,16 @@ function CV_get_shared_checknodes()
 end
 
 function EIS_get_shared_omega_range()
+    # experimental range is 0.1 - 65000 Hz
     # omegas = (w0, w1, w_fac)
-    return omega_range = (1, 7500, 1.2)
+    return omega_range = (0.11, 65000, 1.2)
 end
 
 function EIS_get_shared_checknodes()
     return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()[1], EIS_get_shared_omega_range()[2], EIS_get_shared_omega_range()[3])
 end
 
-function get_shared_prms() 
+function get_shared_prms()
     #     old_prms =  [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     # first dump fit = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
     return (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
@@ -146,6 +150,10 @@ function EIS_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
     return
 end
 
+# function new_common_DD()
+#   4.35e-13
+# end
+
 function CV_simple_run(;pyplot=false)
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     
@@ -153,13 +161,14 @@ function CV_simple_run(;pyplot=false)
     (A0, R0, DGA, DGR, beta, A) =[23.0,   23.,    0.4,    0.4,    0.4,    0.8]
     
     (DD, nu, nus, ms_par) = get_shared_add_prms()
-    
-   CV_sim =  ysz_experiments.run_new(
-        out_df_bool=true, voltammetry=true, sample=8, pyplot_finall=true,
+    #DD = new_common_DD() 
+
+    CV_sim =  ysz_experiments.run_new(
+        out_df_bool=true, voltammetry=true, sample=8, pyplot_finall=false,
         prms_in= (A0, R0, DGA, DGR, beta, A),
         add_prms_in=(DD, nu, nus, ms_par)
     )
-    @show CV_sim
+    #@show CV_sim
     checknodes =  CV_get_shared_checknodes()
     if pyplot
         figure(1)
@@ -171,27 +180,29 @@ end
 
 function EIS_simple_run(;pyplot=false)    
     
-#     pO2_in_sim = 1.0
-#     EIS_bias=-0.5
-    
-    (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
-    (A0, R0, DGA, DGR, beta, A) =[29.620786013494122,   25.34421543847122,    0.4,    0.4,    0.43268062905804937,    0.21181634115352904]
-    
-    (DD, nu, nus, ms_par) = get_shared_add_prms()
-    
-    EIS_df = ysz_experiments.run_new(
-        pyplot=pyplot, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-        dx_exp=-8,
-        # TODO !!! T a pO2
-        prms_in=[A0, R0, DGA, DGR, beta, A],
-        add_prms_in=(DD, nu, nus, ms_par)
-    )
-    #@show EIS_df
-    checknodes =  EIS_get_shared_checknodes()
-    if pyplot
-        figure(2)
-        Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r")
-        Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=0.0),EIS_get_shared_checknodes()), "exp")
+#    pO2_in_sim = 1.0
+    #EIS_bias=1.0
+    for EIS_bias in [-1.0, -0.5, 0.0, 0.5, 1.0]
+      (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
+      #(A0, R0, DGA, DGR, beta, A) =[23.0,   23.,    0.4,    0.4,    0.4,    0.8]  
+      
+      (DD, nu, nus, ms_par) = get_shared_add_prms()
+      #DD = new_common_DD()
+      
+      EIS_df = ysz_experiments.run_new(
+          pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+          dx_exp=-11,
+          # TODO !!! T a pO2
+          prms_in=[A0, R0, DGA, DGR, beta, A],
+          add_prms_in=(DD, nu, nus, ms_par)
+      )
+      #@show EIS_df
+      checknodes =  EIS_get_shared_checknodes()
+      if pyplot
+          figure(2)
+          Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r $EIS_bias")
+          Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=EIS_bias),EIS_get_shared_checknodes()), "exp $EIS_bias")
+      end
     end
 end
 
@@ -1577,30 +1588,17 @@ function meta_run_par_study()
       scripted_tuple_string = string(scripted_tuple)
       output_prms_lists_string = string(output_prms_lists)
       prms_names_string = string(prms_names)
-      if bash_command == ""
-        return run(`
-                    $run_file_name 
-                    $output_prms_lists_string 
-                    $save_dir 
-                    $scripted_tuple_string 
-                    $prms_names_string 
-                    $CV_bool 
-                    $EIS_bool 
-                    $mode
-        `)      
-      else
-        return run(`
-                    $bash_command  
-                    $run_file_name 
-                    $output_prms_lists_string 
-                    $save_dir 
-                    $scripted_tuple_string 
-                    $prms_names_string 
-                    $CV_bool 
-                    $EIS_bool 
-                    $mode
-        `)
-      end
+      return run(`
+                  $bash_command  
+                  $run_file_name 
+                  $output_prms_lists_string 
+                  $save_dir 
+                  $scripted_tuple_string 
+                  $prms_names_string 
+                  $CV_bool 
+                  $EIS_bool 
+                  $mode
+      `)
     end
     if scripted_tuple[active_idx] == 1
       for i in prms_lists[active_idx]
@@ -1630,8 +1628,8 @@ function meta_run_par_study()
   prms_names = ("A0", "R0", "DGA", "DGR", "beta", "A")
   scripted_tuple = (1, 0, 1, 0, 0, 0)
   prms_lists = (
-    collect(13 : 5.0 : 14),  # A0
-    collect(13 : 4.0 : 13),  # R0
+    collect(13 : 1.0 : 18),  # A0
+    collect(13 : 4.0 : 18),  # R0
     collect(-0.4 : 0.5 : 0.3), # DGA
     collect(-0.7 : 1.5 : 0.0), # DGR
     collect(0.4),  # beta
@@ -1641,22 +1639,25 @@ function meta_run_par_study()
   # preparing bash output
   bash_command = "echo"
   
-  #run_file_name = "kru_run_ysz_fitting_par_study_wrap.chi"
   run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
   
   save_dir = "../snehurka/data/prvni_metavrh/"
   CV_bool = "true"
   EIS_bool = "true"
   mode = "go"
-  
-  if !consistency_check()
-    println("ERROR: meta_run_par_study(): shape mismatch (!consistency_check())")
-    return throw(Exception)
-  end  
-  
+
   # counter of output files ... TODO !!!
-  recursive_bash_call([], 1)
-    
+  nodes_count = 1
+  per_node_count = 1
+  for (i, byte) in enumerate(scripted_tuple)
+    if byte == 1
+      nodes_count *= size(prms_lists[i],1)
+    else
+      per_node_count *= size(prms_lists[i],1)
+    end
+  end
+  
+  
   # saving metafile   TODO!!!!
   println()
   metafile_string = "METAFILE for par_study\n"
@@ -1664,6 +1665,7 @@ function meta_run_par_study()
   for (i,str) in enumerate(prms_strings)
     metafile_string = string(metafile_string,prms_names[i],"_list=",str,"\n")
   end
+  metafile_string = string(metafile_string,"#### nodes / pernode_count  =  ", nodes_count," / ",per_node_count,"  ####\n")
   metafile_string = string(metafile_string,"prms_names=", prms_names,"\n")
   metafile_string = string(metafile_string,"scripted_tuple=", scripted_tuple,"\n")
   metafile_string = string(metafile_string,"save_dir=", save_dir,"\n")
@@ -1675,8 +1677,19 @@ function meta_run_par_study()
   metafile_string = string(metafile_string,"prms_lists=", prms_lists,"\n")
   
   println(metafile_string)
-  write("$(save_dir)/_metafile_par_study.txt", metafile_string)
+  run(`mkdir -p $(save_dir)`)
+  write("$(save_dir)_metafile_par_study.txt", metafile_string)
   
+  
+
+  
+  #setting jobs
+  if !consistency_check()
+    println("ERROR: meta_run_par_study(): shape mismatch (!consistency_check())")
+    return throw(Exception)
+  end 
+  recursive_bash_call([], 1)
+    
   println("ok :) ")
   
 end
