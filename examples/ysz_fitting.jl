@@ -6,18 +6,22 @@ module ysz_fitting
 # [ ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
 # [x] implement LM algorithm
 # [ ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
-# [o] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
+# [x] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
 # [x] vymyslet novy relevantni vektor parametru
 # [?] aplikovat masku pro fitting pro scan_2D_recursive
-# [ ] snehurka, velke objemy dat, maska a metafile
-# --[x] save_dir preposilany parametrem a odlisit scripted_dir
-# --[ ] sneh - zadavani i jinych parametru nez prms
-# --[x] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
-# --[?] mozna pouzit precompile
-# --[ ] nechat meta_run_par_study() vytvorit skriptovaci soubor (dle poctu parametru)
-# [ ] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI" -> JUERGEN
+# [o] snehurka, velke objemy dat, maska a metafile
+# ---[x] save_dir preposilany parametrem a odlisit scripted_dir
+# ---[ ] sneh - zadavani i jinych parametru nez prms
+# ---[x] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
+# ---[?] mozna pouzit precompile
+# ---[ ] nechat meta_run_par_study() vytvorit skriptovaci soubor (dle poctu parametru, module, pocet experimentu)
+# [!] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI" -> JUERGEN
+# ---[!] zadavani modulu by melo byt v hlavicce meta_run_par_study()
 # [ ] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry
-# --[ ] a taky geometriemi :)
+# ---[ ] a taky geometriemi :)
+# ---[ ] pravdepodobne to znamena posilat YSZ::parameters primo z par_study... nebo proste pri volani run_new()
+# [ ] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
+# ---[ ] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
 #######################
 
 
@@ -37,13 +41,13 @@ include("../src/import_experimental_data.jl")
 
 
 function CV_get_shared_checknodes()
-    return get_checknodes(0.06,0.95,-0.95,-0.06,0.12)
+    return get_checknodes(0.6,0.95,-0.95,-0.06,0.12)
 end
 
 function EIS_get_shared_omega_range()
     # experimental range is 0.1 - 65000 Hz
     # omegas = (w0, w1, w_fac)
-    return omega_range = (0.11, 65000, 1.2)
+    return omega_range = (1.1, 6500, 1.2)
 end
 
 function EIS_get_shared_checknodes()
@@ -112,13 +116,28 @@ function EIS_apply_checknodes(EIS_in,checknodes)
     DataFrame( f = checknodes, Z = EIS_get_Z_values(EIS_in, checknodes))
 end
 
-function CV_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(0, 0, 0, 0, 0, 0))
+function CV_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
+    
     (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
-
-    CSV.read(
-        string(out_path,out_name),
-    )
-    return
+    
+    df_out = DataFrame()
+    try throw_exception
+      df_out = CSV.read(
+          string(out_path,out_name),
+      )
+    catch e
+      if e isa InterruptException
+        rethrow(e)
+      else
+        if verbose
+          println("file not found: $(out_path)$(out_name)")
+        end
+        if throw_exception
+          rethrow(e)
+        end
+      end
+    end
+    return df_out
 end
 
 function CV_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
@@ -132,11 +151,27 @@ function CV_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
     return
 end
 
-function EIS_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(0, 0, 0, 0, 0, 0))
+function EIS_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
+
     (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="EIS", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
     
-    df = CSV.read(string(out_path, out_name))
-    DataFrame(f = df.f, Z = (df.Re .+ df.Im.*im))
+    df_out = DataFrame()
+    try
+      df = CSV.read(string(out_path, out_name))
+      df_out = DataFrame(f = df.f, Z = (df.Re .+ df.Im.*im))
+    catch e
+      if e isa InterruptException
+        rethrow(e)
+      else
+        if verbose
+          println("file not found: $(out_path)$(out_name)")
+        end
+        if throw_exception
+          rethrow(e)
+        end
+      end
+    end
+    return df_out
 end
 
 function EIS_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
@@ -149,6 +184,155 @@ function EIS_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
     )
     return
 end
+
+
+function for_each_prms_in_prms_lists(prms_lists, perform_generic)
+  function recursive_call(output_set, active_idx)
+    if active_idx > size(prms_lists,1)
+      perform_generic(output_set)
+    else
+      for parameter in prms_lists[active_idx]
+        recursive_call(push!(deepcopy(output_set),parameter), active_idx + 1)
+      end
+    end
+  end
+  recursive_call([],1)
+  return
+end
+
+function for_each_indicies_in_prms_lists(prms_lists, perform_generic)
+  function recursive_call(output_set, active_idx)
+    if active_idx > size(prms_lists,1)
+      perform_generic(output_set)
+    else
+      for i in 1:size(prms_lists[active_idx],1)
+        recursive_call(push!(deepcopy(output_set),i), active_idx + 1)
+      end
+    end
+  end
+  recursive_call([],1)
+  return
+end
+
+function get_prms_from_indicies(prms_lists, tuple)
+  output_array = []
+  for (i,list) in enumerate(prms_lists)
+    append!(output_array, list[tuple[i]])
+  end
+  return output_array
+end
+
+############## import large amount of data ##########
+function import_par_study(;save_dir="../snehurka/data/", name::String="", prms_lists=[13, 13, 0.10, 0.10, 0.4, 0.0], prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(1,1,0,0,0,0), EIS_bool=false, CV_bool=false, verbose=false)
+  
+  save_dir_forwarded = string(save_dir, name, "/")
+  if CV_bool
+    CV_hypercube = Array{DataFrame}(undef, Tuple([size(list,1) for list in prms_lists]))
+    CV_good_count = 0
+    CV_bad_count = 0
+  end
+  
+  if EIS_bool
+    EIS_hypercube = Array{DataFrame}(undef, Tuple([size(list,1) for list in prms_lists]))
+    EIS_good_count = 0
+    EIS_bad_count = 0
+  end
+
+  
+  function perform_import(prms_indicies)
+    if CV_bool
+      try
+        CV_hypercube[prms_indicies...] = CV_load_file_prms(save_dir=save_dir_forwarded, prms=get_prms_from_indicies(prms_lists, prms_indicies), prms_names=prms_names, scripted_tuple=scripted_tuple, throw_exception=true, verbose=verbose)
+        CV_good_count += 1
+      catch
+        CV_hypercube[prms_indicies...] = DataFrame()
+        CV_bad_count += 1
+      end
+    end
+    if EIS_bool
+      try
+        EIS_hypercube[prms_indicies...] = EIS_load_file_prms(save_dir=save_dir_forwarded, prms=get_prms_from_indicies(prms_lists, prms_indicies), prms_names=prms_names, scripted_tuple=scripted_tuple, throw_exception=true,verbose=verbose)
+        EIS_good_count += 1
+      catch
+        EIS_hypercube[prms_indicies...] = DataFrame()
+        EIS_bad_count += 1
+      end
+    end
+  end
+  
+  for_each_indicies_in_prms_lists(prms_lists, perform_import)
+  
+  if CV_bool && EIS_bool
+    println("import_par_study: CV_good / all = ",CV_good_count, " / ", CV_good_count + CV_bad_count)
+    println("import_par_study: EIS_good / all = ",EIS_good_count, " / ", EIS_good_count + EIS_bad_count)
+    return (CV_hypercube, EIS_hypercube)
+  end
+  if CV_bool
+    println("import_par_study: CV_good / all = ",CV_good_count, " / ", CV_good_count + CV_bad_count)
+    return CV_hypercube
+  end
+  if EIS_bool
+    println("import_par_study: EIS_good / all = ",EIS_good_count, " / ", EIS_good_count + EIS_bad_count)
+    return EIS_hypercube
+  end
+end
+
+function display_it()
+  scripted_tuple = (1,1,0,0,0,0)
+prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
+  name = "prvni_vrh_lin_ads"
+  EIS_hypercube = 
+  for i in 1:size(EIS_hypercube,2)
+    Nyquist_plot(EIS_hypercube[1,i,1,1,1,1])
+  end
+end
+
+function EIS_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"))
+  
+  #scripted_tuple = (1,1,0,0,0,0)
+#prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
+  #name = "prvni_vrh_lin_ads"
+  
+  # TODO !!! constants
+  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=0.0),EIS_get_shared_checknodes())
+  
+  error_df = DataFrame(error = [], prms_indicies = [])
+  function perform_error_projection(prms_indicies)
+    if size(EIS_hypercube[prms_indicies...],1) > 0
+      #@show EIS_hypercube[prms_indicies...]
+      #EIS_sim = EIS_apply_checknodes(EIS_hypercube[prms_indicies...], EIS_get_shared_checknodes())
+      #close()
+      #Nyquist_plot(EIS_exp)
+      #Nyquist_plot(EIS_sim)      
+      #println("OK")
+      push!(error_df, 
+        (EIS_fitnessFunction(
+          EIS_exp,
+          EIS_apply_checknodes(EIS_hypercube[prms_indicies...], EIS_get_shared_checknodes())
+          )
+          , 
+          prms_indicies
+        )
+      )
+    end
+  end
+  for_each_indicies_in_prms_lists(prms_lists, perform_error_projection)
+  
+  @show last(error_df,10)
+  sort!(error_df, :error)
+   
+  @show last(error_df,10)
+  
+  range_to_display = 1:100
+  for i in 1:6
+    subplot(230+i)
+    title(prms_names[i])
+    plot([prms_lists[i][item[i]] for item in error_df.prms_indicies[range_to_display]], error_df.error[range_to_display])
+  end
+  error_df
+end
+#####################################################
+
 
 # function new_common_DD()
 #   4.35e-13
@@ -1427,12 +1611,12 @@ end
 
 
 
-function par_study(;A0_list=17, 
-                    R0_list=16, 
-                    DGA_list=0, 
+function par_study(;A0_list=[17,3,2,4,2,4,1], 
+                    R0_list=[16,17,3,2,1,4,5], 
+                    DGA_list=[0,3,4,2,4,6,2], 
                     DGR_list=0, 
-                    beta_list=0.4, 
-                    A_list=0.2, 
+                    beta_list=0.4,
+                    A_list=[0.2, 0.3], 
                     save_dir="../snehurka/data/par_study_default/", scripted_tuple=(1, 0, 1, 0, 0, 0), prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), 
                     CV_bool="false", EIS_bool="false", mode="test")
     
@@ -1482,72 +1666,146 @@ function par_study(;A0_list=17,
     @show beta_list
     @show A_list
     @show CV_bool, EIS_bool
+      
+    prms_lists=[A0_list, R0_list, DGA_list, DGR_list, beta_list, A_list]
         
-    for A0_i in A0_list
-        for R0_i in R0_list
-            for DGA_i in DGA_list
-                for DGR_i in DGR_list
-                    for beta_i in beta_list
-                        for A_i in A_list
-                        
-                            all_counter = all_counter + 1
-                            println(string(" <><><><><><><><><><><><> all_counter <><><> calculating ",all_counter," of ", 
-                                length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list)))
-                            print("parameters: (A0, R0, DGA, DGR, beta, A) = (",A0_i,", ",R0_i,", ",DGA_i,", ",DGR_i,", ",beta_i,", ",A_i,")")
-                        
-                            prms = (A0_i, R0_i, DGA_i, DGR_i, beta_i, A_i)
-                            (DD, nu, nus, ms_par) = get_shared_add_prms()
-                            
-                            if CV_bool
-                                try
-                                    CV_sim = ysz_experiments.run_new(
-                                                    out_df_bool=true, voltammetry=true, sample=10,
-                                                    prms_in=prms,
-                                                    add_prms_in=(DD, nu, nus, ms_par)
-                                                )
-                                    CV_save_file_prms(CV_sim, save_dir, prms, prms_names, scripted_tuple)           
-                                    CV_good_counter += 1
-                                    print("   CV ok :)         ")
-                                 catch e
-                                    if e isa InterruptException
-                                        rethrow(e)
-                                    else
-                                        println(e)
-                                        CV_err_counter += 1
-                                        print("<<<<< CV FAIL! >>>>>")
-                                    end
-                                end
-                            end
-                            if EIS_bool
-                                try
-                                    EIS_sim = ysz_experiments.run_new(
-                                                pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-                                                dx_exp=-8,
-                                                # TODO !!! T a pO2
-                                                prms_in=prms,
-                                                add_prms_in=(DD, nu, nus, ms_par)
-                                            )
-                                    EIS_save_file_prms(EIS_sim, save_dir, prms, prms_names, scripted_tuple)           
-                                    EIS_good_counter += 1
-                                    print("   EIS ok :)        ")
-                                 catch e
-                                    if e isa InterruptException
-                                        rethrow(e)
-                                    else
-                                        println(e)
-                                        EIS_err_counter += 1
-                                        print("<<<<< EIS FAIL! >>>>")
-                                    end
-                                end
-                            end
-                        
-                            println()
-                        end
-                    end
-                end
-            end
-        end
+    function perform_par_study(actual_prms)
+      
+      prms = actual_prms
+      (DD, nu, nus, ms_par) = get_shared_add_prms()
+      
+ 
+      string_prms_names = ""
+      string_prms = ""
+      overall_count = 1
+      for i in 1:size(prms,1)
+        string_prms_names = "$(string_prms_names)$(prms_names[i]), "
+        string_prms = "$(string_prms)$(prms[i]), "
+        overall_count *= size(prms_lists[i],1)
+      end
+      string_prms_names = string_prms_names[1:end-2]
+      string_prms = string_prms[1:end-2]
+
+      # printing info
+      all_counter = all_counter + 1
+      println(
+        string(" <><><><><><><><><><><><> all_counter <><><> calculating ",all_counter," of ", overall_count)
+      )
+      print("parameters: ($(string_prms_names)) = ($(string_prms))")
+      
+      if CV_bool
+          try
+              CV_sim = ysz_experiments.run_new(
+                              out_df_bool=true, voltammetry=true, sample=10,
+                              prms_in=prms,
+                              add_prms_in=(DD, nu, nus, ms_par)
+                          )
+              CV_save_file_prms(CV_sim, save_dir, prms, prms_names, scripted_tuple)           
+              CV_good_counter += 1
+              print("   CV ok :)         ")
+            catch e
+              if e isa InterruptException
+                  rethrow(e)
+              else
+                  println(e)
+                  CV_err_counter += 1
+                  print("<<<<< CV FAIL! >>>>>")
+              end
+          end
+      end
+      if EIS_bool
+          try
+              EIS_sim = ysz_experiments.run_new(
+                          pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+                          dx_exp=-8,
+                          # TODO !!! T a pO2
+                          prms_in=prms,
+                          add_prms_in=(DD, nu, nus, ms_par)
+                      )
+              EIS_save_file_prms(EIS_sim, save_dir, prms, prms_names, scripted_tuple)           
+              EIS_good_counter += 1
+              print("   EIS ok :)        ")
+            catch e
+              if e isa InterruptException
+                  rethrow(e)
+              else
+                  println(e)
+                  EIS_err_counter += 1
+                  print("<<<<< EIS FAIL! >>>>")
+              end
+          end
+      end
+
+      println()    
     end
+        
+    for_each_prms_in_prms_lists(prms_lists, perform_par_study)
+    
+#     for A0_i in A0_list
+#         for R0_i in R0_list
+#             for DGA_i in DGA_list
+#                 for DGR_i in DGR_list
+#                     for beta_i in beta_list
+#                         for A_i in A_list
+#                         
+#                             all_counter = all_counter + 1
+#                             println(string(" <><><><><><><><><><><><> all_counter <><><> calculating ",all_counter," of ", 
+#                                 length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list)))
+#                             print("parameters: (A0, R0, DGA, DGR, beta, A) = (",A0_i,", ",R0_i,", ",DGA_i,", ",DGR_i,", ",beta_i,", ",A_i,")")
+#                         
+#                             prms = (A0_i, R0_i, DGA_i, DGR_i, beta_i, A_i)
+#                             (DD, nu, nus, ms_par) = get_shared_add_prms()
+#                             
+#                             if CV_bool
+#                                 try
+#                                     CV_sim = ysz_experiments.run_new(
+#                                                     out_df_bool=true, voltammetry=true, sample=10,
+#                                                     prms_in=prms,
+#                                                     add_prms_in=(DD, nu, nus, ms_par)
+#                                                 )
+#                                     CV_save_file_prms(CV_sim, save_dir, prms, prms_names, scripted_tuple)           
+#                                     CV_good_counter += 1
+#                                     print("   CV ok :)         ")
+#                                  catch e
+#                                     if e isa InterruptException
+#                                         rethrow(e)
+#                                     else
+#                                         println(e)
+#                                         CV_err_counter += 1
+#                                         print("<<<<< CV FAIL! >>>>>")
+#                                     end
+#                                 end
+#                             end
+#                             if EIS_bool
+#                                 try
+#                                     EIS_sim = ysz_experiments.run_new(
+#                                                 pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+#                                                 dx_exp=-8,
+#                                                 # TODO !!! T a pO2
+#                                                 prms_in=prms,
+#                                                 add_prms_in=(DD, nu, nus, ms_par)
+#                                             )
+#                                     EIS_save_file_prms(EIS_sim, save_dir, prms, prms_names, scripted_tuple)           
+#                                     EIS_good_counter += 1
+#                                     print("   EIS ok :)        ")
+#                                  catch e
+#                                     if e isa InterruptException
+#                                         rethrow(e)
+#                                     else
+#                                         println(e)
+#                                         EIS_err_counter += 1
+#                                         print("<<<<< EIS FAIL! >>>>")
+#                                     end
+#                                 end
+#                             end
+#                         
+#                             println()
+#                         end
+#                     end
+#                 end
+#             end
+#         end
+#     end
     println(string("<<<<< CV_err_count/ CV_good_count >>> ", CV_err_counter,"  /  ", CV_good_counter), 
                     string(" |||||| EIS_err_count/ EIS_good_count >>> ", EIS_err_counter,"  /  ", EIS_good_counter, " >>>>>>>"))
   end
@@ -1581,6 +1839,7 @@ function par_study_script_wrap(
                     EIS_bool=EIS_bool, 
                     mode=mode)
 end
+
 
 function meta_run_par_study()  
   function recursive_bash_call(output_prms_lists, active_idx)
@@ -1624,19 +1883,20 @@ function meta_run_par_study()
     return true
   end
   
-  # prms definition
+  # prms definition ####################################
   prms_names = ("A0", "R0", "DGA", "DGR", "beta", "A")
-  scripted_tuple = (1, 0, 1, 0, 0, 0)
   prms_lists = (
-    collect(13 : 1.0 : 18),  # A0
-    collect(13 : 4.0 : 18),  # R0
-    collect(-0.4 : 0.5 : 0.3), # DGA
-    collect(-0.7 : 1.5 : 0.0), # DGR
-    collect(0.4),  # beta
-    collect(-0.2 : 1.0 : 0.8) # A
+    collect(13 : 1.0 : 18),  
+    collect(13 : 4.0 : 18),  
+    collect(-0.4 : 0.5 : 0.3), 
+    collect(-0.7 : 1.5 : 0.0), 
+    collect(0.4),  
+    collect(-0.2 : 1.0 : 0.8)
   )
+  scripted_tuple = (1, 0, 1, 0, 0, 0)
+  #######################################################
   
-  # preparing bash output
+  # preparing bash output ###############################
   bash_command = "echo"
   
   run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
@@ -1645,6 +1905,7 @@ function meta_run_par_study()
   CV_bool = "true"
   EIS_bool = "true"
   mode = "go"
+  #######################################################
 
   # counter of output files ... TODO !!!
   nodes_count = 1
@@ -1697,4 +1958,3 @@ end
 
 
 end
-
