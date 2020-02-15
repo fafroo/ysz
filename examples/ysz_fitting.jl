@@ -1,6 +1,7 @@
 module ysz_fitting
 #######################
 ####### TODO ##########
+# [ ] better ramp and maybe sending steady solution via parameter in advance
 # [!] general global search using projection to each variable
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [ ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
@@ -32,6 +33,7 @@ module ysz_fitting
 # ---[ ] find best prms for both EIS and CV
 # ------[x] fing best prms for EIS
 # ------[ ] fing best prms for CV
+# ------[ ] the TRICK with SA ! .. R0 := R0/SA (exp .... - exp ...)
 # ---[o] try perturbate add prms by par_study
 #######################
 
@@ -68,7 +70,9 @@ end
 function get_shared_prms()
     #     old_prms =  [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     # first dump fit = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
-    return (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
+    # second try = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.18,      -0.5,   0.6074566741435283,   0.956)
+    return (A0, R0, DGA, DGR, beta, A) = (25, 20,     -0.7,      0.3,   0.4,   -1.0) # fit of prms
+    #return (A0, R0, DGA, DGR, beta, A) = (25, 20,     -0.18,      0.82,   0.4,   -1.0) # fit of prms
 end
 
 function get_shared_add_prms()
@@ -438,15 +442,15 @@ function CV_simple_run(;pyplot=false)
     return
 end
 
-function EIS_simple_run(;pyplot=false)    
+function EIS_simple_run(;pyplot=false, show_experiment=true, EIS_bias=0.0, prms=get_shared_prms(), add_prms=get_shared_add_prms())    
     
     #pO2_in_sim = 1.0
-    EIS_bias=1.0
+    #EIS_bias=1.0
 
-    (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
+    (A0, R0, DGA, DGR, beta, A) = prms
     #(A0, R0, DGA, DGR, beta, A) =[23.0,   23.,    0.4,    0.4,    0.4,    0.8]  
     
-    (DD, nu, nus, ms_par) = get_shared_add_prms()
+    (DD, nu, nus, ms_par) = add_prms
     #DD = new_common_DD()
     
     EIS_df = ysz_experiments.run_new(
@@ -460,8 +464,13 @@ function EIS_simple_run(;pyplot=false)
     checknodes =  EIS_get_shared_checknodes()
     if pyplot
         figure(2)
-        Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r $EIS_bias")
-        Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=EIS_bias),EIS_get_shared_checknodes()), "exp $EIS_bias")
+        EIS_sim = EIS_apply_checknodes(EIS_df,checknodes)
+        Nyquist_plot(EIS_sim, "s_r $EIS_bias")
+        if show_experiment
+          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=EIS_bias),EIS_get_shared_checknodes())
+          Nyquist_plot(EIS_exp, "exp $EIS_bias")
+          println("fitting error = ", EIS_fitnessFunction(EIS_exp, EIS_sim))
+        end
     end
 end
 

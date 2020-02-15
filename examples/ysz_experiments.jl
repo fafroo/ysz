@@ -202,30 +202,49 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
 
         # Calculate steady state solution
         steadystate = unknowns(sys)
-
         phi_steady = phi0 + EIS_bias
-        #phi_steady = 0.0
         
         excited_spec=iphi
         excited_bc=1
         excited_bcval=phi_steady
         
-        # ramp to phi_steady
-        phi_ramp = 0.0          # V
-        dir = sign(phi_steady)
-        steadystate_old = deepcopy(inival)
-        while abs(phi_ramp) < abs(phi_steady)
-           # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
-            sys.boundary_values[iphi,1] = phi_ramp
-            solve!(steadystate, steadystate_old, sys, control=control)
-            steadystate_old .= steadystate
-            phi_ramp += 0.05*dir 
-        end
         
-        # relaxation
-        sys.boundary_values[iphi,1] = phi_steady
-        solve!(steadystate, steadystate_old, sys, control=control)
-
+        # relaxation (ramp to phi_steady)
+        ramp_isok = false
+        ramp_nodes_growth = 4 # each phi_step will be divided into $ parts
+        ramp_max_nodes = 20   # number of refinement of phi_step
+        steadystate_old = deepcopy(inival)
+        for ramp_nodes in (0 : ramp_nodes_growth : ramp_max_nodes)
+          steadystate_old = deepcopy(inival)
+          
+          for phi_ramp in (ramp_nodes == 0 ? phi_steady : collect(0.0 : phi_steady/ramp_nodes : phi_steady))
+            # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
+              try
+                #@show phi_ramp
+                sys.boundary_values[iphi,1] = phi_ramp
+                solve!(steadystate, steadystate_old, sys, control=control)
+                steadystate_old .= steadystate
+                
+                ramp_isok = true
+                
+              catch e
+                if e isa InterruptException
+                  rethrow(e)
+                else
+                  #println("fail")
+                  ramp_isok=false
+                  break
+                end
+              end
+          end
+          if ramp_isok
+            break
+          end
+        end
+        if !(ramp_isok)
+          print("ERROR: run_new: ramp cannot reach the steady state") 
+          throw(Exception)
+        end
 
         # Create impedance system
         isys=VoronoiFVM.ImpedanceSystem(sys,steadystate,excited_spec, excited_bc)
