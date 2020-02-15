@@ -54,7 +54,7 @@ include("../src/import_experimental_data.jl")
 
 
 function CV_get_shared_checknodes()
-    return get_checknodes(0.6,0.95,-0.95,-0.06,0.12)
+    return CV_get_checknodes(0.6,0.95,-0.95,-0.06,0.12)
 end
 
 function EIS_get_shared_omega_range()
@@ -71,13 +71,14 @@ function get_shared_prms()
     #     old_prms =  [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     # first dump fit = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
     # second try = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.18,      -0.5,   0.6074566741435283,   0.956)
-    return (A0, R0, DGA, DGR, beta, A) = (25, 20,     -0.7,      0.3,   0.4,   -1.0) # fit of prms
-    #return (A0, R0, DGA, DGR, beta, A) = (25, 20,     -0.18,      0.82,   0.4,   -1.0) # fit of prms
-end
+    return (A0, R0, DGA, DGR, beta, A) = [25, 20,     -0.7,      0.3,   0.4,   -1.0] # fit of prms
+    #return (A0, R0, DGA, DGR, beta, A) = [20, 18,     -0.18,      0.22,   0.4,   -0.0] # fit of prms
+    #return (A0, R0, DGA, DGR, beta, A) = [21.71975544711280, 20.606423236896422,     0.0905748,      -0.708014,   0.6074566741435283,   0.1] # fit of prms
+end 
 
 function get_shared_add_prms()
     # cap_fit + resistance fit = (DD, nu, nus, ms_par) = (4.35e-13,    0.85,      0.21,   0.05)
-    return (DD, nu, nus, ms_par) = (4.35e-13,    0.85,      0.21,   0.05)
+    return (DD, nu, nus, ms_par) = [5.39e-13,    0.85,      0.21,   0.05]
 end
 
 
@@ -418,58 +419,77 @@ end
 #   4.35e-13
 # end
 
-function CV_simple_run(;pyplot=false)
+
+function CV_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms_names=[] )
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     
-    (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
-    (A0, R0, DGA, DGR, beta, A) =[23.0,   23.,    0.4,    0.4,    0.4,    0.8]
+    prms_names_in=["A0", "R0", "DGA", "DGR", "beta", "A"]
+    prms_values_in=get_shared_prms()
     
-    (DD, nu, nus, ms_par) = get_shared_add_prms()
-    #DD = new_common_DD() 
+    append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
+    append!(prms_values_in, get_shared_add_prms())
+    
+    append!(prms_names_in, prms_names)
+    append!(prms_values_in, prms_values)
 
-    CV_sim =  ysz_experiments.run_new(
-        out_df_bool=true, voltammetry=true, sample=8, pyplot_finall=false,
-        prms_in= (A0, R0, DGA, DGR, beta, A),
-        add_prms_in=(DD, nu, nus, ms_par)
+    CV_df = ysz_experiments.run_new(
+        out_df_bool=true, voltammetry=true, sample=8, pyplot=pyplot,
+        prms_names_in=prms_names_in,
+        prms_values_in=prms_values_in,
     )
     #@show CV_sim
     checknodes =  CV_get_shared_checknodes()
     if pyplot
-        figure(1)
-        CV_plot(CV_apply_checknodes(CV_sim,checknodes), "s_r")
-        CV_plot(CV_apply_checknodes(import_CVtoDataFrame(T=800, pO2=100),CV_get_shared_checknodes()), "exp")
+        figure(5)
+        CV_sim = CV_apply_checknodes(CV_df, checknodes)
+        CV_plot(CV_sim, "s_r")
+        if show_experiment
+          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(T=800, pO2=100), checknodes)
+          CV_plot(CV_exp, "exp")
+          println("CV_fitting error = ", CV_fitnessFunction(CV_exp, CV_sim))
+        end
     end    
     return
 end
 
-function EIS_simple_run(;pyplot=false, show_experiment=true, EIS_bias=0.0, prms=get_shared_prms(), add_prms=get_shared_add_prms())    
+function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms_names=[], EIS_bias=0.0)    
     
     #pO2_in_sim = 1.0
     #EIS_bias=1.0
-
-    (A0, R0, DGA, DGR, beta, A) = prms
-    #(A0, R0, DGA, DGR, beta, A) =[23.0,   23.,    0.4,    0.4,    0.4,    0.8]  
     
-    (DD, nu, nus, ms_par) = add_prms
-    #DD = new_common_DD()
+    prms_names_in=["A0", "R0", "DGA", "DGR", "beta", "A"]
+    prms_values_in=get_shared_prms()
+    
+    append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
+    append!(prms_values_in, get_shared_add_prms())
+    
+    append!(prms_names_in, prms_names)
+    append!(prms_values_in, prms_values)
+    
+    #prms_names_in = []
+    #prms_values_in = []
+    
+    #@show prms_names_in
+    #@show prms_values_in
+    
     
     EIS_df = ysz_experiments.run_new(
         pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
         dx_exp=-11,
         # TODO !!! T a pO2
-        prms_in=[A0, R0, DGA, DGR, beta, A],
-        add_prms_in=(DD, nu, nus, ms_par)
+        prms_names_in=prms_names_in,
+        prms_values_in=prms_values_in,
     )
     #@show EIS_df
     checknodes =  EIS_get_shared_checknodes()
     if pyplot
-        figure(2)
+        figure(6)
         EIS_sim = EIS_apply_checknodes(EIS_df,checknodes)
         Nyquist_plot(EIS_sim, "s_r $EIS_bias")
         if show_experiment
-          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=EIS_bias),EIS_get_shared_checknodes())
+          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=EIS_bias), checknodes)
           Nyquist_plot(EIS_exp, "exp $EIS_bias")
-          println("fitting error = ", EIS_fitnessFunction(EIS_exp, EIS_sim))
+          println("EIS_fitting error = ", EIS_fitnessFunction(EIS_exp, EIS_sim))
         end
     end
 end
@@ -714,7 +734,7 @@ function plot_all(df_list, prms_list)
     end
     
     CV_orig = import_CVtoDataFrame(;T=800,pO2=100)
-    #checknodes = get_checknodes(0.01,0.95,-0.95,-0.01,0.05)
+    #checknodes = CV_get_checknodes(0.01,0.95,-0.95,-0.01,0.05)
     checknodes = CV_get_shared_checknodes()
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_orig, checknodes))
     
@@ -738,7 +758,7 @@ function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
     end
 
     CV_orig = import_CVtoDataFrame(;T=T,pO2=pO2)
-    #checknodes = get_checknodes(0.01,0.95,-0.95,-0.01,0.05)
+    #checknodes = CV_get_checknodes(0.01,0.95,-0.95,-0.01,0.05)
     checknodes = CV_get_shared_checknodes()
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_orig, checknodes))
     
@@ -797,7 +817,7 @@ function CV_get_FF_interp_2D(CV_list, prm1_list, prm2_list; nx=20, ny=20, T=800,
     # ordered for prms A, B as [(A1,B1), (A1,B2), (A2,B1), (A2, B2)]
     # prms_list ordered as [A1 B1 A2 B2]
     CV_raw = import_CVtoDataFrame(;T=T,pO2=pO2)
-    checknodes = get_checknodes(0.05,0.95,-0.95,-0.05,0.01)
+    checknodes = CV_get_checknodes(0.05,0.95,-0.95,-0.05,0.01)
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_raw, checknodes))
     
     CV_with_checknodes_list = []
@@ -817,7 +837,7 @@ function CV_get_FF_interp_2D(CV_list, prm1_list, prm2_list; nx=20, ny=20, T=800,
         for iy in 1:ny
             x_matrix[ix, iy] = rx[ix]*(prm1_list[2]-prm1_list[1]).+prm1_list[1]
             y_matrix[ix, iy] = ry[iy]*(prm2_list[2]-prm2_list[1]).+prm2_list[1]
-            err_matrix[ix, iy] = fitnessFunction(
+            err_matrix[ix, iy] = CV_fitnessFunction(
                     CV_exp,
                     DataFrame(
                         U = checknodes[:,1], 
@@ -1500,13 +1520,13 @@ end
 #####################
 function get_FF_interp_1D(CV_list, prms_list; n=20)
     CV_raw = import_CVtoDataFrame(;T=800,pO2=100)
-    checknodes = get_checknodes(0.05,0.95,-0.95,-0.05,0.01)
+    checknodes = CV_get_checknodes(0.05,0.95,-0.95,-0.05,0.01)
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_raw, checknodes))
 
     CV1 = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_list[1],checknodes))
     CV2 = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_list[end],checknodes))
     node_list = range(0.0, stop=1.0, length=n)
-    err_list_interp = [fitnessFunction(
+    err_list_interp = [CV_fitnessFunction(
             CV_exp,
             DataFrame(
                 U = checknodes[:,1], 
@@ -1661,7 +1681,7 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
                 CV_plot(CV_sim)
             end
             
-            err += fitnessFunction(
+            err += CV_fitnessFunction(
                 CV_apply_checknodes(CV_sim, CV_get_shared_checknodes()), 
                 CV_exp
             )
@@ -1765,14 +1785,16 @@ end
 
 
 
-function par_study(;A0_list=[17,3,2,4,2,4,1], 
-                    R0_list=[16,17,3,2,1,4,5], 
-                    DGA_list=[0,3,4,2,4,6,2], 
-                    DGR_list=0, 
-                    beta_list=0.4,
-                    A_list=[0.2, 0.3], 
+function par_study(;prms_lists=(
+                    [17], 
+                    [16,17], 
+                    [0], 
+                    0, 
+                    0.4,
+                    [0.2, 0.3]
+                    ), 
                     save_dir="../snehurka/data/par_study_default/", scripted_tuple=(1, 0, 1, 0, 0, 0), prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), 
-                    CV_bool="false", EIS_bool="false", mode="test")
+                    CV_bool=false, EIS_bool=false, mode="test", physical_model_name="ysz_model_new_prms_exp_ads")
     
   function consistency_check()
       
@@ -1789,8 +1811,7 @@ function par_study(;A0_list=[17,3,2,4,2,4,1],
   EIS_good_counter::Int32 = 0
   all_counter::Int32 = 0
   
-  CV_bool == "true" ? (CV_bool=true) : (CV_bool=false)
-  EIS_bool == "true" ? (EIS_bool=true) : (EIS_bool=false)
+
 
   ##### TODO !!! ###
   EIS_bias = 0.0
@@ -1800,35 +1821,34 @@ function par_study(;A0_list=[17,3,2,4,2,4,1],
 
 
   if mode!="go"
-        println(" >> number of sets of parameters: ",
-        length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
-        @show A0_list
-        @show R0_list
-        @show DGA_list 
-        @show DGR_list 
-        @show beta_list
-        @show A_list
-        @show CV_bool, EIS_bool
-        return
+    #println(" >> number of sets of parameters: ",
+    #length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
+    @show prms_lists
+    @show prms_names
+    @show CV_bool, EIS_bool
+    return
   else
-    println(" >> number of sets of parameters: ",
-        length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
-    @show A0_list
-    @show R0_list
-    @show DGA_list
-    @show DGR_list 
-    @show beta_list
-    @show A_list
+    #println(" >> number of sets of parameters: ",
+    #    length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
+    @show prms_lists
+    @show prms_names
     @show CV_bool, EIS_bool
       
-    prms_lists=[A0_list, R0_list, DGA_list, DGR_list, beta_list, A_list]
+    #prms_lists=[A0_list, R0_list, DGA_list, DGR_list, beta_list, A_list]
         
     function perform_par_study(actual_prms)
       
       prms = actual_prms
-      (DD, nu, nus, ms_par) = get_shared_add_prms()
       
- 
+      prms_names_in=["A0", "R0", "DGA", "DGR", "beta", "A"]
+      prms_values_in=get_shared_prms()
+      
+      append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
+      append!(prms_values_in, get_shared_add_prms())
+      
+      append!(prms_names_in, prms_names)
+      append!(prms_values_in, prms)
+      
       string_prms_names = ""
       string_prms = ""
       overall_count = 1
@@ -1850,10 +1870,11 @@ function par_study(;A0_list=[17,3,2,4,2,4,1],
       if CV_bool
           try
               CV_sim = ysz_experiments.run_new(
-                              out_df_bool=true, voltammetry=true, sample=10,
-                              prms_in=prms,
-                              add_prms_in=(DD, nu, nus, ms_par)
-                          )
+                          physical_model_name=physical_model_name,
+                          out_df_bool=true, voltammetry=true, sample=8, pyplot=false,
+                          prms_names_in=prms_names_in,
+                          prms_values_in=prms_values_in,
+                      )
               CV_save_file_prms(CV_sim, save_dir, prms, prms_names, scripted_tuple)           
               CV_good_counter += 1
               print("   CV ok :)         ")
@@ -1869,12 +1890,13 @@ function par_study(;A0_list=[17,3,2,4,2,4,1],
       end
       if EIS_bool
           try
-              EIS_sim = ysz_experiments.run_new(
+              EIS_sim = ysz_experiments.run_new( 
+                          physical_model_name=physical_model_name,
                           pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-                          dx_exp=-8,
+                          dx_exp=-9,
                           # TODO !!! T a pO2
-                          prms_in=prms,
-                          add_prms_in=(DD, nu, nus, ms_par)
+                          prms_names_in=prms_names_in,
+                          prms_values_in=prms_values_in,
                       )
               EIS_save_file_prms(EIS_sim, save_dir, prms, prms_names, scripted_tuple)           
               EIS_good_counter += 1
@@ -1905,28 +1927,26 @@ function par_study_script_wrap(
                     save_dir="./kadinec/", 
                     scripted_tuple_string=("(1, 0, 0, 0, 0, 0)"),
                     prms_names_string="(\"A0\", \"R0\", \"DGA\", \"DGR\", \"beta\", \"A\")", 
-                    CV_bool="false", 
-                    EIS_bool="false", 
-                    mode="test")
+                    CV_bool_string="false", 
+                    EIS_bool_string="false", 
+                    mode="test",
+                    physical_model_name="nothing")
   
   prms_lists = eval(Meta.parse(prms_lists_string))
   scripted_tuple = eval(Meta.parse(scripted_tuple_string))
   prms_names = eval(Meta.parse(prms_names_string))
+  CV_bool = eval(Meta.parse(CV_bool_string))
+  EIS_bool = eval(Meta.parse(EIS_bool_string)) 
   
-  # TODO !!! more general for arbitraty number of parameters
   par_study( 
-                    A0_list=prms_lists[1], 
-                    R0_list=prms_lists[2], 
-                    DGA_list=prms_lists[3], 
-                    DGR_list=prms_lists[4], 
-                    beta_list=prms_lists[5], 
-                    A_list=prms_lists[6], 
+                    prms_lists=prms_lists,
                     save_dir=save_dir, 
                     scripted_tuple=scripted_tuple, 
                     prms_names=prms_names, 
                     CV_bool=CV_bool, 
                     EIS_bool=EIS_bool, 
-                    mode=mode)
+                    mode=mode,
+                    physical_model_name=physical_model_name)
 end
 
 
@@ -1946,6 +1966,7 @@ function meta_run_par_study()
                   $CV_bool 
                   $EIS_bool 
                   $mode
+                  $physical_model_name
       `)
     end
     if scripted_tuple[active_idx] == 1
@@ -1972,28 +1993,36 @@ function meta_run_par_study()
     return true
   end
   
+  
   # prms definition ####################################
-  prms_names = ("A0", "R0", "DGA", "DGR", "beta", "A")
-  prms_lists = (
-    collect(13 : 1.0 : 18),  
-    collect(13 : 4.0 : 18),  
-    collect(-0.4 : 0.5 : 0.3), 
-    collect(-0.7 : 1.5 : 0.0), 
-    collect(0.4),  
-    collect(-0.2 : 1.0 : 0.8)
-  )
-  scripted_tuple = (1, 0, 1, 0, 0, 0)
+  physical_model_name = "ysz_model_new_prms_exp_ads"
+  
+#   prms_names = ("A0", "R0", "DGA", "DGR", "nus", "A")
+#   prms_lists = (
+#     collect(13 : 9.0 : 18),  
+#     collect(13 : 9.0 : 18),  
+#     collect(-0.4 : 9.5 : 0.3), 
+#     collect(-0.7 : 9.5 : 0.0), 
+#     collect(0.66),  
+#     collect(-0.2 : 9.0 : 0.8)
+#   )
+#   scripted_tuple = (1, 0, 1, 0, 0, 0)
+#   
+  prms_names = ("m_par",)
+  prms_lists = (collect(2.2 : -0.1 : 1.8),)
+  scripted_tuple = (0,)
   #######################################################
   
   # preparing bash output ###############################
-  bash_command = "echo"
-  
-  run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
+  bash_command = "julia"
   
   save_dir = "../snehurka/data/prvni_metavrh/"
   CV_bool = "true"
   EIS_bool = "true"
+  
   mode = "go"
+  
+  run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
   #######################################################
 
   # counter of output files ... TODO !!!
@@ -2011,6 +2040,7 @@ function meta_run_par_study()
   # saving metafile   TODO!!!!
   println()
   metafile_string = "METAFILE for par_study\n"
+  metafile_string = string(metafile_string,"physical_model_name=", physical_model_name,"\n")
   prms_strings = [string(item) for item in prms_lists]
   for (i,str) in enumerate(prms_strings)
     metafile_string = string(metafile_string,prms_names[i],"_list=",str,"\n")

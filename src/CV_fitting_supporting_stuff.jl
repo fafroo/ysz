@@ -83,7 +83,7 @@ function biliComb_CVs(Q11,Q12,Q21,Q22,x,y)
     end
 end
 
-function fitnessFunction(exp_CV::DataFrame, sim_CV::DataFrame)
+function CV_fitnessFunction(exp_CV::DataFrame, sim_CV::DataFrame)
         if (count=size(exp_CV,1)) == size(sim_CV,1)
                 err = 0.0
                 for row = 1:count
@@ -126,7 +126,7 @@ function get_checknodes_short()
     ]
 end
 
-function get_checknodes(start_n,upper_n,lower_n,end_n,step_n)
+function CV_get_checknodes(start_n,upper_n,lower_n,end_n,step_n)
     # nodes of voltage U with direction of sweep where I will be fitted
     # [U direction; ... ]
     # the list must be sorted !!! w.r.t. U and direction 1 -> -1 -> 1

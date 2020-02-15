@@ -25,10 +25,11 @@ using LeastSquaresOptim
 include("../src/models/ysz_model_new_prms_exp_ads.jl")
 include("../prototypes/timedomain_impedance.jl")
 
-
-iphi=ysz_model_new_prms_exp_ads.iphi
-iy=ysz_model_new_prms_exp_ads.iy
-ib=ysz_model_new_prms_exp_ads.ib
+bulk_species = ysz_model_new_prms_exp_ads.bulk_species
+surface_species = ysz_model_new_prms_exp_ads.surface_species
+iphi = ysz_model_new_prms_exp_ads.iphi
+iy = ysz_model_new_prms_exp_ads.iy
+ib = ysz_model_new_prms_exp_ads.ib
 
 
 #using ysz_model_new_prms_exp_ads
@@ -39,14 +40,13 @@ ib=ysz_model_new_prms_exp_ads.ib
 
 
 
-function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
+function run_new(;physical_model_name="",
+                test=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
                 pO2_in=1.0, T_in=1073,
-                # prms = (A0, R0, DGA, DGR, beta, A)
-                prms_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
-                # add_prms = (DD, nu, nus, ms_par)
-                add_prms_in=[3.11e-13, 0.85, 0.21, 0.05],
+                prms_names_in=["A0", "R0", "DGA", "DGR", "beta", "A"],
+                prms_values_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
                 EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
                 voltammetry=false, voltrate=0.010, upp_bound=0.95, low_bound=-0.95, sample=30, dlcap=false,
                 EIS_TDS=false, tref=0
@@ -74,39 +74,34 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     #
     
     parameters=ysz_model_new_prms_exp_ads.YSZParameters()
-    # for a parametric study
-    eV = parameters.e0   # electronvolt [J] = charge of electron * 1[V]
-    parameters.A0 = 10.0^prms_in[1]      # [1 / s]
-    parameters.R0 = 10.0^prms_in[2]      # [1 / m^2 s]
+    ysz_model_new_prms_exp_ads.set_parameters!(parameters, prms_values_in, prms_names_in)
     if dlcap
         parameters.R0 = 0
-        if print_bool
+        if print_bool 
             println("dlcap > R0= ",parameters.R0)
         end
     end
-    parameters.DGA = prms_in[3] * eV    # [J]
-    parameters.DGR = prms_in[4] * eV    # [J]
-    parameters.beta = prms_in[5]       # [1]
-    parameters.A = 10.0^prms_in[6]        # [1]
-    
-    (parameters.DD, parameters.nu, parameters.nus, parameters.ms_par) = add_prms_in
     
     parameters.pO = pO2_in
     parameters.T = T_in
+    parameters.x_frac=0.13
     
-    if debug_print_bool
-        println("NEW ---- ")
-        println("prms = ",prms_in)
-        println("add_prms = (",parameters.DD,",",parameters.nu,",",parameters.nus,",",parameters.ms_par,")")
-        println("rest_prms = (",parameters.T,",",parameters.pO,")")
-    end
+    
+#     if debug_print_bool
+#         println("NEW ---- ")
+#         println("prms = ",prms_in)
+#         println("add_prms = (",parameters.DD,",",parameters.nu,",",parameters.nus,",",parameters.ms_par,")")
+#         println("rest_prms = (",parameters.T,",",parameters.pO,")")
+#     end
     
     # update the "computed" values in parameters
-    parameters = ysz_model_new_prms_exp_ads.YSZParameters_update(parameters)
+    parameters = ysz_model_new_prms_exp_ads.YSZParameters_update!(parameters)
 
+    ysz_model_new_prms_exp_ads.printfields(parameters)
+    
     physics=VoronoiFVM.Physics(
         data=parameters,
-        num_species=3,
+        num_species=size(bulk_species,1)+size(surface_species,1),
         storage=ysz_model_new_prms_exp_ads.storage!,
         flux=ysz_model_new_prms_exp_ads.flux!,
         reaction=ysz_model_new_prms_exp_ads.reaction!,
@@ -120,42 +115,25 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
 
     #sys=VoronoiFVM.SparseSystem(grid,physics)
     sys=VoronoiFVM.DenseSystem(grid,physics)
-    enable_species!(sys,iphi,[1])
-    enable_species!(sys,iy,[1])
-    enable_boundary_species!(sys,ib,[1])
-
-
-    #
-    #sys.boundary_values[iphi,1]=1.0e-0
-    sys.boundary_values[iphi,2]=0.0e-3
-    #
-    sys.boundary_factors[iphi,1]=VoronoiFVM.Dirichlet
-    sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
-    #
-    sys.boundary_values[iy,2]=parameters.y0
-    sys.boundary_factors[iy,2]=VoronoiFVM.Dirichlet
-    #
-    inival=unknowns(sys)
-    inival.=0.0
-    #
-    
-    phi0 = ysz_model_new_prms_exp_ads.equil_phi(parameters)
-    if print_bool
-        println("phi0 = ",phi0)
+    for idx in bulk_species
+      enable_species!(sys, idx, [1])
     end
+    for idx in surface_species
+      enable_boundary_species!(sys, idx, [1])
+    end
+
+    # boundary conditions
+    ysz_model_new_prms_exp_ads.set_typical_boundary_conditions!(sys, parameters)
+    
+    # initial value of type unknows(sys)
+    inival = ysz_model_new_prms_exp_ads.get_typical_initial_conditions(sys, parameters)
+    
+    # equilibrium voltage
+    phi0 = ysz_model_new_prms_exp_ads.equil_phi(parameters)
     if dlcap
         phi0 = 0
-        if print_bool
-            println("dlcap > phi0= ", phi0)
-        end
     end
 
-
-    for inode=1:size(inival,2)
-        inival[iphi,inode]=0.0
-        inival[iy,inode]= parameters.y0
-    end
-    inival[ib,1]=parameters.y0
 
     #
     control=VoronoiFVM.NewtonControl()
@@ -179,23 +157,15 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         # Transient part of measurement functional 
         #
         function meas_tran(meas, u)
-            U=reshape(u,sys)
-            Qb= - integrate(sys,ysz_model_new_prms_exp_ads.reaction!,U) # \int n^F            
-            dphi_end = U[iphi, end] - U[iphi, end-1]
-            dx_end = X[end] - X[end-1]
-            dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-            Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-            meas[1]= AreaEllyt*(-Qs[1]-Qb[iphi])
+          ysz_model_new_prms_exp_ads.meas_tran(meas, u, sys, parameters, AreaEllyt, X)
         end
-
         #
         # Steady part of measurement functional
         #
         function meas_stdy(meas, u)
-            U=reshape(u,sys)
-            meas[1]=AreaEllyt*(-2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters, U[ib,1]))
+          ysz_model_new_prms_exp_ads.meas_stdy(meas, u, sys, parameters, AreaEllyt, X)
         end
-
+        
         #
         # The overall measurement (in the time domain) is meas_stdy(u)+ d/dt meas_tran(u)
         #
@@ -367,7 +337,6 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
         phi=0
         phi_prev = 0
         phi_out = 0
-    #        phi=phi0
 
         # inicializing storage lists
         y0_range=zeros(0)
@@ -482,8 +451,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             
             
             # reaction average
-            reac = - 2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters, U[ib,1])
-            reacd = - 2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters,U0[ib,1])
+            reac = - 2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters, U[:,1])
+            reacd = - 2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters,U0[:,1])
             Ir= 0.5*(reac + reacd)
 
             #############################################################
@@ -525,7 +494,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
             # plotting                  
 
 
-            if pyplot && istep%10 == 0
+            if pyplot && istep%2 == 0
 
                 num_subplots=4
                 ys_marker_size=4
