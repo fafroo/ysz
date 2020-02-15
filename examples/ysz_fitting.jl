@@ -1,9 +1,10 @@
 module ysz_fitting
 #######################
-# TODO 
+####### TODO ##########
 # [!] general global search using projection to each variable
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [ ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
+# [ ] spoustet run_new() v ruznych procedurach stejnou funkci "EIS_default_run_new( ... )"
 # [x] implement LM algorithm
 # [ ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
 # [x] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
@@ -20,8 +21,18 @@ module ysz_fitting
 # [ ] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry
 # ---[ ] a taky geometriemi :)
 # ---[ ] pravdepodobne to znamena posilat YSZ::parameters primo z par_study... nebo proste pri volani run_new()
+# ---[ ] nebo definovat sadu parametru jako mapu a pristupovat k ni primo dle jmena parametry 
 # [ ] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
 # ---[ ] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
+# 
+# #### Fitting process
+# [!] prozkoumat experimentalni data (a udelat prislusne procedury)
+# [o] non-gas-ads-model
+# ---[ ] find best add_prms (from cap. fitting)
+# ---[ ] find best prms for both EIS and CV
+# ------[x] fing best prms for EIS
+# ------[ ] fing best prms for CV
+# ---[o] try perturbate add prms by par_study
 #######################
 
 
@@ -223,7 +234,33 @@ function get_prms_from_indicies(prms_lists, tuple)
 end
 
 ############## import large amount of data ##########
-function import_par_study(;save_dir="../snehurka/data/", name::String="", prms_lists=[13, 13, 0.10, 0.10, 0.4, 0.0], prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(1,1,0,0,0,0), EIS_bool=false, CV_bool=false, verbose=false)
+function import_par_study_from_metafile(;save_dir="../snehurka/data/", name="", metafile_name="_metafile_par_study.txt", CV_bool=false, EIS_bool=false, verbose=false)
+  prms_lists = []
+  prms_names = []
+  scripted_tuple = []
+  #EIS_bool = false
+  #CV_bool = false
+  
+  file_lines = readlines(string(save_dir,name,"/",metafile_name))
+  for str in file_lines
+    if occursin('=',str)
+      (token_name,token_value)=split(str,"=")
+      token_name=="prms_lists" && (prms_lists = eval(Meta.parse(token_value)))
+      token_name=="prms_names" && (prms_names = eval(Meta.parse(token_value)))
+      token_name=="scripted_tuple" && (scripted_tuple = eval(Meta.parse(token_value)))
+      #name=="CV_bool" && (CV_bool = eval(Meta.parse(value)))
+      #name=="EIS_bool" && (EIS_bool = eval(Meta.parse(value)))    
+    end
+  end
+  #@show prms_lists
+  #@show prms_names
+  #@show scripted_tuple
+
+  (import_par_study(save_dir=save_dir, name=name, prms_lists=prms_lists, prms_names=prms_names, scripted_tuple=scripted_tuple, CV_bool=CV_bool,  EIS_bool=EIS_bool, verbose=verbose), prms_lists, scripted_tuple, prms_names)
+end
+
+
+function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13, 13, 0.10, 0.10, 0.4, 0.0], prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(1,1,0,0,0,0), EIS_bool=false, CV_bool=false, verbose=false)
   
   save_dir_forwarded = string(save_dir, name, "/")
   if CV_bool
@@ -277,18 +314,7 @@ function import_par_study(;save_dir="../snehurka/data/", name::String="", prms_l
   end
 end
 
-function display_it()
-  scripted_tuple = (1,1,0,0,0,0)
-prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
-  name = "prvni_vrh_lin_ads"
-  EIS_hypercube = 
-  for i in 1:size(EIS_hypercube,2)
-    Nyquist_plot(EIS_hypercube[1,i,1,1,1,1])
-  end
-end
-
-function EIS_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"))
-  
+function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"))
   #scripted_tuple = (1,1,0,0,0,0)
 #prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
   #name = "prvni_vrh_lin_ads"
@@ -318,22 +344,72 @@ function EIS_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0
   end
   for_each_indicies_in_prms_lists(prms_lists, perform_error_projection)
   
-  @show last(error_df,10)
   sort!(error_df, :error)
-   
-  @show last(error_df,10)
   
-  range_to_display = 1:100
+
+  error_df
+end
+
+function display_err_projection(error_df, prms_lists, prms_names, count)
+  range_to_display = 1:count
+  figure(4)
   for i in 1:6
     subplot(230+i)
     title(prms_names[i])
-    plot([prms_lists[i][item[i]] for item in error_df.prms_indicies[range_to_display]], error_df.error[range_to_display])
+    plot([prms_lists[i][item[i]] for item in error_df.prms_indicies[range_to_display]], error_df.error[range_to_display], "x")
   end
-  error_df
 end
+
+function display_the_best(err_df, EIS_hypercube, prms_lists, count)
+  figure(3)
+  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=0.0),EIS_get_shared_checknodes())
+  Nyquist_plot(EIS_exp, "exp")
+  for i in 1:count
+    Nyquist_plot(EIS_hypercube[err_df.prms_indicies[i]...], "$(i): $(get_prms_from_indicies(prms_lists, err_df.prms_indicies[i]))")
+  end
+end
+
+
 #####################################################
-
-
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
 # function new_common_DD()
 #   4.35e-13
 # end
@@ -364,6 +440,33 @@ end
 
 function EIS_simple_run(;pyplot=false)    
     
+    #pO2_in_sim = 1.0
+    EIS_bias=1.0
+
+    (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
+    #(A0, R0, DGA, DGR, beta, A) =[23.0,   23.,    0.4,    0.4,    0.4,    0.8]  
+    
+    (DD, nu, nus, ms_par) = get_shared_add_prms()
+    #DD = new_common_DD()
+    
+    EIS_df = ysz_experiments.run_new(
+        pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+        dx_exp=-11,
+        # TODO !!! T a pO2
+        prms_in=[A0, R0, DGA, DGR, beta, A],
+        add_prms_in=(DD, nu, nus, ms_par)
+    )
+    #@show EIS_df
+    checknodes =  EIS_get_shared_checknodes()
+    if pyplot
+        figure(2)
+        Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r $EIS_bias")
+        Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=EIS_bias),EIS_get_shared_checknodes()), "exp $EIS_bias")
+    end
+end
+
+function EIS_small_study(;pyplot=false)    
+    
 #    pO2_in_sim = 1.0
     #EIS_bias=1.0
     for EIS_bias in [-1.0, -0.5, 0.0, 0.5, 1.0]
@@ -389,6 +492,48 @@ function EIS_simple_run(;pyplot=false)
       end
     end
 end
+
+
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
 
 # # # function get_dfs_to_interpolate(
 # # #                             EIS_bool=true, pyplot=false,
@@ -1740,72 +1885,7 @@ function par_study(;A0_list=[17,3,2,4,2,4,1],
     end
         
     for_each_prms_in_prms_lists(prms_lists, perform_par_study)
-    
-#     for A0_i in A0_list
-#         for R0_i in R0_list
-#             for DGA_i in DGA_list
-#                 for DGR_i in DGR_list
-#                     for beta_i in beta_list
-#                         for A_i in A_list
-#                         
-#                             all_counter = all_counter + 1
-#                             println(string(" <><><><><><><><><><><><> all_counter <><><> calculating ",all_counter," of ", 
-#                                 length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list)))
-#                             print("parameters: (A0, R0, DGA, DGR, beta, A) = (",A0_i,", ",R0_i,", ",DGA_i,", ",DGR_i,", ",beta_i,", ",A_i,")")
-#                         
-#                             prms = (A0_i, R0_i, DGA_i, DGR_i, beta_i, A_i)
-#                             (DD, nu, nus, ms_par) = get_shared_add_prms()
-#                             
-#                             if CV_bool
-#                                 try
-#                                     CV_sim = ysz_experiments.run_new(
-#                                                     out_df_bool=true, voltammetry=true, sample=10,
-#                                                     prms_in=prms,
-#                                                     add_prms_in=(DD, nu, nus, ms_par)
-#                                                 )
-#                                     CV_save_file_prms(CV_sim, save_dir, prms, prms_names, scripted_tuple)           
-#                                     CV_good_counter += 1
-#                                     print("   CV ok :)         ")
-#                                  catch e
-#                                     if e isa InterruptException
-#                                         rethrow(e)
-#                                     else
-#                                         println(e)
-#                                         CV_err_counter += 1
-#                                         print("<<<<< CV FAIL! >>>>>")
-#                                     end
-#                                 end
-#                             end
-#                             if EIS_bool
-#                                 try
-#                                     EIS_sim = ysz_experiments.run_new(
-#                                                 pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-#                                                 dx_exp=-8,
-#                                                 # TODO !!! T a pO2
-#                                                 prms_in=prms,
-#                                                 add_prms_in=(DD, nu, nus, ms_par)
-#                                             )
-#                                     EIS_save_file_prms(EIS_sim, save_dir, prms, prms_names, scripted_tuple)           
-#                                     EIS_good_counter += 1
-#                                     print("   EIS ok :)        ")
-#                                  catch e
-#                                     if e isa InterruptException
-#                                         rethrow(e)
-#                                     else
-#                                         println(e)
-#                                         EIS_err_counter += 1
-#                                         print("<<<<< EIS FAIL! >>>>")
-#                                     end
-#                                 end
-#                             end
-#                         
-#                             println()
-#                         end
-#                     end
-#                 end
-#             end
-#         end
-#     end
+
     println(string("<<<<< CV_err_count/ CV_good_count >>> ", CV_err_counter,"  /  ", CV_good_counter), 
                     string(" |||||| EIS_err_count/ EIS_good_count >>> ", EIS_err_counter,"  /  ", EIS_good_counter, " >>>>>>>"))
   end
@@ -1939,7 +2019,7 @@ function meta_run_par_study()
   
   println(metafile_string)
   run(`mkdir -p $(save_dir)`)
-  write("$(save_dir)_metafile_par_study.txt", metafile_string)
+  write("$(save_dir)__metafile_par_study.txt", metafile_string)
   
   
 

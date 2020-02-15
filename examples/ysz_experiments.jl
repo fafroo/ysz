@@ -56,7 +56,7 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
 
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
-    AreaEllyt = 0.018849556 * 0.7        # m^2
+    AreaEllyt = 0.018849556 * 0.7        # m^2 (geometrical area)*(1 - porosity)
     #width_Ellyt = 0.00045           # m     width of the half-cell
     #width_Ellyt = 0.0005           # m     width of the half-cell
     if dlcap
@@ -167,8 +167,6 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, out_df_b
     control.max_lureuse=0
     control.damp_initial=1.0e-6
     control.damp_growth=1.3
-    time=0.0
- 
     
     #####################################
     #####################################
