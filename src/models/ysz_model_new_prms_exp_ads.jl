@@ -7,12 +7,9 @@ using DataFrames
 using CSV
 using LeastSquaresOptim
 
-
-export iphi, iy, ib
-const iphi=1
-const iy=2
-const ib=3
-
+const bulk_species = (iphi, iy) = (1, 2)
+const surface_species = (ib) = (3)
+#const surface_species = (iyas, iyos) = (3, 4)
 
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
 
@@ -82,16 +79,16 @@ function YSZParameters(this)
     
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
-    this.DD=9.5658146540360312e-10  # some value  <<<< nearly the BEST hand-guess
-    #this.DD=9.5658146540360312e-11  # testing value
+    #this.DD=9.5658146540360312e-10  # some value  <<<< nearly the BEST hand-guess
+    this.DD=4.35e-13  # testing value
     this.pO=1.0                   # O2 atmosphere 
     this.T=1073                     
-    this.nu=0.9                     # assumption
-    this.nus=0.9                    # assumption
-    this.x_frac=0.08                # 8% YSZ
+    this.nu=0.85                     # assumption
+    this.nus=0.21                    # assumption
+    this.x_frac=0.13                # 13% YSZ
     this.chi=27.e0                  # from relative permitivity e_r = 6 = (1 + \chi) ... TODO reference
-    this.m_par = 2                  
-    this.ms_par = this.m_par        
+    this.m_par =  2                 
+    this.ms_par = 0.05        
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)
     
@@ -107,7 +104,7 @@ function YSZParameters(this)
     return this
 end
 
-function YSZParameters_update(this)
+function YSZParameters_update!(this::YSZParameters)
     this.areaL=(this.vL)^0.6666
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)   
@@ -118,7 +115,6 @@ function YSZParameters_update(this)
     return this
 end
 
-
 function printfields(this)
     for name in fieldnames(typeof(this))
         @printf("%8s = ",name)
@@ -126,8 +122,55 @@ function printfields(this)
     end
 end
 
+function set_parameters!(this::YSZParameters, prms_values, prms_names)
+  found = false
+  for (i,name_in) in enumerate(prms_names)
+    found = false
+    for name in fieldnames(typeof(this))
+      if name==Symbol(name_in)
+        if name_in=="A0" || name_in=="R0" || name_in=="A"
+          setfield!(this, name, Float64(10^prms_values[i]))
+        elseif name_in=="DGA" || name_in=="DGR" || name_in=="DGO"
+          setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
+        else
+          setfield!(this, name, Float64(prms_values[i]))
+        end
+        found = true
+        break
+      end
+    end
+    if !(found)
+      println("ERROR: set_parameters: parameter name \"$(name_in)\" not found!")
+      throw(Exception)
+    end
+  end
+end
 
 
+
+# boundary conditions
+function set_typical_boundary_conditions!(sys, parameters::YSZParameters)
+    #sys.boundary_values[iphi,1]=1.0e-0
+    sys.boundary_values[iphi,2]=0.0e-3
+    #
+    sys.boundary_factors[iphi,1]=VoronoiFVM.Dirichlet
+    sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
+    #
+    sys.boundary_values[iy,2]=parameters.y0
+    sys.boundary_factors[iy,2]=VoronoiFVM.Dirichlet
+end
+
+function get_typical_initial_conditions(sys, parameters::YSZParameters)
+    inival=unknowns(sys)
+    inival.=0.0
+    #
+    for inode=1:size(inival,2)
+        inival[iphi,inode]=0.0
+        inival[iy,inode]= parameters.y0
+    end
+    inival[ib,1] = parameters.y0
+    return inival
+end
 
 # time derivatives
 function storage!(f,u, node, this::YSZParameters)
@@ -182,11 +225,11 @@ function electroreaction(this::YSZParameters, u)
             this.R0
             *(
                 exp(-this.beta*this.A*this.DGR/(this.kB*this.T))
-                *(u/(1-u))^(-this.beta*this.A)
+                *(u[ib]/(1-u[ib]))^(-this.beta*this.A)
                 *(this.pO)^(this.beta*this.A/2.0)
                 - 
                 exp((1.0-this.beta)*this.A*this.DGR/(this.kB*this.T))
-                *(u/(1-u))^((1.0-this.beta)*this.A)
+                *(u[ib]/(1-u[ib]))^((1.0-this.beta)*this.A)
                 *(this.pO)^(-(1.0-this.beta)*this.A/2.0)
             )
         )
@@ -221,29 +264,10 @@ function exponential_adsorbtion(this::YSZParameters, u)
     end
 end
 
-# function linear_adsorbtion(this::YSZParameters, u)
-#   if this.A0 > 0
-#     rate = (
-#       this.A0
-#             *(
-#                 - this.DGA/(this.kB*this.T) 
-#                 +    
-#                 log(u[iy]*(1-u[ib]))
-#                 - 
-#                 log(u[ib]*(1-u[iy]))
-#                 
-#             )
-#     
-#     )
-#   else
-#     rate = 0
-#   end
-# end
-
 # surface reaction + adsorbtion
 function breaction!(f,u,node,this::YSZParameters)
     if  node.region==1
-        electroR=electroreaction(this,u[ib])
+        electroR=electroreaction(this,u)
         adsorbtion = exponential_adsorbtion(this, u)
         f[iy]= this.mO*adsorbtion
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
@@ -267,7 +291,7 @@ function direct_capacitance(this::YSZParameters, domain)
         if abs(PHI[i]) < my_eps
             PHI[i]=my_eps
         end
-    end
+    end 
     #
     #yB = -this.zL/this.zA/this.m_par/(1-this.nu);
     yB = this.y0
@@ -307,6 +331,28 @@ end
 function equil_phi(this::YSZParameters)
     B = exp( - (- this.DGA + this.DGR) / (this.kB * this.T))*this.pO^(1/2.0)
     return y0_to_phi(this, B/(1+B))
+end
+
+#
+# Transient part of measurement functional 
+#
+
+function meas_tran(meas, u, sys, parameters, AreaEllyt, X)
+    U=reshape(u,sys)
+    Qb= - integrate(sys,reaction!,U) # \int n^F            
+    dphi_end = U[iphi, end] - U[iphi, end-1]
+    dx_end = X[end] - X[end-1]
+    dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
+    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+    meas[1]= AreaEllyt*(-Qs[1]-Qb[iphi])
+end
+
+#
+# Steady part of measurement functional
+#
+function meas_stdy(meas, u, sys, parameters, AreaEllyt, X)
+    U=reshape(u,sys)
+    meas[1]=AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
 end
 
 
