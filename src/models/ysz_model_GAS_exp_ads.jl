@@ -1,4 +1,4 @@
-module ysz_model_new_prms_exp_ads
+module ysz_model_GAS_exp_ads
 
 using Printf
 using VoronoiFVM
@@ -8,27 +8,32 @@ using CSV
 using LeastSquaresOptim
 
 const bulk_species = (iphi, iy) = (1, 2)
-const surface_species = (ib) = (3)
+const surface_species = (ib, iyos) = (3, 4)
 const surface_names = ("iyas", "iyos")
-#const surface_species = (iyas, iyos) = (3, 4)
 
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
 
-    # to fit
-    A0::Float64   # surface adsorbtion coefficient [ m^-2 s^-1 ]
-    DGA::Float64 # difference of gibbs free energy of adsorbtion  [ J ]
-    betaA::Float64 # symmetry of the adsorbtion    
-    SA::Float64 # stechiometry compensatoin of the adsorbtion
-    
+    # adsorption from YSZ
+    A0::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
+    DGA::Float64 # difference of gibbs free energy of adsorption  [ J ]
+    betaA::Float64 # symmetry of the adsorption    
+    SA::Float64 # stechiometry compensatoin of the adsorption
+
+    # electroreaction
     R0::Float64 # exhange current density [m^-2 s^-1]
     DGR::Float64 # difference of gibbs free energy of electrochemical reaction [ J ]
     betaR::Float64 # symmetry of the electroreaction
     SR::Float64 # stechiometry compensatoin of the electroreaction
     
+    # adsorption from gas
+    K0::Float64 
+    DGO::Float64
+    betaO::Float64
+    SO::Float64
     
     # fixed
     DD::Float64   # diffusion coefficient [m^2/s]
-    pO2::Float64 # O2 partial pressure [bar]
+    pO2::Float64 # O2 partial pressure [bar]\z
     T::Float64      # Temperature [K]
     nu::Float64    # ratio of immobile ions, \nu [1]
     nus::Float64    # ratio of immobile ions on surface, \nu_s [1]
@@ -70,14 +75,20 @@ function YSZParameters(this)
     this.mY  = 88.91/1000/this.N_A #  [kg/#]
 
 
-    this.A0= 10.0^21.71975544711280
-    this.R0= 10.0^20.606423236896422
+    this.A0= 10.0^21
     this.DGA= 0.0905748 * this.e0 # this.e0 = eV
-    this.DGR= -0.708014 * this.e0
-    this.betaR= 0.6074566741435283
     this.betaA = 0.5
-    this.SR= 10.0^0.1
     this.SA= 1.0
+    
+    this.R0= 10.0^22
+    this.DGR= -0.708014 * this.e0
+    this.betaR= 0.5
+    this.SR= 1.0
+    
+    this.K0= 10.0^20
+    this.DGO= 0.0905748 * this.e0 # this.e0 = eV
+    this.betaO = 0.5
+    this.SO= 1.0
     
     
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
@@ -131,9 +142,9 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
     found = false
     for name in fieldnames(typeof(this))
       if name==Symbol(name_in)
-        if name_in=="A0" || name_in=="R0" || name_in=="SR"
+        if name_in in ["A0", "R0", "K0", "SA", "SR", "SO"]
           setfield!(this, name, Float64(10^prms_values[i]))
-        elseif name_in=="DGA" || name_in=="DGR" || name_in=="DGO"
+        elseif name_in in ["DGA", "DGR", "DGO"]
           setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
         else
           setfield!(this, name, Float64(prms_values[i]))
@@ -172,6 +183,7 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
         inival[iy,inode]= parameters.y0
     end
     inival[ib,1] = parameters.y0
+    inival[iyos,1] = parameters.y0
     return inival
 end
 
@@ -184,8 +196,7 @@ end
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
         f[ib]=this.mO*this.ms_par*(1.0-this.nus)*u[ib]/this.areaL
-    else
-        f[ib]=0
+        f[iyos]=this.mO*u[iyos]/(4*this.areaL)
     end
 end
 
@@ -225,15 +236,15 @@ end
 function electroreaction(this::YSZParameters, u)
     if this.R0 > 0
         eR = (
-            this.R0
+            (this.R0/this.SR)
             *(
                 exp(-this.betaR*this.SR*this.DGR/(this.kB*this.T))
                 *(u[ib]/(1-u[ib]))^(-this.betaR*this.SR)
-                *(this.pO2)^(this.betaR*this.SR/2.0)
+                *(u[iyos]/(1-u[iyos]))^(this.betaR*this.SR)
                 - 
                 exp((1.0-this.betaR)*this.SR*this.DGR/(this.kB*this.T))
                 *(u[ib]/(1-u[ib]))^((1.0-this.betaR)*this.SR)
-                *(this.pO2)^(-(1.0-this.betaR)*this.SR/2.0)
+                *(u[iyos]/(1-u[iyos]))^(-(1.0-this.betaR)*this.SR)
             )
         )
     else
@@ -241,10 +252,29 @@ function electroreaction(this::YSZParameters, u)
     end
 end
 
-function exponential_adsorbtion(this::YSZParameters, u)
+function exponential_gas_adsorption(this::YSZParameters, u)
+    if this.A0 > 0
+        eR = (
+            (this.K0/this.SO)
+            *(
+                exp(-this.betaO*this.SO*this.DGO/(this.kB*this.T))
+                *(u[iyos]/(1-u[iyos]))^(-2*this.betaO*this.SO)
+                *(this.pO2)^(this.betaO*this.SO)
+                - 
+                exp((1.0-this.betaO)*this.SO*this.DGO/(this.kB*this.T))
+                *(u[iyos]/(1-u[iyos]))^(2*(1.0-this.betaO)*this.SO)
+                *(this.pO2)^(-(1.0-this.betaO)*this.SO)
+            )
+        )
+    else
+        rate=0
+    end
+end
+
+function exponential_oxide_adsorption(this::YSZParameters, u)
     if this.A0 > 0
         rate = (
-            this.A0
+            (this.A0/this.SA)
             *(
                 exp(-this.betaA*this.SA*this.DGA/(this.kB*this.T))
                 *(
@@ -267,15 +297,18 @@ function exponential_adsorbtion(this::YSZParameters, u)
     end
 end
 
-# surface reaction + adsorbtion
+
+# surface reaction + adsorption
 function breaction!(f,u,node,this::YSZParameters)
     if  node.region==1
         electroR=electroreaction(this,u)
-        adsorbtion = exponential_adsorbtion(this, u)
-        f[iy]= this.mO*adsorbtion
+        oxide_ads = exponential_oxide_adsorption(this, u)
+        gas_ads = exponential_gas_adsorption(this, u)
+        f[iy]= this.mO*oxide_ads
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
         # sign is negative bcs of the equation implementation
-        f[ib]= - this.mO*electroR - this.mO*adsorbtion
+        f[ib]= - this.mO*electroR - this.mO*oxide_ads
+        f[iyos]= this.mO*electroR - this.mO*2*gas_ads
         f[iphi]=0
     else
         f[iy]=0
