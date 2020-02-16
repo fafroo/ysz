@@ -2,7 +2,7 @@ module ysz_fitting
 #######################
 ####### TODO ##########
 # [ ] better ramp and maybe sending steady solution via parameter in advance
-# [!] general global search using projection to each variable
+# [x] general global search using projection to each variable
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [ ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
 # [ ] spoustet run_new() v ruznych procedurach stejnou funkci "EIS_default_run_new( ... )"
@@ -13,18 +13,17 @@ module ysz_fitting
 # [?] aplikovat masku pro fitting pro scan_2D_recursive
 # [o] snehurka, velke objemy dat, maska a metafile
 # ---[x] save_dir preposilany parametrem a odlisit scripted_dir
-# ---[ ] sneh - zadavani i jinych parametru nez prms
+# ---[x] sneh - zadavani i jinych parametru nez prms
 # ---[x] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
 # ---[?] mozna pouzit precompile
 # ---[ ] nechat meta_run_par_study() vytvorit skriptovaci soubor (dle poctu parametru, module, pocet experimentu)
 # [!] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI" -> JUERGEN
 # ---[!] zadavani modulu by melo byt v hlavicce meta_run_par_study()
-# [ ] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry
-# ---[ ] a taky geometriemi :)
-# ---[ ] pravdepodobne to znamena posilat YSZ::parameters primo z par_study... nebo proste pri volani run_new()
-# ---[ ] nebo definovat sadu parametru jako mapu a pristupovat k ni primo dle jmena parametry 
+# [x] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry 
 # [ ] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
 # ---[ ] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
+#
+# [!!!!!!] napocitat equilibrium case
 # 
 # #### Fitting process
 # [!] prozkoumat experimentalni data (a udelat prislusne procedury)
@@ -64,7 +63,7 @@ function EIS_get_shared_omega_range()
 end
 
 function EIS_get_shared_checknodes()
-    return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()[1], EIS_get_shared_omega_range()[2], EIS_get_shared_omega_range()[3])
+    return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()...)
 end
 
 function get_shared_prms()
@@ -239,7 +238,7 @@ function get_prms_from_indicies(prms_lists, tuple)
 end
 
 ############## import large amount of data ##########
-function import_par_study_from_metafile(;save_dir="../snehurka/data/", name="", metafile_name="_metafile_par_study.txt", CV_bool=false, EIS_bool=false, verbose=false)
+function import_par_study_from_metafile(;save_dir="../snehurka/data/", name="", metafile_name="__metafile_par_study.txt", CV_bool=false, EIS_bool=false, verbose=false)
   prms_lists = []
   prms_names = []
   scripted_tuple = []
@@ -319,13 +318,20 @@ function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13
   end
 end
 
-function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"))
+function EIS_test_checknodes_range(omega_range=EIS_get_shared_omega_range())
+  Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(T=800,pO2=100,bias=0.0),EIS_get_checknodes_geometrical(omega_range...)))
+end
+
+function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), omega_range=EIS_get_shared_omega_range())
   #scripted_tuple = (1,1,0,0,0,0)
 #prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
   #name = "prvni_vrh_lin_ads"
   
+  checknodes = EIS_get_checknodes_geometrical(omega_range...)
+  
+  
   # TODO !!! constants
-  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=0.0),EIS_get_shared_checknodes())
+  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=0.0), checknodes)
   
   error_df = DataFrame(error = [], prms_indicies = [])
   function perform_error_projection(prms_indicies)
@@ -339,7 +345,7 @@ function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=
       push!(error_df, 
         (EIS_fitnessFunction(
           EIS_exp,
-          EIS_apply_checknodes(EIS_hypercube[prms_indicies...], EIS_get_shared_checknodes())
+          EIS_apply_checknodes(EIS_hypercube[prms_indicies...], checknodes)
           )
           , 
           prms_indicies
@@ -2038,7 +2044,7 @@ function meta_run_par_study()
   
   
   # saving metafile   TODO!!!!
-  println()
+
   metafile_string = "METAFILE for par_study\n"
   metafile_string = string(metafile_string,"physical_model_name=", physical_model_name,"\n")
   prms_strings = [string(item) for item in prms_lists]
@@ -2056,7 +2062,7 @@ function meta_run_par_study()
   metafile_string = string(metafile_string,"run_file_name=", run_file_name,"\n")
   metafile_string = string(metafile_string,"prms_lists=", prms_lists,"\n")
   
-  println(metafile_string)
+
   run(`mkdir -p $(save_dir)`)
   write("$(save_dir)__metafile_par_study.txt", metafile_string)
   
@@ -2071,7 +2077,8 @@ function meta_run_par_study()
   recursive_bash_call([], 1)
     
   println("ok :) ")
-  
+  println()
+  println(metafile_string)
 end
         
 

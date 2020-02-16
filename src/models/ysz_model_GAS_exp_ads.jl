@@ -1,5 +1,16 @@
 module ysz_model_GAS_exp_ads
 
+#############################################
+# WHILE CREATING NEW MODEL                  #
+# DO NOT FORGET TO CHECK                    #
+#
+# [ ] boundary conditions
+# [ ] initial conditions
+# [ ] equilibrium phi
+# [ ] meas_tran & meas_stdy
+# [ ] output species, names
+# [ ] function set_parameters
+
 using Printf
 using VoronoiFVM
 using PyPlot
@@ -105,7 +116,7 @@ function YSZParameters(this)
     this.ms_par = 0.05        
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)
-    
+
     this.vL=3.35e-29
     this.areaL=(this.vL)^0.6666
     this.zA  = -2;
@@ -232,7 +243,33 @@ function reaction!(f,u, node, this::YSZParameters)
     f[iy]=0
 end
 
-# surface reaction
+# surface reactions
+function exponential_oxide_adsorption(this::YSZParameters, u)
+    if this.A0 > 0
+        rate = (
+            (this.A0/this.SA)
+            *(
+                exp(-this.betaA*this.SA*this.DGA/(this.kB*this.T))
+                *(
+                  (u[iy]/(1-u[iy]))
+                  *
+                  ((1-u[ib])/u[ib])
+                )^(this.betaA*this.SA)
+                - 
+                exp((1 - this.betaA)*this.SA*this.DGA/(this.kB*this.T))
+                *(
+                  (u[iy]/(1-u[iy]))
+                  *
+                  ((1-u[ib])/u[ib])
+                )^(-(1 - this.betaA)*this.SA)
+                
+            )
+        )
+    else
+        rate=0
+    end
+end
+
 function electroreaction(this::YSZParameters, u)
     if this.R0 > 0
         eR = (
@@ -264,32 +301,6 @@ function exponential_gas_adsorption(this::YSZParameters, u)
                 exp((1.0-this.betaO)*this.SO*this.DGO/(this.kB*this.T))
                 *(u[iyos]/(1-u[iyos]))^(2*(1.0-this.betaO)*this.SO)
                 *(this.pO2)^(-(1.0-this.betaO)*this.SO)
-            )
-        )
-    else
-        rate=0
-    end
-end
-
-function exponential_oxide_adsorption(this::YSZParameters, u)
-    if this.A0 > 0
-        rate = (
-            (this.A0/this.SA)
-            *(
-                exp(-this.betaA*this.SA*this.DGA/(this.kB*this.T))
-                *(
-                  (u[iy]/(1-u[iy]))
-                  *
-                  ((1-u[ib])/u[ib])
-                )^(this.betaA*this.SA)
-                - 
-                exp((1 - this.betaA)*this.SA*this.DGA/(this.kB*this.T))
-                *(
-                  (u[iy]/(1-u[iy]))
-                  *
-                  ((1-u[ib])/u[ib])
-                )^(-(1 - this.betaA)*this.SA)
-                
             )
         )
     else
@@ -354,23 +365,23 @@ end
 
 # conversions for the equilibrium case
 function y0_to_phi(this::YSZParameters, y0)
-    yB = -this.zL/this.zA/this.m_par/(1-this.nu);
+    yB = this.y0
     return - (this.kB * this.T / (this.zA * this.e0)) * log(y0/(1-y0) * (1-yB)/yB )
 end
 
 function phi_to_y0(this::YSZParameters, phi)
-    yB = -this.zL/this.zA/this.m_par/(1-this.nu);
+    yB = this.y0
     X  = yB/(1-yB)*exp.(this.zA*this.e0/this.kB/this.T* (-phi))
     return X./(1.0.+X)
 end
 
 function equil_phi(this::YSZParameters)
-    B = exp( - (- this.DGA + this.DGR) / (this.kB * this.T))*this.pO2^(1/2.0)
+    B = this.pO2^(1/2.0)*exp((this.DGA - this.DGR - (this.DGO/2.0)) / (this.kB * this.T))
     return y0_to_phi(this, B/(1+B))
 end
 
 #
-# Transient part of measurement functional 
+# Transient part of measurement functional
 #
 
 function meas_tran(meas, u, sys, parameters, AreaEllyt, X)
