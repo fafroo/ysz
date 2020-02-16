@@ -21,19 +21,18 @@ using LeastSquaresOptim
 
 ##########################################
 # internal import of YSZ repo ############
+model_label = "ysz_model_GAS_exp_ads"
 
-include("../src/models/ysz_model_new_prms_exp_ads.jl")
+include("../src/models/$(model_label).jl")
 include("../prototypes/timedomain_impedance.jl")
 
-bulk_species = ysz_model_new_prms_exp_ads.bulk_species
-surface_species = ysz_model_new_prms_exp_ads.surface_species
-iphi = ysz_model_new_prms_exp_ads.iphi
-iy = ysz_model_new_prms_exp_ads.iy
-ib = ysz_model_new_prms_exp_ads.ib
-
-
-#using ysz_model_new_prms_exp_ads
-#const label_ysz_model = ysz_model_new_prms_exp_ads
+model_symbol = eval(Symbol(model_label))
+bulk_species = model_symbol.bulk_species
+surface_species = model_symbol.surface_species
+surface_names = model_symbol.surface_names
+iphi = model_symbol.iphi
+iy = model_symbol.iy
+ib = model_symbol.ib
 
 # --------- end of YSZ import ---------- #
 ##########################################
@@ -45,7 +44,7 @@ function run_new(;physical_model_name="",
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
                 pO2_in=1.0, T_in=1073,
-                prms_names_in=["A0", "R0", "DGA", "DGR", "beta", "A"],
+                prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"],
                 prms_values_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
                 EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
                 voltammetry=false, voltrate=0.010, upp_bound=0.95, low_bound=-0.95, sample=30, dlcap=false,
@@ -73,8 +72,8 @@ function run_new(;physical_model_name="",
     grid=VoronoiFVM.Grid(X)
     #
     
-    parameters=ysz_model_new_prms_exp_ads.YSZParameters()
-    ysz_model_new_prms_exp_ads.set_parameters!(parameters, prms_values_in, prms_names_in)
+    parameters=model_symbol.YSZParameters()
+    model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
     if dlcap
         parameters.R0 = 0
         if print_bool 
@@ -82,35 +81,35 @@ function run_new(;physical_model_name="",
         end
     end
     
-    parameters.pO = pO2_in
+    parameters.pO2 = pO2_in
     parameters.T = T_in
     parameters.x_frac=0.13
     
+    # update the "computed" values in parameters
+    parameters = model_symbol.YSZParameters_update!(parameters)
     
 #     if debug_print_bool
 #         println("NEW ---- ")
 #         println("prms = ",prms_in)
 #         println("add_prms = (",parameters.DD,",",parameters.nu,",",parameters.nus,",",parameters.ms_par,")")
-#         println("rest_prms = (",parameters.T,",",parameters.pO,")")
+#         println("rest_prms = (",parameters.T,",",parameters.pO2,")")
 #     end
     
-    # update the "computed" values in parameters
-    parameters = ysz_model_new_prms_exp_ads.YSZParameters_update!(parameters)
-
-    ysz_model_new_prms_exp_ads.printfields(parameters)
+    #model_symbol.printfields(parameters)
+    
     
     physics=VoronoiFVM.Physics(
         data=parameters,
         num_species=size(bulk_species,1)+size(surface_species,1),
-        storage=ysz_model_new_prms_exp_ads.storage!,
-        flux=ysz_model_new_prms_exp_ads.flux!,
-        reaction=ysz_model_new_prms_exp_ads.reaction!,
-        breaction=ysz_model_new_prms_exp_ads.breaction!,
-        bstorage=ysz_model_new_prms_exp_ads.bstorage!
+        storage=model_symbol.storage!,
+        flux=model_symbol.flux!,
+        reaction=model_symbol.reaction!,
+        breaction=model_symbol.breaction!,
+        bstorage=model_symbol.bstorage!
     )
     #
     if print_bool
-        ysz_model_new_prms_exp_ads.printfields(parameters)
+        model_symbol.printfields(parameters)
     end
 
     #sys=VoronoiFVM.SparseSystem(grid,physics)
@@ -123,13 +122,13 @@ function run_new(;physical_model_name="",
     end
 
     # boundary conditions
-    ysz_model_new_prms_exp_ads.set_typical_boundary_conditions!(sys, parameters)
+    model_symbol.set_typical_boundary_conditions!(sys, parameters)
     
     # initial value of type unknows(sys)
-    inival = ysz_model_new_prms_exp_ads.get_typical_initial_conditions(sys, parameters)
+    inival = model_symbol.get_typical_initial_conditions(sys, parameters)
     
     # equilibrium voltage
-    phi0 = ysz_model_new_prms_exp_ads.equil_phi(parameters)
+    phi0 = model_symbol.equil_phi(parameters)
     if dlcap
         phi0 = 0
     end
@@ -157,13 +156,13 @@ function run_new(;physical_model_name="",
         # Transient part of measurement functional 
         #
         function meas_tran(meas, u)
-          ysz_model_new_prms_exp_ads.meas_tran(meas, u, sys, parameters, AreaEllyt, X)
+          model_symbol.meas_tran(meas, u, sys, parameters, AreaEllyt, X)
         end
         #
         # Steady part of measurement functional
         #
         function meas_stdy(meas, u)
-          ysz_model_new_prms_exp_ads.meas_stdy(meas, u, sys, parameters, AreaEllyt, X)
+          model_symbol.meas_stdy(meas, u, sys, parameters, AreaEllyt, X)
         end
         
         #
@@ -427,7 +426,7 @@ function run_new(;physical_model_name="",
             # tstep to potential phi
             sys.boundary_values[iphi,1]=phi
             solve!(U,inival,sys, control=control,tstep=tstep)
-            Qb= - integrate(sys,ysz_model_new_prms_exp_ads.reaction!,U) # \int n^F            
+            Qb= - integrate(sys,model_symbol.reaction!,U) # \int n^F            
             dphi_end = U[iphi, end] - U[iphi, end-1]
             dx_end = X[end] - X[end-1]
             dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
@@ -437,7 +436,7 @@ function run_new(;physical_model_name="",
             # for faster computation, solving of "dtstep problem" is not performed
             U0 .= inival
             inival.=U
-            Qb0 = - integrate(sys,ysz_model_new_prms_exp_ads.reaction!,U0) # \int n^F
+            Qb0 = - integrate(sys,model_symbol.reaction!,U0) # \int n^F
             dphi0_end = U0[iphi, end] - U0[iphi, end-1]
             dphiB0 = parameters.eps0*(1+parameters.chi)*(dphi0_end/dx_end)
             Qs0 = (parameters.e0/parameters.areaL)*parameters.zA*U0[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
@@ -451,8 +450,8 @@ function run_new(;physical_model_name="",
             
             
             # reaction average
-            reac = - 2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters, U[:,1])
-            reacd = - 2*parameters.e0*ysz_model_new_prms_exp_ads.electroreaction(parameters,U0[:,1])
+            reac = - 2*parameters.e0*model_symbol.electroreaction(parameters, U[:,1])
+            reacd = - 2*parameters.e0*model_symbol.electroreaction(parameters,U0[:,1])
             Ir= 0.5*(reac + reacd)
 
             #############################################################
@@ -497,7 +496,7 @@ function run_new(;physical_model_name="",
             if pyplot && istep%2 == 0
 
                 num_subplots=4
-                ys_marker_size=4
+                ys_marker_size=6
                 PyPlot.subplots_adjust(hspace=0.5)
             
                 PyPlot.clf() 
@@ -506,7 +505,9 @@ function run_new(;physical_model_name="",
                     subplot(num_subplots*100 + 11)
                     plot((10^9)*X[:],U[iphi,:],label="phi (V)")
                     plot((10^9)*X[:],U[iy,:],label="y")
-                    plot(0,U[ib,1],"go", markersize=ys_marker_size, label="y_s")
+                    for (i, idx) in enumerate(surface_species)
+                      plot(0,U[idx,1],"o", markersize=ys_marker_size, label=surface_names[i])
+                    end
                     l_plot = 5.0
                     PyPlot.xlim(-0.01*l_plot, l_plot)
                     PyPlot.ylim(-0.5,1.1)
@@ -520,7 +521,9 @@ function run_new(;physical_model_name="",
                         subplot(num_subplots*100 + 12)
                         plot((10^3)*X[:],U[iphi,:],label="phi (V)")
                         plot((10^3)*X[:],U[iy,:],label="y")
-                        plot(0,U[ib,1],"go", markersize=ys_marker_size, label="y_s")
+                        for (i, idx) in enumerate(surface_species)
+                          plot(0,U[idx,1],"o", markersize=ys_marker_size, label=surface_names[i])
+                        end
                         PyPlot.ylim(-0.5,1.1)
                         PyPlot.xlabel("x (mm)")
                         PyPlot.legend(loc="best")
@@ -719,7 +722,7 @@ function run_new(;physical_model_name="",
             end
         end
         if test
-            I1 = integrate(sys, ysz_model_new_prms_exp_ads.reaction!, U)
+            I1 = integrate(sys, model_symbol.reaction!, U)
             #println(I1)
             return I1[1]
         end

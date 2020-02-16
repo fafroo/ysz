@@ -54,7 +54,7 @@ include("../src/import_experimental_data.jl")
 
 
 function CV_get_shared_checknodes()
-    return CV_get_checknodes(0.6,0.95,-0.95,-0.06,0.12)
+    return CV_get_checknodes(0.1,0.95,-0.95,-0.06,0.12)
 end
 
 function EIS_get_shared_omega_range()
@@ -82,7 +82,7 @@ function get_shared_add_prms()
 end
 
 
-function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple)
+function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple)
 
   function consistency_check()
     if (size(prms_names,1) != size(scripted_tuple,1) || 
@@ -132,7 +132,7 @@ function EIS_apply_checknodes(EIS_in,checknodes)
     DataFrame( f = checknodes, Z = EIS_get_Z_values(EIS_in, checknodes))
 end
 
-function CV_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
+function CV_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
     
     (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
     
@@ -167,7 +167,7 @@ function CV_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
     return
 end
 
-function EIS_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
+function EIS_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
 
     (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="EIS", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
     
@@ -265,7 +265,7 @@ function import_par_study_from_metafile(;save_dir="../snehurka/data/", name="", 
 end
 
 
-function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13, 13, 0.10, 0.10, 0.4, 0.0], prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), scripted_tuple=(1,1,0,0,0,0), EIS_bool=false, CV_bool=false, verbose=false)
+function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13, 13, 0.10, 0.10, 0.4, 0.0], prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(1,1,0,0,0,0), EIS_bool=false, CV_bool=false, verbose=false)
   
   save_dir_forwarded = string(save_dir, name, "/")
   if CV_bool
@@ -319,7 +319,7 @@ function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13
   end
 end
 
-function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"))
+function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"))
   #scripted_tuple = (1,1,0,0,0,0)
 #prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
   #name = "prvni_vrh_lin_ads"
@@ -423,7 +423,7 @@ end
 function CV_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms_names=[] )
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     
-    prms_names_in=["A0", "R0", "DGA", "DGR", "beta", "A"]
+    prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
     prms_values_in=get_shared_prms()
     
     append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
@@ -452,12 +452,12 @@ function CV_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms
     return
 end
 
-function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms_names=[], EIS_bias=0.0)    
+function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms_names=[], EIS_bias=0.0, dx_exp=-10)    
     
     #pO2_in_sim = 1.0
     #EIS_bias=1.0
     
-    prms_names_in=["A0", "R0", "DGA", "DGR", "beta", "A"]
+    prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
     prms_values_in=get_shared_prms()
     
     append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
@@ -475,7 +475,7 @@ function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prm
     
     EIS_df = ysz_experiments.run_new(
         pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-        dx_exp=-11,
+        dx_exp=dx_exp,
         # TODO !!! T a pO2
         prms_names_in=prms_names_in,
         prms_values_in=prms_values_in,
@@ -596,7 +596,7 @@ end
 # # #     #rprm2=range(15, stop=20, length=3)
 # # #     ######################################################
 # # #     
-# # #     wpn = ["A0","R0","DGA","DGR","beta","A"]
+# # #     wpn = ["A0","R0","DGA","DGR","betaR","SR"]
 # # #     #A0 = 21.71975544711280
 # # #     #R0 = 19.53
 # # #     A0 = 19.50
@@ -1023,7 +1023,7 @@ function scan_2D_recursive(;pyplot=false,
     #rprm2=range(15, stop=20, length=3)
     ######################################################
     
-    wpn = ["A0","R0","DGA","DGR","beta","A"]
+    wpn = ["A0","R0","DGA","DGR","betaR","SR"]
 
     (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
    (DD, nu, nus, ms_par)  =  get_shared_add_prms()
@@ -1214,7 +1214,7 @@ end
 # # # #     #rprm2=range(15, stop=20, length=3)
 # # # #     ######################################################
 # # # #     
-# # # #     wpn = ["A0","R0","DGA","DGR","beta","A"]
+# # # #     wpn = ["A0","R0","DGA","DGR","betaR","SR"]
 # # # #     #A0 = 21.71975544711280
 # # # #     #R0 = 19.53
 # # # #     A0 = 19.50
@@ -1386,7 +1386,7 @@ end
 #     #rprm2=range(15, stop=20, length=3)
 #     ######################################################
 #     
-#     wpn = ["A0","R0","DGA","DGR","beta","A"]
+#     wpn = ["A0","R0","DGA","DGR","betaR","SR"]
 #     A0 = 21.71975544711280
 #     R0 = 19.53
 #     DGA = 0.0905748
@@ -1793,7 +1793,7 @@ function par_study(;prms_lists=(
                     0.4,
                     [0.2, 0.3]
                     ), 
-                    save_dir="../snehurka/data/par_study_default/", scripted_tuple=(1, 0, 1, 0, 0, 0), prms_names=("A0", "R0", "DGA", "DGR", "beta", "A"), 
+                    save_dir="../snehurka/data/par_study_default/", scripted_tuple=(1, 0, 1, 0, 0, 0), prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), 
                     CV_bool=false, EIS_bool=false, mode="test", physical_model_name="ysz_model_new_prms_exp_ads")
     
   function consistency_check()
@@ -1840,7 +1840,7 @@ function par_study(;prms_lists=(
       
       prms = actual_prms
       
-      prms_names_in=["A0", "R0", "DGA", "DGR", "beta", "A"]
+      prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
       prms_values_in=get_shared_prms()
       
       append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
@@ -1997,27 +1997,27 @@ function meta_run_par_study()
   # prms definition ####################################
   physical_model_name = "ysz_model_new_prms_exp_ads"
   
-#   prms_names = ("A0", "R0", "DGA", "DGR", "nus", "A")
-#   prms_lists = (
-#     collect(13 : 9.0 : 18),  
-#     collect(13 : 9.0 : 18),  
-#     collect(-0.4 : 9.5 : 0.3), 
-#     collect(-0.7 : 9.5 : 0.0), 
-#     collect(0.66),  
-#     collect(-0.2 : 9.0 : 0.8)
-#   )
-#   scripted_tuple = (1, 0, 1, 0, 0, 0)
-#   
-  prms_names = ("m_par",)
-  prms_lists = (collect(2.2 : -0.1 : 1.8),)
-  scripted_tuple = (0,)
+  prms_names = ("A0", "K0", "DGA", "DGO")
+  prms_lists = (
+    collect(13 : 5.0 : 18),  
+    collect(13 : 9.0 : 18),  
+    collect(-0.4 : 9.5 : 0.3), 
+    collect(-0.7 : 9.5 : 0.0), 
+    #collect(0.66),  
+    #collect(-0.2 : 9.0 : 0.8)
+  )
+  scripted_tuple = (1, 0, 1, 0)
+  
+  #prms_names = ("A0", "K0", "DGA", "DGO")
+  #prms_lists = (collect(2.2 : -0.1 : 1.8),)
+  #scripted_tuple = (0,)
   #######################################################
   
   # preparing bash output ###############################
   bash_command = "julia"
   
-  save_dir = "../snehurka/data/prvni_metavrh/"
-  CV_bool = "true"
+  save_dir = "../snehurka/data/prvni_gas/"
+  CV_bool = "false"
   EIS_bool = "true"
   
   mode = "go"
