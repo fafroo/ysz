@@ -9,8 +9,7 @@ using LeastSquaresOptim
 
 const bulk_species = (iphi, iy) = (1, 2)
 const surface_species = (ib) = (3)
-const surface_names = ("iyas", "iyos")
-#const surface_species = (iyas, iyos) = (3, 4)
+const surface_names = ("yAs")
 
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
 

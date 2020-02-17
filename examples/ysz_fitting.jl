@@ -22,8 +22,10 @@ module ysz_fitting
 # [x] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry 
 # [ ] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
 # ---[ ] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
+# [ ] PAR_STUDY vyhodnoceni ... soubory do slozky dane studie .. automatizovane
+# ---[ ] pri zobrazovani dat udelat clustery dle chyby/prms a pak zobrazit (prms ci Nyquist) 1 reprezentanta z kazde
+# [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
 #
-# [!!!!!!] napocitat equilibrium case
 # 
 # #### Fitting process
 # [!] prozkoumat experimentalni data (a udelat prislusne procedury)
@@ -80,6 +82,13 @@ function get_shared_add_prms()
     return (DD, nu, nus, ms_par) = [5.39e-13,    0.85,      0.21,   0.05]
 end
 
+function get_fitted_all_prms()
+  prms_names=["A0", "R0", "K0", "SA", "SR", "SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"]
+  prms_values=[19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,    5.35e-13]  # fitted to EIS 800, 100, 0.0
+  
+  
+  return prms_names, prms_values
+end
 
 function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple)
 
@@ -379,6 +388,71 @@ function display_the_best(err_df, EIS_hypercube, prms_lists, count)
     Nyquist_plot(EIS_hypercube[err_df.prms_indicies[i]...], "$(i): $(get_prms_from_indicies(prms_lists, err_df.prms_indicies[i]))")
   end
 end
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+
+
+function view_experimental_data(T_list, p_list, bias_list; use_checknodes=false, fig_num=9)    
+    figure(fig_num)
+    for T in T_list
+      for pO2 in p_list
+        for EIS_bias in bias_list
+          if pO2 == 0
+            pO2 = "00"
+          end
+          if use_checknodes
+            checknodes =  EIS_get_shared_checknodes()
+            EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=T, pO2=pO2, bias=EIS_bias), checknodes)
+          else
+            EIS_exp = import_EIStoDataFrame(T=T, pO2=pO2, bias=EIS_bias)
+          end
+          Nyquist_plot(EIS_exp, "exp \$\\theta=$T\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$")
+        end
+      end
+    end
+end
+
+
+
+
 
 
 #####################################################
@@ -426,8 +500,11 @@ end
 # end
 
 
-function CV_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms_names=[] )
+function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[] )
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
+    
+    T=800
+    pO2=100
     
     prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
     prms_values_in=get_shared_prms()
@@ -439,29 +516,30 @@ function CV_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms
     append!(prms_values_in, prms_values)
 
     CV_df = ysz_experiments.run_new(
-        out_df_bool=true, voltammetry=true, sample=8, pyplot=pyplot,
+        out_df_bool=true, voltammetry=true, sample=8, pyplot=(pyplot == 2 ? true : false),
         prms_names_in=prms_names_in,
         prms_values_in=prms_values_in,
     )
     #@show CV_sim
     checknodes =  CV_get_shared_checknodes()
-    if pyplot
+    if pyplot > 0
         figure(5)
         CV_sim = CV_apply_checknodes(CV_df, checknodes)
-        CV_plot(CV_sim, "s_r")
+        CV_plot(CV_sim, "sim")
         if show_experiment
-          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(T=800, pO2=100), checknodes)
-          CV_plot(CV_exp, "exp")
+          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(T=T, pO2=pO2), checknodes)
+          CV_plot(CV_exp, "exp \$\\theta=$T\$°C \$\\mathrm{O}_2=$pO2 % \$")  
           println("CV_fitting error = ", CV_fitnessFunction(CV_exp, CV_sim))
         end
     end    
     return
 end
 
-function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prms_names=[], EIS_bias=0.0, dx_exp=-10)    
+function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], EIS_bias=0.0, dx_exp=-10)    
     
-    #pO2_in_sim = 1.0
-    #EIS_bias=1.0
+    pO2 = 100
+    T = 800
+    #EIS_bias=0.0
     
     prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
     prms_values_in=get_shared_prms()
@@ -473,7 +551,7 @@ function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prm
     append!(prms_values_in, prms_values)
     
     EIS_df = ysz_experiments.run_new(
-        pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+        pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
         dx_exp=dx_exp,
         # TODO !!! T a pO2
         prms_names_in=prms_names_in,
@@ -481,13 +559,13 @@ function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prm
     )
     #@show EIS_df
     checknodes =  EIS_get_shared_checknodes()
-    if pyplot
+    if pyplot > 0
         figure(6)
         EIS_sim = EIS_apply_checknodes(EIS_df,checknodes)
-        Nyquist_plot(EIS_sim, "s_r $EIS_bias")
+        Nyquist_plot(EIS_sim, "sim")
         if show_experiment
-          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=EIS_bias), checknodes)
-          Nyquist_plot(EIS_exp, "exp $EIS_bias")
+          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=T, pO2=pO2, bias=EIS_bias), checknodes)
+          Nyquist_plot(EIS_exp, "exp \$\\theta=$T\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$")
           println("EIS_fitting error = ", EIS_fitnessFunction(EIS_exp, EIS_sim))
         end
     end
