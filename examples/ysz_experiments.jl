@@ -43,7 +43,7 @@ function run_new(;physical_model_name="",
                 test=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
-                pO2_in=1.0, T_in=1073,
+                pO2=1.0, T=1073,
                 prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"],
                 prms_values_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
                 EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
@@ -72,7 +72,13 @@ function run_new(;physical_model_name="",
     grid=VoronoiFVM.Grid(X)
     #
     
+    # Physical condtions and parameters setting
     parameters=model_symbol.YSZParameters()
+
+    parameters.pO2 = pO2
+    parameters.T = T
+    parameters.x_frac=0.13
+    
     model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
     if dlcap
         parameters.R0 = 0
@@ -81,9 +87,7 @@ function run_new(;physical_model_name="",
         end
     end
     
-    parameters.pO2 = pO2_in
-    parameters.T = T_in
-    parameters.x_frac=0.13
+
     
     # update the "computed" values in parameters
     parameters = model_symbol.YSZParameters_update!(parameters)

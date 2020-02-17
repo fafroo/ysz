@@ -126,12 +126,12 @@ end
 function main()
         checknodes = EIS_get_checknodes_geometrical(1, 8000, 2)
         
-        EIS_raw2 = import_EIStoDataFrame(T="800",pO2="00",bias="0.0" )
+        EIS_raw2 = import_EIStoDataFrame(TC="800",pO2="00",bias="0.0" )
         
-        EIS_raw= import_EIStoDataFrame(T="800", pO2="00",bias="-0.5")
+        EIS_raw= import_EIStoDataFrame(TC="800", pO2="00",bias="-0.5")
         #plot(real(EIS_raw2.Z), -imag(EIS_raw2.Z), "x-")      
         
-        EIS_raw3= import_EIStoDataFrame(T="800", pO2="00",bias="-1.0")
+        EIS_raw3= import_EIStoDataFrame(TC="800", pO2="00",bias="-1.0")
         #plot(real(EIS_raw3.Z), -imag(EIS_raw3.Z), "x-")      
  
         exp_EIS_nodes = DataFrame(

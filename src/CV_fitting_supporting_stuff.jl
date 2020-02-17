@@ -141,7 +141,7 @@ function CV_get_checknodes(start_n,upper_n,lower_n,end_n,step_n)
 end
 
 function main()
-        CVraw = import_CVtoDataFrame(T="700",pO2="00")
+        CVraw = import_CVtoDataFrame(TC="700",pO2="00")
         checknodes = get_checknodes_short()
         exp_CV_nodes = DataFrame(
                 U=checknodes[:,1], 
