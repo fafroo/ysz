@@ -6,4 +6,4 @@ ysz_fitting.display_the_best(EIS_err, EIS_hypercube, prms_lists, 10);
 ysz_fitting.display_err_projection(EIS_err, prms_lists, prms_names, 200);
 
 
-# ysz_fitting.EIS_simple_run(pyplot=true, prms_names=["A0", "R0", "K0","SA","SR","SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", ], prms_values=[19.8, 19, 16.828,    1, 1, 1,    -0.5, 0.2, 0.2,      0.5, 0.5, 0.5,  ], dx_exp=-8)
+#ysz_fitting.EIS_simple_run(pyplot=true, prms_names=["A0", "R0", "K0", "SA", "SR", "SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"], prms_values=[19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,    5.35e-13])
