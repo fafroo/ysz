@@ -42,12 +42,12 @@ function import_EIStoDataFrame_path(f_name)
 end
 
 function import_CVtoDataFrame(;T,pO2)
-    fNAME=string("/home/masicko/Doktor_Linux/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",T,"C/100 ",T,"C ",pO2,"% do 1V/CV.cor")
+    fNAME=string("../snehurka/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",T,"C/100 ",T,"C ",pO2,"% do 1V/CV.cor")
     return import_CVtoDataFrame_path(fNAME)
 end
 
 function import_EIStoDataFrame(;T, pO2, bias)
-    fNAME=string("/home/masicko/Doktor_Linux/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",T,"C/100 ",T,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
+    fNAME=string("../snehurka/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",T,"C/100 ",T,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
     return import_EIStoDataFrame_path(fNAME)
 end
 

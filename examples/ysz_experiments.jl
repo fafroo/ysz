@@ -181,7 +181,7 @@ function run_new(;physical_model_name="",
         # relaxation (ramp to phi_steady)
         ramp_isok = false
         ramp_nodes_growth = 4 # each phi_step will be divided into $ parts
-        ramp_max_nodes = 20   # number of refinement of phi_step
+        ramp_max_nodes = 30   # number of refinement of phi_step
         steadystate_old = deepcopy(inival)
         for ramp_nodes in (0 : ramp_nodes_growth : ramp_max_nodes)
           steadystate_old = deepcopy(inival)
