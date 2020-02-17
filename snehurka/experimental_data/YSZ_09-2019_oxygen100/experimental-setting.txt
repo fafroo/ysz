@@ -1,0 +1,30 @@
+---- Experimentalni setting ----
+
+Typ zapojení a geometrie cely: 
+Tříelektrodové, kruhová pracovní elektroda a protielektroda naproti sobě s průměrem 1,2 cm. => S = 0,018849556 m^2
+Okolo protielektrody je prstencová referentní elektroda – její šířka se pohybuje mezi 3 a 4 mm a zasahuje až do kraje, tj. mezera mezi CE a RE je 2 až 3 mm. Na stranu protielektrody  s referentní je vždy veden čistý kyslík.
+
+
+Elektrolyt:
+- Průměr: 2,5 cm
+- Tloušťka: 1000 um = 0.001 m
+- Materiál: monokrystal YSZ 13%, rovina 100
+- Odhadovaný odpor: Bohužel jsem to tenkrát nezměřil dvouelektrodově a od té doby jsou s aparaturou spíše problémy, ale podle 3-E měření to vypadá, že má podobný odpor jako klasický elektrolyt 
+    
+    - TODO !!! odhad odporu z EIS
+    
+- specifikace: http://www.crystal-material.com/Substrate-Materials/YSZ-substrate.html
+
+ 
+
+Elektrody:
+- Průměr: 1,2 cm
+- Materiál: LSM ( La0,8Sr0,2MnO3)
+- Způsob nanesení elektrod: Pracovní a protielektroda sítotiskem, referentní elektroda štětcem
+- pracovní elektroda je na vyleštěné straně
+- kontaktní síťky byly k WE a CE přilepeny stříbrem, stejně tak vodiče k síťkám. K RE byl vodič přilepený přímo
+
+
+----------- CV ------------
+- voltrate: 0.010 V/s
+- range: 0V -> 1V -> -1V -> 0V

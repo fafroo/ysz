@@ -472,13 +472,6 @@ function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prm
     append!(prms_names_in, prms_names)
     append!(prms_values_in, prms_values)
     
-    #prms_names_in = []
-    #prms_values_in = []
-    
-    #@show prms_names_in
-    #@show prms_values_in
-    
-    
     EIS_df = ysz_experiments.run_new(
         pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
         dx_exp=dx_exp,
@@ -500,33 +493,30 @@ function EIS_simple_run(;pyplot=false, show_experiment=true, prms_values=[], prm
     end
 end
 
-function EIS_small_study(;pyplot=false)    
+function EIS_instant_par_study(;pyplot=false, show_experiment=true, prms_values=[], prms_names=[], EIS_bias=0.0, dx_exp=-10)
+
+   # TODO !!!!
+   
+   
+   
+   
+#     function recursive_call(output_set, active_idx)
+#       if active_idx > size(prms_lists,1)
+#         
+#         
+#         
+#         perform_generic(output_set)
+#       else
+#         for i in 1:size(prms_lists[active_idx],1)
+#           recursive_call(push!(deepcopy(output_set),i), active_idx + 1)
+#         end
+#       end
+#     end
+#     recursive_call([],1)
+#     return
     
-#    pO2_in_sim = 1.0
-    #EIS_bias=1.0
-    for EIS_bias in [-1.0, -0.5, 0.0, 0.5, 1.0]
-      (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
-      #(A0, R0, DGA, DGR, beta, A) =[23.0,   23.,    0.4,    0.4,    0.4,    0.8]  
-      
-      (DD, nu, nus, ms_par) = get_shared_add_prms()
-      #DD = new_common_DD()
-      
-      EIS_df = ysz_experiments.run_new(
-          pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-          dx_exp=-11,
-          # TODO !!! T a pO2
-          prms_in=[A0, R0, DGA, DGR, beta, A],
-          add_prms_in=(DD, nu, nus, ms_par)
-      )
-      #@show EIS_df
-      checknodes =  EIS_get_shared_checknodes()
-      if pyplot
-          figure(2)
-          Nyquist_plot(EIS_apply_checknodes(EIS_df,checknodes), "s_r $EIS_bias")
-          Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=EIS_bias),EIS_get_shared_checknodes()), "exp $EIS_bias")
-      end
-    end
 end
+
 
 
 #####################################################
@@ -2003,34 +1993,36 @@ function meta_run_par_study()
   # prms definition ####################################
   physical_model_name = "ysz_model_new_prms_exp_ads"
   
-  prms_names = ("A0", "K0", "DGA", "DGO")
+  prms_names = ("A0", "R0", "K0", "DGA", "DGR", "DGO", "DD")
   prms_lists = (
-    collect(13 : 5.0 : 18),  
-    collect(13 : 9.0 : 18),  
-    collect(-0.4 : 9.5 : 0.3), 
-    collect(-0.7 : 9.5 : 0.0), 
-    #collect(0.66),  
-    #collect(-0.2 : 9.0 : 0.8)
+    collect(19.5 : 0.1 : 20.5),  
+    collect(18.5 : 0.1 : 20.0),  
+    collect(18.0 : 0.1 : 20.0), 
+    collect(-0.8 : 0.2 : 0.8), 
+    collect(-0.8 : 0.2 : 0.8), 
+    collect(-0.8 : 0.2 : 0.8),
+    [5.35e-13]
   )
-  scripted_tuple = (1, 0, 1, 0)
+  scripted_tuple = (1, 0, 0, 1, 1, 0, 0)
   
-  #prms_names = ("A0", "K0", "DGA", "DGO")
-  #prms_lists = (collect(2.2 : -0.1 : 1.8),)
-  #scripted_tuple = (0,)
   #######################################################
   
   # preparing bash output ###############################
+  #bash_command = "sbatch"
+  #bash_command = "echo"
   bash_command = "julia"
   
-  save_dir = "../snehurka/data/prvni_gas/"
+  save_dir = "../snehurka/data/prvni_gas_level_2/"
   CV_bool = "false"
   EIS_bool = "true"
   
+  #mode = "print_then_test_one_prms"
+  #mode = "only_print"
   mode = "go"
   
   run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
   #######################################################
-
+  
   # counter of output files ... TODO !!!
   nodes_count = 1
   per_node_count = 1
@@ -2062,12 +2054,21 @@ function meta_run_par_study()
   metafile_string = string(metafile_string,"run_file_name=", run_file_name,"\n")
   metafile_string = string(metafile_string,"prms_lists=", prms_lists,"\n")
   
-
+  
+  if mode == "only_print"
+    println(metafile_string)
+    return
+  end
+  
+  if mode == "print_then_test_one_prms"
+    prms_lists = [list[Int64(ceil(end/2.0))] for list in prms_lists]
+  end
+  
   run(`mkdir -p $(save_dir)`)
   write("$(save_dir)__metafile_par_study.txt", metafile_string)
   
-  
-
+  println()
+  println(metafile_string)
   
   #setting jobs
   if !consistency_check()
@@ -2077,8 +2078,6 @@ function meta_run_par_study()
   recursive_bash_call([], 1)
     
   println("ok :) ")
-  println()
-  println(metafile_string)
 end
         
 

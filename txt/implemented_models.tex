@@ -346,16 +346,19 @@ Model including adsorbtion of oxygen $\mathrm{O}_2(g)$ from gas to the surface. 
 \end{align}
 \end{subequations}
 
-Chemical potentials reas
+Chemical potentials reads
 \begin{subequations}
 \begin{align}
-\mu_{\OO} &= \psi_{\OO}^\REF + \ln (\pO2)
+\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{m_\Ox^2}\ln 
+\left( 
+	\pO2 
+\right)
 \\
 \mu_{\us \Ox} 
 &= 
 \us \psi_{\Ox}^\REF 
 + 
-\ln 
+\frac{\kB T}{m_\Ox} \ln 
 \left(  
 	\frac{\yOs}{1-\yOs}
 \right).
