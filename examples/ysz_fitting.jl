@@ -130,6 +130,13 @@ end
 ##########
 ##########
 
+function TCtoT(TC)
+  return TC+273.15
+end
+
+function pO2tosim(pO2)
+  return (pO2/100.0 + 1.0e-5)
+end
 
 
 function CV_apply_checknodes(CV_in, checknodes)
@@ -328,7 +335,7 @@ function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13
 end
 
 function EIS_test_checknodes_range(omega_range=EIS_get_shared_omega_range())
-  Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(T=800,pO2=100,bias=0.0),EIS_get_checknodes_geometrical(omega_range...)))
+  Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(TC=800,pO2=100,bias=0.0),EIS_get_checknodes_geometrical(omega_range...)))
 end
 
 function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), omega_range=EIS_get_shared_omega_range())
@@ -340,7 +347,7 @@ function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=
   
   
   # TODO !!! constants
-  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=0.0), checknodes)
+  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=800, pO2=100, bias=0.0), checknodes)
   
   error_df = DataFrame(error = [], prms_indicies = [])
   function perform_error_projection(prms_indicies)
@@ -382,7 +389,7 @@ end
 
 function display_the_best(err_df, EIS_hypercube, prms_lists, count)
   figure(3)
-  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=800, pO2=100, bias=0.0),EIS_get_shared_checknodes())
+  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=800, pO2=100, bias=0.0),EIS_get_shared_checknodes())
   Nyquist_plot(EIS_exp, "exp")
   for i in 1:count
     Nyquist_plot(EIS_hypercube[err_df.prms_indicies[i]...], "$(i): $(get_prms_from_indicies(prms_lists, err_df.prms_indicies[i]))")
@@ -430,9 +437,9 @@ end
 #####################################################
 
 
-function view_experimental_data(T_list, p_list, bias_list; use_checknodes=false, fig_num=9)    
+function view_experimental_data(TC_list, p_list, bias_list; use_checknodes=false, fig_num=9)    
     figure(fig_num)
-    for T in T_list
+    for TC in TC_list
       for pO2 in p_list
         for EIS_bias in bias_list
           if pO2 == 0
@@ -440,11 +447,11 @@ function view_experimental_data(T_list, p_list, bias_list; use_checknodes=false,
           end
           if use_checknodes
             checknodes =  EIS_get_shared_checknodes()
-            EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=T, pO2=pO2, bias=EIS_bias), checknodes)
+            EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias), checknodes)
           else
-            EIS_exp = import_EIStoDataFrame(T=T, pO2=pO2, bias=EIS_bias)
+            EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias)
           end
-          Nyquist_plot(EIS_exp, "exp \$\\theta=$T\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$")
+          Nyquist_plot(EIS_exp, "exp \$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$")
         end
       end
     end
@@ -503,7 +510,7 @@ end
 function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[] )
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     
-    T=800
+    TC=800
     pO2=100
     
     prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
@@ -517,6 +524,7 @@ function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_nam
 
     CV_df = ysz_experiments.run_new(
         out_df_bool=true, voltammetry=true, sample=8, pyplot=(pyplot == 2 ? true : false),
+        T=TCtoT(TC), pO2=pO2tosim(pO2),
         prms_names_in=prms_names_in,
         prms_values_in=prms_values_in,
     )
@@ -527,20 +535,16 @@ function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_nam
         CV_sim = CV_apply_checknodes(CV_df, checknodes)
         CV_plot(CV_sim, "sim")
         if show_experiment
-          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(T=T, pO2=pO2), checknodes)
-          CV_plot(CV_exp, "exp \$\\theta=$T\$°C \$\\mathrm{O}_2=$pO2 % \$")  
+          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(TC=TC, pO2=pO2), checknodes)
+          CV_plot(CV_exp, "exp \$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 % \$")  
           println("CV_fitting error = ", CV_fitnessFunction(CV_exp, CV_sim))
         end
     end    
     return
 end
 
-function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], EIS_bias=0.0, dx_exp=-10)    
-    
-    pO2 = 100
-    T = 800
-    #EIS_bias=0.0
-    
+function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100, EIS_bias=0.0, dx_exp=-10)    
+   
     prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
     prms_values_in=get_shared_prms()
     
@@ -553,7 +557,7 @@ function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_na
     EIS_df = ysz_experiments.run_new(
         pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
         dx_exp=dx_exp,
-        # TODO !!! T a pO2
+        T=TCtoT(TC), pO2=pO2tosim(pO2),
         prms_names_in=prms_names_in,
         prms_values_in=prms_values_in,
     )
@@ -564,8 +568,8 @@ function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_na
         EIS_sim = EIS_apply_checknodes(EIS_df,checknodes)
         Nyquist_plot(EIS_sim, "sim")
         if show_experiment
-          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(T=T, pO2=pO2, bias=EIS_bias), checknodes)
-          Nyquist_plot(EIS_exp, "exp \$\\theta=$T\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$")
+          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias), checknodes)
+          Nyquist_plot(EIS_exp, "exp \$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$")
           println("EIS_fitting error = ", EIS_fitnessFunction(EIS_exp, EIS_sim))
         end
     end
@@ -640,7 +644,7 @@ end
 
 # # # function get_dfs_to_interpolate(
 # # #                             EIS_bool=true, pyplot=false,
-# # #                            T=800, pO2=100, EIS_bias=0.0,
+# # #                            TC=800, pO2=100, EIS_bias=0.0,
 # # #                             #rprm1=range(15, stop=20, length=3),
 # # #                             #rprm2=range(15, stop=20, length=3),
 # # #                             #rprm1=range(18.4375, stop=18.59375, length=3),
@@ -767,21 +771,13 @@ end
 # # #                             rprm1[i1:i1+1],
 # # #                             rprm2[i2:i2+1];
 # # #                             nx=nx, ny=ny,
-# # #                             T=T, pO2=pO2
+# # #                             TC=TC, pO2=pO2
 # # #                         )
 # # #                     end
 # # #                 end 
 # # #             end
 # # #         end
 # # # end
-
-function EIS_view_exp(T=800, pO2=100, EIS_bias=0.0,)
-    EIS_raw = import_EIStoDataFrame(;T=T,pO2=pO2,bias=EIS_bias)
-    checknodes =  EIS_get_shared_checknodes()
-    EIS_exp = DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_raw, checknodes))
-    
-    Nyquist_plot(EIS_exp,"exp")
-end
 
 function EIS_view_interpolation_at(Q_list, x, y)
     EIS_intrp = DataFrame(
@@ -807,7 +803,7 @@ function plot_all(df_list, prms_list)
         )
     end
     
-    CV_orig = import_CVtoDataFrame(;T=800,pO2=100)
+    CV_orig = import_CVtoDataFrame(;TC=800,pO2=100)
     #checknodes = CV_get_checknodes(0.01,0.95,-0.95,-0.01,0.05)
     checknodes = CV_get_shared_checknodes()
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_orig, checknodes))
@@ -815,7 +811,7 @@ function plot_all(df_list, prms_list)
     CV_plot(CV_exp, "exp")
 end
 
-function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
+function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, TC, pO2)
     PyPlot.figure(figsize=(6,4))
     
     
@@ -831,7 +827,7 @@ function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
         end
     end
 
-    CV_orig = import_CVtoDataFrame(;T=T,pO2=pO2)
+    CV_orig = import_CVtoDataFrame(;TC=TC,pO2=pO2)
     #checknodes = CV_get_checknodes(0.01,0.95,-0.95,-0.01,0.05)
     checknodes = CV_get_shared_checknodes()
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_orig, checknodes))
@@ -841,7 +837,7 @@ end
 
 
 
-function plot_EIS_matrix(EIS_matrix, ok_matrix, rprm1, rprm2, T, pO2, EIS_bias=0.0)
+function plot_EIS_matrix(EIS_matrix, ok_matrix, rprm1, rprm2, TC, pO2, EIS_bias=0.0)
     PyPlot.figure(figsize=(6,4))
     
     checknodes =  EIS_get_shared_checknodes()  
@@ -858,7 +854,7 @@ function plot_EIS_matrix(EIS_matrix, ok_matrix, rprm1, rprm2, T, pO2, EIS_bias=0
         end
     end
 
-    EIS_raw = import_EIStoDataFrame(;T=T,pO2=pO2,bias=EIS_bias)
+    EIS_raw = import_EIStoDataFrame(;TC=TC,pO2=pO2,bias=EIS_bias)
     EIS_exp = DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_raw, checknodes))
     
     Nyquist_plot(EIS_exp, "exp")
@@ -887,10 +883,10 @@ function surfplot_FF_2D(FF::FF_2D; my_title="Objective function")
 end
 
 
-function CV_get_FF_interp_2D(CV_list, prm1_list, prm2_list; nx=20, ny=20, T=800, pO2=100)
+function CV_get_FF_interp_2D(CV_list, prm1_list, prm2_list; nx=20, ny=20, TC=800, pO2=100)
     # ordered for prms A, B as [(A1,B1), (A1,B2), (A2,B1), (A2, B2)]
     # prms_list ordered as [A1 B1 A2 B2]
-    CV_raw = import_CVtoDataFrame(;T=T,pO2=pO2)
+    CV_raw = import_CVtoDataFrame(;TC=TC,pO2=pO2)
     checknodes = CV_get_checknodes(0.05,0.95,-0.95,-0.05,0.01)
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_raw, checknodes))
     
@@ -931,10 +927,10 @@ end
 
 
 
-function EIS_get_FF_interp_2D(EIS_list, prm1_list, prm2_list; nx=20, ny=20, T=800, pO2=100, EIS_bias=0.0)
+function EIS_get_FF_interp_2D(EIS_list, prm1_list, prm2_list; nx=20, ny=20, TC=800, pO2=100, EIS_bias=0.0)
     # ordered for prms A, B as [(A1,B1), (A1,B2), (A2,B1), (A2, B2)]
     # prms_list ordered as [A1 B1 A2 B2]
-    EIS_raw = import_EIStoDataFrame(;T=T,pO2=pO2,bias=EIS_bias)
+    EIS_raw = import_EIStoDataFrame(;TC=TC,pO2=pO2,bias=EIS_bias)
     checknodes =  EIS_get_shared_checknodes()
     EIS_exp = DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_raw, checknodes))
     
@@ -1068,7 +1064,7 @@ end
 
 function scan_2D_recursive(;pyplot=false, 
                             EIS_bool=true,
-                            T=800, pO2=100, EIS_bias=0.0,
+                            TC=800, pO2=100, EIS_bias=0.0,
                             
                             wp=[1, 1, 0, 0, 0, 0], #TODO !!!
                             rprm1=range(0.1, stop=0.9, length=10),
@@ -1132,7 +1128,7 @@ function scan_2D_recursive(;pyplot=false,
                         CV_matrix[i1,i2] = ysz_experiments.run_new(
                             pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
                             dx_exp=-8,
-                            # TODO !!! T a pO2
+                            T=TCtoT(TC), pO2=pO2tosim(pO2),
                             prms_in=[A0, R0, DGA, DGR, beta, A],
                             add_prms_in=(DD, nu, nus, ms_par)
                         )
@@ -1181,7 +1177,7 @@ function scan_2D_recursive(;pyplot=false,
                             rprm1[i1:i1+1],
                             rprm2[i2:i2+1];
                             nx=nx, ny=ny,
-                            T=T, pO2=pO2, EIS_bias=EIS_bias
+                            TC=TC, pO2=pO2, EIS_bias=EIS_bias
                         )                       
                     else
                         FF=CV_get_FF_interp_2D(
@@ -1189,7 +1185,7 @@ function scan_2D_recursive(;pyplot=false,
                             rprm1[i1:i1+1],
                             rprm2[i2:i2+1];
                             nx=nx, ny=ny,
-                            T=T, pO2=pO2
+                            TC=TC, pO2=pO2
                         )
                     end
                     
@@ -1210,7 +1206,7 @@ function scan_2D_recursive(;pyplot=false,
                         if depth_remaining > 0
                             println(recursive_string,">> Going deeper in intrp i1 / i2 : ",i1, " / ", i2)
                             new_min, new_min_position = scan_2D_recursive(;pyplot=true, 
-                                T=T, pO2=pO2,
+                                TC=TC, pO2=pO2,
                                 rprm1=range(rprm1[i1], stop=rprm1[i1+1], length=3),
                                 rprm2=range(rprm2[i2], stop=rprm2[i2+1], length=3),
                                 approx_min=approx_min,
@@ -1248,9 +1244,9 @@ function scan_2D_recursive(;pyplot=false,
     
     if pyplot && !(recursive)
         if EIS_bool 
-            plot_EIS_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2, EIS_bias)
+            plot_EIS_matrix(CV_matrix, ok_matrix, rprm1, rprm2, TC, pO2, EIS_bias)
         else
-            plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
+            plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, TC, pO2)
         end
     end
     return global_min, global_min_position
@@ -1258,7 +1254,7 @@ end
 
 
 # # # # function scan_2D_recursive(;pyplot=false, 
-# # # #                             T=800, pO2=100,
+# # # #                             TC=800, pO2=100,
 # # # #                             #rprm1=range(15, stop=20, length=3),
 # # # #                             #rprm2=range(15, stop=20, length=3),
 # # # #                             #rprm1=range(18.4375, stop=18.59375, length=3),
@@ -1369,7 +1365,7 @@ end
 # # # #                         rprm1[i1:i1+1],
 # # # #                         rprm2[i2:i2+1];
 # # # #                         nx=nx, ny=ny,
-# # # #                         T=T, pO2=pO2
+# # # #                         TC=TC, pO2=pO2
 # # # #                     )
 # # # #                     
 # # # #                     min_count, min_values, min_positions, min_curv, hard_min = find_mins(
@@ -1389,7 +1385,7 @@ end
 # # # #                         if depth_remaining > 0
 # # # #                             println(recursive_string,">> Going deeper in intrp i1 / i2 : ",i1, " / ", i2)
 # # # #                             new_min, new_min_position = scan_2D_recursive(;pyplot=true, 
-# # # #                                 T=T, pO2=pO2,
+# # # #                                 TC=TC, pO2=pO2,
 # # # #                                 rprm1=range(rprm1[i1], stop=rprm1[i1+1], length=3),
 # # # #                                 rprm2=range(rprm2[i2], stop=rprm2[i2+1], length=3),
 # # # #                                 approx_min=approx_min,
@@ -1426,7 +1422,7 @@ end
 # # # #     
 # # # #     
 # # # #     if pyplot && !(recursive)
-# # # #         plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
+# # # #         plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, TC, pO2)
 # # # #     end
 # # # #     return global_min, global_min_position
 # # # # end
@@ -1434,7 +1430,7 @@ end
 
 
 # function scan_2D(;pyplot=false, 
-#                 T=800, pO2=100,
+#                 TC=800, pO2=100,
 # #                rprm1=range(15, stop=20, length=3),
 # #                rprm2=range(15, stop=20, length=3),
 #                 #rprm1=range(18.4375, stop=18.59375, length=3),
@@ -1527,7 +1523,7 @@ end
 #                         rprm1[i1:i1+1],
 #                         rprm2[i2:i2+1];
 #                         nx=nx, ny=ny,
-#                         T=T, pO2=pO2
+#                         TC=TC, pO2=pO2
 #                     )
 #                     
 #                     min_count, min_values, min_positions, min_curv = find_mins(
@@ -1549,7 +1545,7 @@ end
 #                         if depth_remaining > 0
 #                             println("\n >>>>>>>> Going deeper in intrp i1 / i2 : ",i1, " / ", i2)
 #                             scan_2D(;pyplot=true, 
-#                                 T=T, pO2=pO2,
+#                                 TC=TC, pO2=pO2,
 #                                 rprm1=range(rprm1[i1], stop=rprm1[i1+1], length=3),
 #                                 rprm2=range(rprm2[i2], stop=rprm2[i2+1], length=3),
 #                                 depth_remaining=depth_remaining - 1,
@@ -1567,7 +1563,7 @@ end
 #     
 #     
 #     if pyplot && !(recursive)
-#         plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, T, pO2)
+#         plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, TC, pO2)
 #     end
 #     return
 # end
@@ -1593,7 +1589,7 @@ end
 ## 1D optimization ##
 #####################
 function get_FF_interp_1D(CV_list, prms_list; n=20)
-    CV_raw = import_CVtoDataFrame(;T=800,pO2=100)
+    CV_raw = import_CVtoDataFrame(;TC=800,pO2=100)
     checknodes = CV_get_checknodes(0.05,0.95,-0.95,-0.05,0.01)
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_raw, checknodes))
 
@@ -1765,7 +1761,7 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
             EIS_sim = ysz_experiments.run_new(
                             pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
                             dx_exp=-8,
-                            # TODO !!! T a pO2
+                            T=TCtoT(TC), pO2=pO2tosim(pO2),
                             prms_in=prms,
                             add_prms_in=(DD, nu, nus, ms_par)
                         )
@@ -1795,7 +1791,7 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
     
     if CV_opt_bool
         CV_exp = CV_apply_checknodes(
-            import_CVtoDataFrame(T=T, pO2=pO2),
+            import_CVtoDataFrame(TC=TC, pO2=pO2),
             CV_get_shared_checknodes()
         )
         if pyplot
@@ -1806,7 +1802,7 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
     
     if EIS_opt_bool
         EIS_exp = EIS_apply_checknodes(
-            import_EIStoDataFrame(T=T,pO2=pO2,bias=EIS_bias),
+            import_EIStoDataFrame(TC=TC,pO2=pO2,bias=EIS_bias),
             EIS_get_shared_checknodes()
         )
 
@@ -1868,6 +1864,7 @@ function par_study(;prms_lists=(
                     [0.2, 0.3]
                     ), 
                     save_dir="../snehurka/data/par_study_default/", scripted_tuple=(1, 0, 1, 0, 0, 0), prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), 
+                    TC=800, pO2=100, EIS_bias=0.0,
                     CV_bool=false, EIS_bool=false, mode="test", physical_model_name="ysz_model_new_prms_exp_ads")
     
   function consistency_check()
@@ -1884,15 +1881,6 @@ function par_study(;prms_lists=(
   EIS_err_counter::Int32 = 0
   EIS_good_counter::Int32 = 0
   all_counter::Int32 = 0
-  
-
-
-  ##### TODO !!! ###
-  EIS_bias = 0.0
-  ################
-
-  
-
 
   if mode!="go"
     #println(" >> number of sets of parameters: ",
@@ -1908,8 +1896,6 @@ function par_study(;prms_lists=(
     @show prms_names
     @show CV_bool, EIS_bool
       
-    #prms_lists=[A0_list, R0_list, DGA_list, DGR_list, beta_list, A_list]
-        
     function perform_par_study(actual_prms)
       
       prms = actual_prms
@@ -1946,6 +1932,7 @@ function par_study(;prms_lists=(
               CV_sim = ysz_experiments.run_new(
                           physical_model_name=physical_model_name,
                           out_df_bool=true, voltammetry=true, sample=8, pyplot=false,
+                          T=TCtoT(TC), pO2=pO2tosim(pO2),
                           prms_names_in=prms_names_in,
                           prms_values_in=prms_values_in,
                       )
@@ -1968,7 +1955,7 @@ function par_study(;prms_lists=(
                           physical_model_name=physical_model_name,
                           pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
                           dx_exp=-9,
-                          # TODO !!! T a pO2
+                          T=TCtoT(TC), pO2=pO2tosim(pO2),
                           prms_names_in=prms_names_in,
                           prms_values_in=prms_values_in,
                       )
@@ -2001,6 +1988,9 @@ function par_study_script_wrap(
                     save_dir="./kadinec/", 
                     scripted_tuple_string=("(1, 0, 0, 0, 0, 0)"),
                     prms_names_string="(\"A0\", \"R0\", \"DGA\", \"DGR\", \"beta\", \"A\")", 
+                    TC_string="800",
+                    pO2_string="100",
+                    EIS_bias_string="100",
                     CV_bool_string="false", 
                     EIS_bool_string="false", 
                     mode="test",
@@ -2009,6 +1999,9 @@ function par_study_script_wrap(
   prms_lists = eval(Meta.parse(prms_lists_string))
   scripted_tuple = eval(Meta.parse(scripted_tuple_string))
   prms_names = eval(Meta.parse(prms_names_string))
+  TC = eval(Meta.parse(TC_string))
+  pO2 = eval(Meta.parse(pO2_string))
+  EIS_bias = eval(Meta.parse(EIS_bias_string))
   CV_bool = eval(Meta.parse(CV_bool_string))
   EIS_bool = eval(Meta.parse(EIS_bool_string)) 
   
@@ -2017,6 +2010,9 @@ function par_study_script_wrap(
                     save_dir=save_dir, 
                     scripted_tuple=scripted_tuple, 
                     prms_names=prms_names, 
+                    TC=TC,
+                    pO2=pO2,
+                    EIS_bias=EIS_bias,
                     CV_bool=CV_bool, 
                     EIS_bool=EIS_bool, 
                     mode=mode,
@@ -2037,6 +2033,9 @@ function meta_run_par_study()
                   $save_dir 
                   $scripted_tuple_string 
                   $prms_names_string 
+                  $TC 
+                  $(pO2) 
+                  $EIS_bias 
                   $CV_bool 
                   $EIS_bool 
                   $mode
@@ -2083,6 +2082,10 @@ function meta_run_par_study()
   )
   scripted_tuple = (1, 0, 0, 1, 1, 0, 0)
   
+  TC = 800 
+  pO2 = 100
+  EIS_bias = 0.0
+  
   #######################################################
   
   # preparing bash output ###############################
@@ -2090,18 +2093,18 @@ function meta_run_par_study()
   #bash_command = "echo"
   bash_command = "julia"
   
-  save_dir = "../snehurka/data/prvni_gas_level_2/"
+  save_dir = "../snehurka/data/TO_DELETE_kraivna/"
   CV_bool = "false"
   EIS_bool = "true"
   
-  #mode = "print_then_test_one_prms"
+  mode = "print_then_test_one_prms"
   #mode = "only_print"
-  mode = "go"
+  #mode = "go"
   
   run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
   #######################################################
   
-  # counter of output files ... TODO !!!
+  # counter of output files
   nodes_count = 1
   per_node_count = 1
   for (i, byte) in enumerate(scripted_tuple)
@@ -2113,7 +2116,7 @@ function meta_run_par_study()
   end
   
   
-  # saving metafile   TODO!!!!
+  # saving metafile
 
   metafile_string = "METAFILE for par_study\n"
   metafile_string = string(metafile_string,"physical_model_name=", physical_model_name,"\n")
@@ -2121,7 +2124,7 @@ function meta_run_par_study()
   for (i,str) in enumerate(prms_strings)
     metafile_string = string(metafile_string,prms_names[i],"_list=",str,"\n")
   end
-  metafile_string = string(metafile_string,"#### nodes / pernode_count  =  ", nodes_count," / ",per_node_count,"  ####\n")
+  metafile_string = string(metafile_string,"#### nodes / pernode_count  =  ", nodes_count," / ",per_node_count," ( = ",per_node_count*0.8/60.0,"m)  #### \n")
   metafile_string = string(metafile_string,"prms_names=", prms_names,"\n")
   metafile_string = string(metafile_string,"scripted_tuple=", scripted_tuple,"\n")
   metafile_string = string(metafile_string,"save_dir=", save_dir,"\n")
