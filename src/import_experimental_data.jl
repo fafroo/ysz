@@ -53,7 +53,7 @@ function import_EIStoDataFrame(;TC, pO2, bias)
   if pO2==0
     pO2="00"
   end
-  fNAME=string("../snehurka/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
+  fNAME=string("../snehurka/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",Float64(bias),"DC 50AC.z")
   return import_EIStoDataFrame_path(fNAME)
 end
 
@@ -76,7 +76,7 @@ end
 function Nyquist_plot(EIS_data, my_label="")
     title("Nyquist plot")
     xlabel("Re\$(Z)\$")
-    ylabel("Im\$(Z)\$")
+    ylabel("-Im\$(Z)\$")
    
    plot(real(EIS_data.Z), -imag(EIS_data.Z), "x-", label = my_label)
     
