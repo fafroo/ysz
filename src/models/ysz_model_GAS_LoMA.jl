@@ -30,18 +30,21 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     DGA::Float64 # difference of gibbs free energy of adsorption  [ J ]
     betaA::Float64 # symmetry of the adsorption    
     SA::Float64 # stechiometry compensatoin of the adsorption
+    expA::Float64 # bool deciding if EXP should be used instead of LoMA
 
     # electroreaction
     R0::Float64 # exhange current density [m^-2 s^-1]
     DGR::Float64 # difference of gibbs free energy of electrochemical reaction [ J ]
     betaR::Float64 # symmetry of the electroreaction
     SR::Float64 # stechiometry compensatoin of the electroreaction
+    expR::Float64 # bool deciding if EXP should be used instead of LoMA
     
     # adsorption from gas
     K0::Float64 
     DGO::Float64
     betaO::Float64
     SO::Float64
+    expO::Float64 # bool deciding if EXP should be used instead of LoMA
     
     # some trial :)
     L::Float64
@@ -93,19 +96,22 @@ function YSZParameters(this)
     this.A0= 10.0^21
     this.DGA= 0.0905748 * this.e0 # this.e0 = eV
     this.betaA = 0.5
-    this.SA= 0.0
+    this.SA= 10^0.0
+    this.expA= 0
     
     # electron-transfer reaction
     this.R0= 10.0^22
     this.DGR= -0.708014 * this.e0
     this.betaR= 0.5
-    this.SR= 0.0
+    this.SR= 10^0.0
+    this.expR = 0
     
     # oxygen adsorption from gas
     this.K0= 10.0^20
     this.DGO= 0.0905748 * this.e0 # this.e0 = eV
     this.betaO = 0.5
-    this.SO= 0.0
+    this.SO= 10^0.0
+    this.expO=0
     
     this.L=1.45e-5
     
@@ -164,7 +170,7 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
           setfield!(this, name, Float64(10^prms_values[i]))
         elseif name_in in ["DGA", "DGR", "DGO"]
           setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
-        else
+        else 
           setfield!(this, name, Float64(prms_values[i]))
         end
         found = true
@@ -254,13 +260,18 @@ end
 function exponential_oxide_adsorption(this::YSZParameters, u)
     if this.A0 > 0
         # O-2(y) => O-2(s) 
+        if Bool(this.expA)
+          the_fac = 1
+        else  
+          # LoMA
+          the_fac = (
+                (u[iy]/(1-u[iy]))
+                *
+                (u[ib]/(1-u[ib]))               
+              )^(this.SA/2.0)
+        end
         rate = (
-            (this.A0/this.SA)
-            *(
-               (u[iy]/(1-u[iy]))
-               *
-               (u[ib]/(1-u[ib]))               
-            )^(this.SA/2.0)
+            (this.A0/this.SA)*the_fac
             *(
                 exp(-this.betaA*this.SA*this.DGA/(this.kB*this.T))
                 *(
@@ -286,13 +297,18 @@ end
 function electroreaction(this::YSZParameters, u)
     if this.R0 > 0
         # O(s) + 2e-(s) => O-2(s)
-        eR = (
-            (this.R0/this.SR)
-            *(
+        if Bool(this.expR)
+          the_fac = 1
+        else  
+          # LoMA
+          the_fac = (
                (u[iyOs]/(1-u[iyOs]))
                *
                (u[ib]/(1-u[ib]))               
             )^(this.SR/2.0)
+        end
+        eR = (
+            (this.R0/this.SR)*the_fac
             *(
                 exp(-this.betaR*this.SR*this.DGR/(this.kB*this.T))
                 *(u[ib]/(1-u[ib]))^(-this.betaR*this.SR)
@@ -311,13 +327,18 @@ end
 function exponential_gas_adsorption(this::YSZParameters, u)
     if this.A0 > 0
         # O2(g) => 2O(s)
-        eR = (
-            (this.K0/this.SO)
-            *(
+        if Bool(this.expO)
+          the_fac = 1
+        else  
+          # LoMA
+          the_fac = (
                (this.pO2)
                *
                (u[iyOs]/(1-u[iyOs]))^2                                            
             )^(this.SO/2.0)
+        end
+        eR = (
+            (this.K0/this.SO)*the_fac
             *(
                 exp(-this.betaO*this.SO*this.DGO/(this.kB*this.T))
                 *(u[iyOs]/(1-u[iyOs]))^(-2*this.betaO*this.SO)

@@ -25,6 +25,9 @@ module ysz_fitting
 # [ ] PAR_STUDY vyhodnoceni ... soubory do slozky dane studie .. automatizovane
 # ---[ ] pri zobrazovani dat udelat clustery dle chyby/prms a pak zobrazit (prms ci Nyquist) 1 reprezentanta z kazde
 # [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
+# [!!!!!] get rig od shared_prms and shared_add_prms !!!
+# [ ] snehurka by rada ./zabal.sh a pocitac zase ./rozbal_par_study.sh
+# [!!!!!!!!!!] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ... 
 #
 # 
 # #### Fitting process
@@ -36,6 +39,10 @@ module ysz_fitting
 # ------[ ] fing best prms for CV
 # ------[ ] the TRICK with SA ! .. R0 := R0/SA (exp .... - exp ...)
 # ---[o] try perturbate add prms by par_study
+# [ ] gas-exp-model
+# [ ] gas-LoMA-model
+# ---[ ] try to fit CV and EIS at once!
+# ------[ ] compute a lots of EIS, compute some CVs and interpolate
 #######################
 
 
@@ -43,6 +50,13 @@ using Printf
 using PyPlot
 using DataFrames
 using LeastSquaresOptim
+
+
+########  import of model_file  ######
+#TODO !!!!
+
+
+######################################
 
 include("../examples/ysz_experiments.jl")
 include("../src/CV_fitting_supporting_stuff.jl")
@@ -61,7 +75,7 @@ end
 function EIS_get_shared_omega_range()
     # experimental range is 0.1 - 65000 Hz
     # omegas = (w0, w1, w_fac)
-    return omega_range = (1.1, 60000, 1.2)
+    return omega_range = (1.1, 51000, 1.2)
 end
 
 function EIS_get_shared_checknodes()
@@ -72,9 +86,10 @@ function get_shared_prms()
     #     old_prms =  [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
     # first dump fit = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
     # second try = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.18,      -0.5,   0.6074566741435283,   0.956)
-    return (A0, R0, DGA, DGR, beta, A) = [25, 20,     -0.7,      0.3,   0.4,   -1.0] # fit of prms
+    #return (A0, R0, DGA, DGR, betaR, SR) = [25, 20,     -0.7,      0.3,   0.4,   -1.0] # fit of prms
     #return (A0, R0, DGA, DGR, beta, A) = [20, 18,     -0.18,      0.22,   0.4,   -0.0] # fit of prms
     #return (A0, R0, DGA, DGR, beta, A) = [21.71975544711280, 20.606423236896422,     0.0905748,      -0.708014,   0.6074566741435283,   0.1] # fit of prms
+    return (A0, R0, DGA, DGR, betaR, SR) = [25, 20,     -0.7,      0.3,   0.5,   0.0] # fit of prms
 end 
 
 function get_shared_add_prms()
@@ -123,7 +138,7 @@ end
 
 
 
-
+  
 
 
 
@@ -258,8 +273,9 @@ function import_par_study_from_metafile(;save_dir="../snehurka/data/", name="", 
   prms_lists = []
   prms_names = []
   scripted_tuple = []
-  #EIS_bool = false
-  #CV_bool = false
+  TC=-600
+  pO2=-600
+  EIS_bias=-600
   
   file_lines = readlines(string(save_dir,name,"/",metafile_name))
   for str in file_lines
@@ -268,19 +284,26 @@ function import_par_study_from_metafile(;save_dir="../snehurka/data/", name="", 
       token_name=="prms_lists" && (prms_lists = eval(Meta.parse(token_value)))
       token_name=="prms_names" && (prms_names = eval(Meta.parse(token_value)))
       token_name=="scripted_tuple" && (scripted_tuple = eval(Meta.parse(token_value)))
-      #name=="CV_bool" && (CV_bool = eval(Meta.parse(value)))
-      #name=="EIS_bool" && (EIS_bool = eval(Meta.parse(value)))    
+      token_name=="TC" && (TC = eval(Meta.parse(token_value)))
+      token_name=="pO2" && (pO2 = eval(Meta.parse(token_value)))
+      token_name=="EIS_bias" && (EIS_bias = eval(Meta.parse(token_value)))
     end
   end
-  #@show prms_lists
-  #@show prms_names
-  #@show scripted_tuple
 
-  (import_par_study(save_dir=save_dir, name=name, prms_lists=prms_lists, prms_names=prms_names, scripted_tuple=scripted_tuple, CV_bool=CV_bool,  EIS_bool=EIS_bool, verbose=verbose), prms_lists, scripted_tuple, prms_names)
+  (
+    import_par_study(save_dir=save_dir, name=name, prms_lists=prms_lists, prms_names=prms_names, scripted_tuple=scripted_tuple, CV_bool=CV_bool,  EIS_bool=EIS_bool, verbose=verbose), 
+    prms_lists, 
+    scripted_tuple, 
+    prms_names, 
+    TC, 
+    pO2, 
+    EIS_bias
+  )
 end
 
 
 function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13, 13, 0.10, 0.10, 0.4, 0.0], prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(1,1,0,0,0,0), EIS_bool=false, CV_bool=false, verbose=false)
+  
   
   save_dir_forwarded = string(save_dir, name, "/")
   if CV_bool
@@ -295,29 +318,55 @@ function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13
     EIS_bad_count = 0
   end
 
+  counter=1
+  for list in prms_lists
+    counter*= size(list,1)
+  end
+  prmsDIV100 = counter/100
   
+  counter=0
+  println("Loading prms_lists")
+  println("|====================================================================================================|")
+
   function perform_import(prms_indicies)
+    
+    counter += 1
+    if counter >= prmsDIV100 - 0.00000001
+      print("o")
+      counter=1
+    end
+    
     if CV_bool
       try
         CV_hypercube[prms_indicies...] = CV_load_file_prms(save_dir=save_dir_forwarded, prms=get_prms_from_indicies(prms_lists, prms_indicies), prms_names=prms_names, scripted_tuple=scripted_tuple, throw_exception=true, verbose=verbose)
         CV_good_count += 1
-      catch
-        CV_hypercube[prms_indicies...] = DataFrame()
-        CV_bad_count += 1
+      catch e
+        if e isa InterruptException
+          rethrow(e)
+        else
+          CV_hypercube[prms_indicies...] = DataFrame()
+          CV_bad_count += 1
+        end
       end
     end
     if EIS_bool
       try
         EIS_hypercube[prms_indicies...] = EIS_load_file_prms(save_dir=save_dir_forwarded, prms=get_prms_from_indicies(prms_lists, prms_indicies), prms_names=prms_names, scripted_tuple=scripted_tuple, throw_exception=true,verbose=verbose)
         EIS_good_count += 1
-      catch
-        EIS_hypercube[prms_indicies...] = DataFrame()
-        EIS_bad_count += 1
+      catch e
+        if e isa InterruptException
+          rethrow(e)
+        else
+          EIS_hypercube[prms_indicies...] = DataFrame()
+          EIS_bad_count += 1
+        end
       end
     end
   end
   
+  print("|")
   for_each_indicies_in_prms_lists(prms_lists, perform_import)
+  println("|")
   
   if CV_bool && EIS_bool
     println("import_par_study: CV_good / all = ",CV_good_count, " / ", CV_good_count + CV_bad_count)
@@ -334,23 +383,42 @@ function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13
   end
 end
 
+###################################################
+
+
 function EIS_test_checknodes_range(omega_range=EIS_get_shared_omega_range())
   Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(TC=800,pO2=100,bias=0.0),EIS_get_checknodes_geometrical(omega_range...)))
 end
 
-function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), omega_range=EIS_get_shared_omega_range())
+function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, TC, pO2, EIS_bias,  prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), omega_range=EIS_get_shared_omega_range())
   #scripted_tuple = (1,1,0,0,0,0)
 #prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
   #name = "prvni_vrh_lin_ads"
   
   checknodes = EIS_get_checknodes_geometrical(omega_range...)
   
-  
-  # TODO !!! constants
-  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=800, pO2=100, bias=0.0), checknodes)
+  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias), checknodes)
   
   error_df = DataFrame(error = [], prms_indicies = [])
+  
+  counter=1
+  for list in prms_lists
+    counter*= size(list,1)
+  end
+  prmsDIV100 = counter/100
+  
+  counter=0
+  println("Loading prms_lists")
+  println("|====================================================================================================|")
+  
   function perform_error_projection(prms_indicies)
+    
+    counter += 1
+    if counter >= prmsDIV100 - 0.00000001
+      print("o")
+      counter=1
+    end
+    
     if size(EIS_hypercube[prms_indicies...],1) > 0
       #@show EIS_hypercube[prms_indicies...]
       #EIS_sim = EIS_apply_checknodes(EIS_hypercube[prms_indicies...], EIS_get_shared_checknodes())
@@ -369,7 +437,10 @@ function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, prms_names=
       )
     end
   end
+
+  print("|")
   for_each_indicies_in_prms_lists(prms_lists, perform_error_projection)
+  println("|")
   
   sort!(error_df, :error)
   
@@ -388,9 +459,9 @@ function display_err_projection(error_df, prms_lists, prms_names, count)
   end
 end
 
-function display_the_best(err_df, EIS_hypercube, prms_lists, count)
+function display_the_best(err_df, EIS_hypercube, prms_lists, TC, pO2, EIS_bias, count)
   figure(3)
-  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=800, pO2=100, bias=0.0),EIS_get_shared_checknodes())
+  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias),EIS_get_shared_checknodes())
   Nyquist_plot(EIS_exp, "exp")
   for i in 1:count
     Nyquist_plot(EIS_hypercube[err_df.prms_indicies[i]...], "$(i): $(get_prms_from_indicies(prms_lists, err_df.prms_indicies[i]))")
@@ -553,6 +624,7 @@ end
 
 function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100, EIS_bias=0.0, dx_exp=-10)    
    
+    
     prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
     prms_values_in=get_shared_prms()
     
@@ -2090,17 +2162,18 @@ function meta_run_par_study()
   
   
   # prms definition ####################################
-  physical_model_name = "ysz_model_new_prms_exp_ads"
+  physical_model_name = "ysz_model_GAS_LoMA"
   
+  # hint DD = (700, 750, 800, 850) = ( 1.277, 2.92, 5.35, 9.05)e-13
   prms_names = ("A0", "R0", "K0", "DGA", "DGR", "DGO", "DD")
   prms_lists = (
-    collect(12.0 : 0.2 : 15.0),  
-    collect(15.0 : 0.2 : 18.0),  
-    collect(15.0 : 0.2 : 18.0), 
-    collect(-0.8 : 0.3 : 0.8), 
-    collect(-0.8 : 0.3 : 0.8), 
-    collect(-0.8 : 0.3 : 0.8),
-    [5.35e-13]
+    collect(12.0 : 2.2 : 15.0),  
+    collect(15.0 : 2.2 : 18.0),  
+    collect(15.0 : 2.2 : 18.0), 
+    collect(-0.8 : 1.3 : 0.8), 
+    collect(-0.8 : 1.3 : 0.8), 
+    collect(-0.8 : 1.3 : 0.8),
+    [9.05e-13]
   )
   scripted_tuple = (1, 0, 0, 0, 1, 0, 0)
   
@@ -2119,9 +2192,9 @@ function meta_run_par_study()
   CV_bool = "false"
   EIS_bool = "true"
   
-  mode = "print_then_test_one_prms"
+  #mode = "print_then_test_one_prms"
   #mode = "only_print"
-  #mode = "go"
+  mode = "go"
   
   run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
   #######################################################

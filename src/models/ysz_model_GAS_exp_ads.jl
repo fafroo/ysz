@@ -92,17 +92,17 @@ function YSZParameters(this)
     this.A0= 10.0^21
     this.DGA= 0.0905748 * this.e0 # this.e0 = eV
     this.betaA = 0.5
-    this.SA= 0.0
+    this.SA= 1.0
     
     this.R0= 10.0^22
     this.DGR= -0.708014 * this.e0
     this.betaR= 0.5
-    this.SR= 0.0
+    this.SR= 1.0
     
     this.K0= 10.0^20
     this.DGO= 0.0905748 * this.e0 # this.e0 = eV
     this.betaO = 0.5
-    this.SO= 0.0
+    this.SO= 1.0
     
     this.L=1.45e-5
     

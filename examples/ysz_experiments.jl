@@ -52,6 +52,7 @@ function run_new(;physical_model_name="",
                 EIS_TDS=false, tref=0
                  )
 
+    
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
     # Geometry of the problem
@@ -75,7 +76,9 @@ function run_new(;physical_model_name="",
     
     # Physical condtions and parameters setting
     parameters=model_symbol.YSZParameters()
+    
 
+    
     parameters.pO2 = pO2
     parameters.T = T
     parameters.x_frac=0.13
@@ -92,13 +95,14 @@ function run_new(;physical_model_name="",
     
     # update the "computed" values in parameters
     parameters = model_symbol.YSZParameters_update!(parameters)
-    
-#     if debug_print_bool
+
+#     if debug_print_bool 
 #         println("NEW ---- ")
 #         println("prms = ",prms_in)
 #         println("add_prms = (",parameters.DD,",",parameters.nu,",",parameters.nus,",",parameters.ms_par,")")
 #         println("rest_prms = (",parameters.T,",",parameters.pO2,")")
 #     end
+    
     
     #model_symbol.printfields(parameters)
     
