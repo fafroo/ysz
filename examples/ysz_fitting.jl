@@ -61,7 +61,7 @@ end
 function EIS_get_shared_omega_range()
     # experimental range is 0.1 - 65000 Hz
     # omegas = (w0, w1, w_fac)
-    return omega_range = (1.1, 6500, 1.2)
+    return omega_range = (1.1, 60000, 1.2)
 end
 
 function EIS_get_shared_checknodes()
@@ -380,6 +380,7 @@ end
 function display_err_projection(error_df, prms_lists, prms_names, count)
   range_to_display = 1:count
   figure(4)
+  suptitle("The best $count")
   for i in 1:6
     subplot(230+i)
     title(prms_names[i])
@@ -507,12 +508,9 @@ end
 # end
 
 
-function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[] )
+function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100)
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
-    
-    TC=800
-    pO2=100
-    
+
     prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
     prms_values_in=get_shared_prms()
     
@@ -1735,36 +1733,46 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
         print(" >> mask = ",mask)
         print(" || prms = ",prms)
         
-       
-        (DD, nu, nus, ms_par) = get_shared_add_prms()
+        prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
+        prms_values_in=get_shared_prms()
         
+        append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
+        append!(prms_values_in, get_shared_add_prms())
+        
+        append!(prms_names_in, prms_names)
+        append!(prms_values_in, prms)
+      
+       
         err = 0.0
         err_string = ""
         if CV_opt_bool
             CV_sim = ysz_experiments.run_new(
-                            out_df_bool=true, voltammetry=true, sample=8, #pyplot=true,
-                            prms_in=prms,
-                            add_prms_in=(DD, nu, nus, ms_par)
-                        )
+                        physical_model_name=physical_model_name,
+                        out_df_bool=true, voltammetry=true, sample=8, pyplot=false,
+                        T=TCtoT(TC), pO2=pO2tosim(pO2),
+                        prms_names_in=prms_names_in,
+                        prms_values_in=prms_values_in,
+            )
             if pyplot
                 figure(1)
                 CV_plot(CV_sim)
             end
             
-            err += CV_fitnessFunction(
+            err +=CV_penalty_factor * CV_fitnessFunction(
                 CV_apply_checknodes(CV_sim, CV_get_shared_checknodes()), 
                 CV_exp
             )
             err_string = string(err_string," CV ")
         end
         if EIS_opt_bool
-            EIS_sim = ysz_experiments.run_new(
-                            pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-                            dx_exp=-8,
-                            T=TCtoT(TC), pO2=pO2tosim(pO2),
-                            prms_in=prms,
-                            add_prms_in=(DD, nu, nus, ms_par)
-                        )
+            EIS_sim = ysz_experiments.run_new( 
+                    physical_model_name=physical_model_name,
+                    pyplot=false, EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+                    dx_exp=-9,
+                    T=TCtoT(TC), pO2=pO2tosim(pO2),
+                    prms_names_in=prms_names_in,
+                    prms_values_in=prms_values_in,
+            )
 
             
             if pyplot
@@ -1781,9 +1789,12 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
     
 
     
-    T=800
+    TC=800
     pO2 = 100
     EIS_bias=0.0
+    physical_model_name="necum"
+    CV_penalty_factor = 10  # for fitnessFunction = factor*CV + EIS 
+    
     
     if pyplot
         PyPlot.close()
@@ -1815,17 +1826,16 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
     #x0 = zeros(2)
     #optimize(rosenbrock, x0, LevenbergMarquardt())
     
-    lower_bounds = [-20, -20, -1.2, -1.2, 0.1, -1.0]
-    upper_bounds = [22, 22, 0.5, 0.5, 0.9, 1.0]
+    prms_names=["A0", "R0", "K0", "SA", "SR", "SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD", "nu", "nus", "ms_par"]
     
-    #x0 = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
-    x0 = (20.8, 19.2,     -0.14,      0.0,   0.6074566741435283,   0.156)
-    x0 = [20.33593076473848, 19.03903812609013, -0.5950818911594278, 0.02485398906461962, 0.6789640127849936, 0.15628515354230042]
-    x0 = [20.84794940132141, 19.479956891781775, -0.8232180847274697, -0.17334101552015208, 0.2432389397701255, -0.0625559216024488]
-    x0 = [19.620786013494122,19.34421543847122,-0.6539832280099412,-0.37515172426829546,0.2326806290580494,-0.21181634115352901]
-    x0 = [19.620786013494122,19.34421543847122,-0.6539832280099412,-0.37515172426829546,0.23268062905804937,-0.21181634115352904]
+    lower_bounds      = [17, 17, 17,     -5, -5, -5,     -0.9, -0.9, -0.9,    0.0, 0.0, 0.0,     0.1e-13, 0.1, 0.1, 0.01 ]
+    upper_bounds      = [23, 23, 23,      1,  1,  1,      0.9,  0.9,  0.9,    1.0, 1.0, 1.0,     9.0e-13, 0.9, 0.9, 1.5 ]
     
-    mask = [1, 1, 1, 1, 1, 1] # determining, which parametr should be fitted
+    x0  = [19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,     5.35e-13,  0.85,  0.21, 0.05]
+    #x0 = [18.673485702096716, 18.598123074869402, 17.50858588747129, 1.0, 1.0, 1.0, 0.8666319406487695, -0.8342275189659124, -0.7728570698687104, 0.5, 0.5, 0.5, 5.35e-13] 
+    
+    
+    mask = [1, 1, 1,     0, 0, 0,     1,1,1,      0,0,0,   1, 1, 1, 1] # determining, which parametr should be fitted
     
     x0M = zeros(0)
     lowM = zeros(0)
@@ -1841,7 +1851,7 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
    
     
     #to_optimize(x0M)
-    println(optimize(to_optimize, x0M, lower=lowM, upper=uppM, Δ=1000, f_tol=1.0e-14, g_tol=1.0e-14, LevenbergMarquardt()))
+    println(optimize(to_optimize, x0M, lower=lowM, upper=uppM, Δ=1000000, f_tol=1.0e-14, g_tol=1.0e-14, LevenbergMarquardt()))
     
     ####optimize(to_optimize, x0M, Dogleg())
     return

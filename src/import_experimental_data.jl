@@ -42,16 +42,16 @@ function import_EIStoDataFrame_path(f_name)
 end
 
 function import_CVtoDataFrame(;TC,pO2)
-  if TC==0
-    TC="00"
+  if pO2==0
+    pO2="00"
   end
   fNAME=string("../snehurka/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/CV.cor")
   return import_CVtoDataFrame_path(fNAME)
 end
 
 function import_EIStoDataFrame(;TC, pO2, bias)
-  if TC==0
-    TC="00"
+  if pO2==0
+    pO2="00"
   end
   fNAME=string("../snehurka/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
   return import_EIStoDataFrame_path(fNAME)

@@ -1,15 +1,16 @@
-module ysz_model_GAS_exp_ads
+module ysz_model_GAS_LoMA
 
 #############################################
 # WHILE CREATING NEW MODEL                  #
 # DO NOT FORGET TO CHECK                    #
 #
-# [ ] boundary conditions
-# [ ] initial conditions
-# [ ] equilibrium phi
-# [ ] meas_tran & meas_stdy
-# [ ] output species, names
+# [x] boundary conditions
+# [x] initial conditions
+# [x] equilibrium phi
+# [x] meas_tran & meas_stdy
+# [x] output species, names
 # [ ] function set_parameters
+# [ ] changed module name :)
 
 using Printf
 using VoronoiFVM
@@ -19,7 +20,7 @@ using CSV
 using LeastSquaresOptim
 
 const bulk_species = (iphi, iy) = (1, 2)
-const surface_species = (ib, iyos) = (3, 4)
+const surface_species = (ib, iyOs) = (3, 4)
 const surface_names = ("yAs", "yOs")
 
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
@@ -88,24 +89,25 @@ function YSZParameters(this)
     this.mZr = 91.22/1000/this.N_A #  [kg/#]
     this.mY  = 88.91/1000/this.N_A #  [kg/#]
 
-
+    # oxide adsorption from YSZ
     this.A0= 10.0^21
     this.DGA= 0.0905748 * this.e0 # this.e0 = eV
     this.betaA = 0.5
-    this.SA= 1.0
+    this.SA= 0.0
     
+    # electron-transfer reaction
     this.R0= 10.0^22
     this.DGR= -0.708014 * this.e0
     this.betaR= 0.5
-    this.SR= 1.0
+    this.SR= 0.0
     
+    # oxygen adsorption from gas
     this.K0= 10.0^20
     this.DGO= 0.0905748 * this.e0 # this.e0 = eV
     this.betaO = 0.5
-    this.SO= 1.0
+    this.SO= 0.0
     
     this.L=1.45e-5
-    
     
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
@@ -199,7 +201,7 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
         inival[iy,inode]= parameters.y0
     end
     inival[ib,1] = parameters.y0
-    inival[iyos,1] = parameters.y0
+    inival[iyOs,1] = parameters.y0
     return inival
 end
 
@@ -212,7 +214,7 @@ end
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
         f[ib]=this.mO*this.ms_par*(1.0-this.nus)*u[ib]/this.areaL
-        f[iyos]=this.mO*u[iyos]/(4*this.areaL)
+        f[iyOs]=this.mO*u[iyOs]/(4*this.areaL)
     end
 end
 
@@ -251,8 +253,14 @@ end
 # surface reactions
 function exponential_oxide_adsorption(this::YSZParameters, u)
     if this.A0 > 0
+        # O-2(y) => O-2(s) 
         rate = (
             (this.A0/this.SA)
+            *(
+               (u[iy]/(1-u[iy]))
+               *
+               (u[ib]/(1-u[ib]))               
+            )^(this.SA/2.0)
             *(
                 exp(-this.betaA*this.SA*this.DGA/(this.kB*this.T))
                 *(
@@ -277,16 +285,22 @@ end
 
 function electroreaction(this::YSZParameters, u)
     if this.R0 > 0
+        # O(s) + 2e-(s) => O-2(s)
         eR = (
             (this.R0/this.SR)
             *(
+               (u[iyOs]/(1-u[iyOs]))
+               *
+               (u[ib]/(1-u[ib]))               
+            )^(this.SR/2.0)
+            *(
                 exp(-this.betaR*this.SR*this.DGR/(this.kB*this.T))
                 *(u[ib]/(1-u[ib]))^(-this.betaR*this.SR)
-                *(u[iyos]/(1-u[iyos]))^(this.betaR*this.SR)
+                *(u[iyOs]/(1-u[iyOs]))^(this.betaR*this.SR)
                 - 
                 exp((1.0-this.betaR)*this.SR*this.DGR/(this.kB*this.T))
                 *(u[ib]/(1-u[ib]))^((1.0-this.betaR)*this.SR)
-                *(u[iyos]/(1-u[iyos]))^(-(1.0-this.betaR)*this.SR)
+                *(u[iyOs]/(1-u[iyOs]))^(-(1.0-this.betaR)*this.SR)
             )
         )
     else
@@ -296,15 +310,21 @@ end
 
 function exponential_gas_adsorption(this::YSZParameters, u)
     if this.A0 > 0
+        # O2(g) => 2O(s)
         eR = (
             (this.K0/this.SO)
             *(
+               (this.pO2)
+               *
+               (u[iyOs]/(1-u[iyOs]))^2                                            
+            )^(this.SO/2.0)
+            *(
                 exp(-this.betaO*this.SO*this.DGO/(this.kB*this.T))
-                *(u[iyos]/(1-u[iyos]))^(-2*this.betaO*this.SO)
+                *(u[iyOs]/(1-u[iyOs]))^(-2*this.betaO*this.SO)
                 *(this.pO2)^(this.betaO*this.SO)
                 - 
                 exp((1.0-this.betaO)*this.SO*this.DGO/(this.kB*this.T))
-                *(u[iyos]/(1-u[iyos]))^(2*(1.0-this.betaO)*this.SO)
+                *(u[iyOs]/(1-u[iyOs]))^(2*(1.0-this.betaO)*this.SO)
                 *(this.pO2)^(-(1.0-this.betaO)*this.SO)
             )
         )
@@ -324,7 +344,7 @@ function breaction!(f,u,node,this::YSZParameters)
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
         # sign is negative bcs of the equation implementation
         f[ib]= - this.mO*electroR - this.mO*oxide_ads
-        f[iyos]= this.mO*electroR - this.mO*2*gas_ads
+        f[iyOs]= this.mO*electroR - this.mO*2*gas_ads
         f[iphi]=0
     else
         f[iy]=0

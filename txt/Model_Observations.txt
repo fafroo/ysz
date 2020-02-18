@@ -1,0 +1,38 @@
+ysz_model_GAS_exp_ads
+
+
+  CV --------------
+  - _!_!_!_ limitace vodivosti rika, ze mame nekde chybu v zadavane driving force --> voltage. 
+    - hypoteza je takova, ze stejne "napeti" musi udelat vetsi "driving force" nez se deje dosud
+  - zajimave, ze nereaguje na ms_par a nus, ale zase zvlastne reaguje na nu, ale jinak nez na DD (coz je jinak u EIS !!! )
+
+  EIS -------------
+  - nereaguje na ms_par ani na nus. nu a DD jsou v ni zastupne. 
+  - induktance (nebo co to je... protoze ma tendenci se to trochu vracet smerem doprava...) se meni s teplotou
+    - 1.45e-5 H pro 800C, (a DD = 5.35e-13)
+    - 1.5e-5 H pro 850C (a DD = 9.05e-13) 
+  - vypada to, ze procesy jsou zasebou v Nyquistovi zleva A, R, O.
+  - jakmile se prvni (ten vlevo, A) krok stane silne ridicim (pomalym), ostatni zahynou a je to pulkruh
+  - limita vysokych frekvenci se da posouvat k ose X pomoci
+    - K*  
+      - ovlivnuji velikost kruhu vlastniho
+      - kdyz se ale zpomali prechozi kruh, ovlivni to ten nasledujici
+        - nekdy taky obracen .. :( 
+      - role A, R je podobna, O je dost jina (dela zajimave tvary, "odstepi se z predchoziho puloblouku")
+    
+    - DG* 
+      - ovlivnuji posouvani krizku
+      - velikost kruhu
+      - kdyz se stane stepeni pulkruhu, DG ovlivnuje jeho pozici a velikost predchoziho
+      - v nejakem smyslu je obrat monotonie dany bodem, DGA - DGR - DGO/2
+  
+    - beta*
+      - nic moc zatim neovlivnuje
+    
+    - S*
+      - 
+
+      
+    ysz_fitting.CV_simple_run(pyplot=true, prms_names=["A0", "R0", "K0","SA","SR","SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"], prms_values=[22.7, 22.7, 17.6,    0, 0, 0,    -0.0, 0.0, 0.0,      0.5, 0.5, 0.5,  6.35e-13])    
+      
+  ysz_fitting.EIS_simple_run(pyplot=true, prms_names=["A0", "R0", "K0","SA","SR","SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"], prms_values=[19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,    5.35e-13], dx_exp=-8)

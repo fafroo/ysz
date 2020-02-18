@@ -21,7 +21,7 @@ using LeastSquaresOptim
 
 ##########################################
 # internal import of YSZ repo ############
-model_label = "ysz_model_GAS_exp_ads"
+model_label = "ysz_model_GAS_LoMA"
 
 include("../src/models/$(model_label).jl")
 include("../prototypes/timedomain_impedance.jl")
@@ -244,7 +244,8 @@ function run_new(;physical_model_name="",
             if EIS_IS
                 # Here, we use the derivatives of the measurement functional
                 zfreq=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval,dmeas_stdy, dmeas_tran)
-                push!(z_freqdomain,1.0/zfreq)
+                inductance = im*parameters.L*w
+                push!(z_freqdomain, inductance + 1.0/zfreq)
                 print_bool && @show zfreq
             end
             
@@ -261,7 +262,7 @@ function run_new(;physical_model_name="",
             
             # growth factor such that there are 10 points in every order of magnitude
             # (which is consistent with "freq" list below)
-            #w=w*1.25892
+            #w=w*1.25892           
             w = w*omega_range[3]
         end
 
