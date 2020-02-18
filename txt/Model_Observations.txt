@@ -7,6 +7,7 @@ ysz_model_GAS_exp_ads
   - zajimave, ze nereaguje na ms_par a nus, ale zase zvlastne reaguje na nu, ale jinak nez na DD (coz je jinak u EIS !!! )
 
   EIS -------------
+  - nereaguje dostatecne na zmenu pO2. Ostatne vsechny DG* ovlivnuji vice-mene jen trochu prohnuti krivky, ale zasadne nezmeni prusecik v nizkych frekvencich s osou x. Coz je divne.
   - nereaguje na ms_par ani na nus. nu a DD jsou v ni zastupne. 
   - induktance (nebo co to je... protoze ma tendenci se to trochu vracet smerem doprava...) se meni s teplotou
     - 1.45e-5 H pro 800C, (a DD = 5.35e-13)
@@ -36,3 +37,21 @@ ysz_model_GAS_exp_ads
     ysz_fitting.CV_simple_run(pyplot=true, prms_names=["A0", "R0", "K0","SA","SR","SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"], prms_values=[22.7, 22.7, 17.6,    0, 0, 0,    -0.0, 0.0, 0.0,      0.5, 0.5, 0.5,  6.35e-13])    
       
   ysz_fitting.EIS_simple_run(pyplot=true, prms_names=["A0", "R0", "K0","SA","SR","SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"], prms_values=[19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,    5.35e-13], dx_exp=-8)
+
+  Pro demonstraci stacionarity pruseciku x (f<1)
+  ysz_fitting.EIS_simple_run(pyplot=1, prms_names=["A0", "R0", "K0","SA","SR","SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"], prms_values=[20.0, 19.5, 18.7,    0, 0, 0,    0.42, -0.72, -0.1,      0.5, 0.5, 0.5,    5.35e-13], TC=800, pO2=100)
+  
+  
+  
+ysz_model_GAS_LoMA
+
+  CV
+  - dela divnou zakrutu v zaporne oblasti
+  
+  
+  EIS
+  - pekne vystihuje trend zmeny krivky podle zmeny tlaku pO2
+  - od pohledu lepe trefuje experimentalni krivku
+  - ma ukrutne nizsi rady rychlostich konstant. Ale hlavne vychazi nejpomalejsi A, coz je divne.
+  
+  
