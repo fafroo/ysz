@@ -21,6 +21,7 @@ using LeastSquaresOptim
 
 ##########################################
 # internal import of YSZ repo ############
+#model_label = "ysz_model_GAS_exp_ads"
 model_label = "ysz_model_GAS_LoMA"
 
 include("../src/models/$(model_label).jl")

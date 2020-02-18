@@ -507,6 +507,14 @@ end
 #   4.35e-13
 # end
 
+function check_equal_size(list_1, list_2)
+  if size(list_1,1) == size(list_2,1)
+    return true
+  else
+    println("ERROR: check_equal_size: shape mismatch $(list_1) and $(list_2)")
+    return throw(Exception)
+  end
+end
 
 function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100)
     old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
@@ -519,13 +527,15 @@ function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_nam
     
     append!(prms_names_in, prms_names)
     append!(prms_values_in, prms_values)
-
-    CV_df = ysz_experiments.run_new(
-        out_df_bool=true, voltammetry=true, sample=8, pyplot=(pyplot == 2 ? true : false),
-        T=TCtoT(TC), pO2=pO2tosim(pO2),
-        prms_names_in=prms_names_in,
-        prms_values_in=prms_values_in,
-    )
+    
+    if check_equal_size(prms_names, prms_values)
+      CV_df = ysz_experiments.run_new(
+          out_df_bool=true, voltammetry=true, sample=8, pyplot=(pyplot == 2 ? true : false),
+          T=TCtoT(TC), pO2=pO2tosim(pO2),
+          prms_names_in=prms_names_in,
+          prms_values_in=prms_values_in,
+      )
+    end
     #@show CV_sim
     checknodes =  CV_get_shared_checknodes()
     if pyplot > 0
@@ -552,13 +562,15 @@ function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_na
     append!(prms_names_in, prms_names)
     append!(prms_values_in, prms_values)
     
-    EIS_df = ysz_experiments.run_new(
-        pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-        dx_exp=dx_exp,
-        T=TCtoT(TC), pO2=pO2tosim(pO2),
-        prms_names_in=prms_names_in,
-        prms_values_in=prms_values_in,
-    )
+    if check_equal_size(prms_names, prms_values)
+      EIS_df = ysz_experiments.run_new(
+          pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
+          dx_exp=dx_exp,
+          T=TCtoT(TC), pO2=pO2tosim(pO2),
+          prms_names_in=prms_names_in,
+          prms_values_in=prms_values_in,
+      )
+    end
     #@show EIS_df
     checknodes =  EIS_get_shared_checknodes()
     if pyplot > 0
@@ -1892,7 +1904,7 @@ function par_study(;prms_lists=(
   EIS_good_counter::Int32 = 0
   all_counter::Int32 = 0
 
-  if mode!="go"
+  if false
     #println(" >> number of sets of parameters: ",
     #length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
     @show prms_lists
@@ -2082,18 +2094,18 @@ function meta_run_par_study()
   
   prms_names = ("A0", "R0", "K0", "DGA", "DGR", "DGO", "DD")
   prms_lists = (
-    collect(19.5 : 0.1 : 20.5),  
-    collect(18.5 : 0.1 : 20.0),  
-    collect(18.0 : 0.1 : 20.0), 
-    collect(-0.8 : 0.2 : 0.8), 
-    collect(-0.8 : 0.2 : 0.8), 
-    collect(-0.8 : 0.2 : 0.8),
+    collect(12.0 : 0.2 : 15.0),  
+    collect(15.0 : 0.2 : 18.0),  
+    collect(15.0 : 0.2 : 18.0), 
+    collect(-0.8 : 0.3 : 0.8), 
+    collect(-0.8 : 0.3 : 0.8), 
+    collect(-0.8 : 0.3 : 0.8),
     [5.35e-13]
   )
-  scripted_tuple = (1, 0, 0, 1, 1, 0, 0)
+  scripted_tuple = (1, 0, 0, 0, 1, 0, 0)
   
-  TC = 800 
-  pO2 = 100
+  TC = 850
+  pO2 = 40
   EIS_bias = 0.0
   
   #######################################################
@@ -2137,6 +2149,9 @@ function meta_run_par_study()
   metafile_string = string(metafile_string,"#### nodes / pernode_count  =  ", nodes_count," / ",per_node_count," ( = ",per_node_count*0.8/60.0,"m)  #### \n")
   metafile_string = string(metafile_string,"prms_names=", prms_names,"\n")
   metafile_string = string(metafile_string,"scripted_tuple=", scripted_tuple,"\n")
+  metafile_string = string(metafile_string,"TC=", TC,"\n")
+  metafile_string = string(metafile_string,"pO2=", pO2,"\n")
+  metafile_string = string(metafile_string,"EIS_bias=", EIS_bias,"\n")
   metafile_string = string(metafile_string,"save_dir=", save_dir,"\n")
   metafile_string = string(metafile_string,"CV_bool=", CV_bool,"\n")  
   metafile_string = string(metafile_string,"EIS_bool=", EIS_bool,"\n")
