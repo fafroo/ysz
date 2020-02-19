@@ -349,7 +349,8 @@ function run_new(;physical_model_name="",
 
         # inicializing storage lists
         y0_range=zeros(0)
-        ys_range=zeros(0)
+        surface_species_range=Array{Float64}(undef, (size(surface_species,1), 0))
+        yOs_range=zeros(0)
         phi_range=zeros(0)
         #
         Is_range=zeros(0)
@@ -478,7 +479,13 @@ function run_new(;physical_model_name="",
             
             # storing data
             append!(y0_range,U[iy,1])
-            append!(ys_range,U[ib,1])
+            
+            surface_species_to_append = []
+            for (i, idx) in enumerate(surface_species)
+              append!(surface_species_to_append,U[idx,1])
+            end
+            surface_species_range = hcat(surface_species_range, surface_species_to_append)
+            
             append!(phi_range,phi_out)
             #
             append!(Ib_range,Ib)
@@ -556,7 +563,9 @@ function run_new(;physical_model_name="",
                     subplot(num_subplots*100 + 13)
                     plot(time_range,phi_range,label="phi_S (V)")
                     plot(time_range,y0_range,label="y(0)")
-                    plot(time_range,ys_range,label="y_s")
+                    for (i, idx) in enumerate(surface_species)
+                      plot(time_range,surface_species_range[i,:], label=surface_names[i])
+                    end
                     PyPlot.xlabel("t (s)")
                     PyPlot.legend(loc="best")
                     PyPlot.grid()
@@ -663,7 +672,9 @@ function run_new(;physical_model_name="",
             #plot(phi_range, Ir_range ,label="spec1")
             plot(time_range,phi_range,label="phi_s (V)")        
             plot(time_range,y0_range,label="y(0)")
-            plot(time_range,ys_range,label="y_s")
+            for (i, idx) in enumerate(surface_species)
+              plot(time_range,surface_species_range[i,:], label=surface_names[i])
+            end
             PyPlot.xlabel("t (s)")
             PyPlot.legend(loc="best")
             PyPlot.grid()
