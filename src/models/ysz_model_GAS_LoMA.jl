@@ -46,8 +46,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     SO::Float64
     expO::Float64 # bool deciding if EXP should be used instead of LoMA
     
-    # some trial :)
-    L::Float64
+    L::Float64  # inductance
     
     # fixed
     DD::Float64   # diffusion coefficient [m^2/s]
