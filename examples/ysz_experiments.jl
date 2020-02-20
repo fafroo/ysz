@@ -48,7 +48,7 @@ function run_new(;physical_model_name="",
                 prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"],
                 prms_values_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
                 EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
-                voltammetry=false, voltrate=0.010, upp_bound=0.95, low_bound=-0.95, sample=30, dlcap=false,
+                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, dlcap=false,
                 EIS_TDS=false, tref=0
                  )
 

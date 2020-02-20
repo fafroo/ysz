@@ -1,34 +1,38 @@
 module ysz_fitting
 #######################
 ####### TODO ##########
-# [ ] better ramp and maybe sending steady solution via parameter in advance
+# [ ] better ramp
 # [x] general global search using projection to each variable
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [ ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
 # [ ] spoustet run_new() v ruznych procedurach stejnou funkci "EIS_default_run_new( ... )"
 # [x] implement LM algorithm
-# [ ] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina !!!
+# [x] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina
 # [x] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
 # [x] vymyslet novy relevantni vektor parametru
 # [?] aplikovat masku pro fitting pro scan_2D_recursive
-# [o] snehurka, velke objemy dat, maska a metafile
+# [ ] snehurka, velke objemy dat, maska a metafile
 # ---[x] save_dir preposilany parametrem a odlisit scripted_dir
 # ---[x] sneh - zadavani i jinych parametru nez prms
 # ---[x] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
-# ---[?] mozna pouzit precompile
+# ---[ ] mozna pouzit precompile
 # ---[ ] nechat meta_run_par_study() vytvorit skriptovaci soubor (dle poctu parametru, module, pocet experimentu)
+# ------[ ] spis bude lepsi skriptovaci soubor nechat stejny a prohanet pres nej jen ARGS bez cisel
 # [!] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI" -> JUERGEN
 # ---[!] zadavani modulu by melo byt v hlavicce meta_run_par_study()
+# ------[!] mozna by se include mel vykonavat na vyssi urovni a do ysz_experiments preposilat uz hotovou tridu
 # [x] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry 
-# [ ] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
-# ---[ ] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
+# [o] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
+# ---[o] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
+# ---[ ] udelat tridu par_study
 # [ ] PAR_STUDY vyhodnoceni ... soubory do slozky dane studie .. automatizovane
 # ---[ ] pri zobrazovani dat udelat clustery dle chyby/prms a pak zobrazit (prms ci Nyquist) 1 reprezentanta z kazde
+# ---[ ] automatizovat ukladani souboru vysledku par_study.vyhodnoceni()
 # [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
-# [!!!!!] get rig od shared_prms and shared_add_prms !!!
+# [x] get rig od shared_prms and shared_add_prms !!!
 # [ ] snehurka by rada ./zabal.sh a pocitac zase ./rozbal_par_study.sh
-# [!!!!!!!!!!] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ...
-# [!!!!!!!!!!] nejak si preposilat steadystate?! 
+# [!] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ...
+# ---[!!!!!!] nejak si preposilat steadystate?! 
 #
 # 
 # #### Fitting process
@@ -71,6 +75,11 @@ include("../src/import_experimental_data.jl")
 
 function CV_get_shared_checknodes()
     return CV_get_checknodes(0.1,0.95,-0.95,-0.06,0.12)
+end
+
+function CV_get_nice_checknodes()
+  # experimental range is 0.00104 | 0.99990 | -0.9979 | -0.003.21
+  return CV_get_checknodes(0.015,0.99,-0.99,-0.004,0.01)
 end
 
 function EIS_get_shared_omega_range()
@@ -147,12 +156,12 @@ end
 ##########
 
 function CV_experiment_legend(TC, pO2)
-  return "exp \$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 %\$"
+  return "\$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 %\$"
 end
 
 
 function EIS_experiment_legend(TC, pO2, EIS_bias)
-  return "exp \$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$"
+  return "\$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$"
 end
 
 
@@ -474,7 +483,7 @@ end
 function display_the_best(err_df, EIS_hypercube, prms_lists, TC, pO2, EIS_bias, count)
   figure(3)
   EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias),EIS_get_shared_checknodes())
-  Nyquist_plot(EIS_exp, EIS_experiment_legend(TC, pO2, EIS_bias))
+  Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, EIS_bias))")
   for i in 1:count
     Nyquist_plot(EIS_hypercube[err_df.prms_indicies[i]...], "$(i): $(get_prms_from_indicies(prms_lists, err_df.prms_indicies[i]))")
   end
@@ -531,7 +540,7 @@ function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_
         else
           CV_exp = import_CVtoDataFrame(TC=TC, pO2=pO2)
         end
-        CV_plot(CV_exp, CV_experiment_legend(TC, pO2))
+        CV_plot(CV_exp, "exp $(CV_experiment_legend(TC, pO2))")
       end
     end
 end
@@ -547,7 +556,7 @@ function EIS_view_experimental_data(TC_list, pO2_list, EIS_bias_list; use_checkn
           else
             EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias)
           end
-          Nyquist_plot(EIS_exp, EIS_experiment_legend(TC, pO2, EIS_bias))
+          Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, EIS_bias))")
         end
       end
     end
@@ -610,107 +619,163 @@ function check_equal_size(list_1, list_2)
   end
 end
 
-function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100)
-    old_prms = [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
-
-    prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
-    prms_values_in=get_shared_prms()
+function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100, sample=8, nice_plot=false)
     
-    append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
-    append!(prms_values_in, get_shared_add_prms())
-    
-    append!(prms_names_in, prms_names)
-    append!(prms_values_in, prms_values)
-    
-    if check_equal_size(prms_names, prms_values)
-      CV_df = ysz_experiments.run_new(
-          out_df_bool=true, voltammetry=true, sample=8, pyplot=(pyplot == 2 ? true : false),
-          T=TCtoT(TC), pO2=pO2tosim(pO2),
-          prms_names_in=prms_names_in,
-          prms_values_in=prms_values_in,
-      )
-    end
-    #@show CV_sim
-    checknodes =  CV_get_shared_checknodes()
-    if pyplot > 0
-        figure(5)
-        CV_sim = CV_apply_checknodes(CV_df, checknodes)
-        CV_plot(CV_sim, "sim")
-        if show_experiment
-          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(TC=TC, pO2=pO2), checknodes)
-          CV_plot(CV_exp, CV_experiment_legend(TC, pO2))  
-          println("CV_fitting error = ", CV_fitnessFunction(CV_exp, CV_sim))
+  for pO2_in in pO2
+    for TC_in in TC
+      
+        function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
+          if active_idx > size(prms_names,1)
+        
+            # perform the standard code #####################
+            prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
+            prms_values_in=get_shared_prms()
+            
+            append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
+            append!(prms_values_in, get_shared_add_prms())
+            
+            append!(prms_names_in, prms_names)
+            append!(prms_values_in, output_prms)
+          
+          
+              
+            if check_equal_size(prms_names, prms_values)
+              CV_df = ysz_experiments.run_new(
+                  out_df_bool=true, voltammetry=true, sample=sample, pyplot=(pyplot == 2 ? true : false),
+                  T=TCtoT(TC_in), pO2=pO2tosim(pO2_in),
+                  prms_names_in=prms_names_in,
+                  prms_values_in=prms_values_in,
+              )
+            end       
+            
+            #@show CV_df
+            if pyplot > 0
+                figure(5)
+                CV_sim = CV_apply_checknodes(CV_df, checknodes)
+                if size(plot_names,1) < 1
+                  CV_plot(CV_sim, "sim $(CV_experiment_legend(TC_in, pO2_in))")
+                else
+                  CV_plot(CV_sim, "sim $(string(plot_names))=$(plot_values)")
+                end
+                if show_experiment
+                  println("CV_fitting error = ", CV_fitnessFunction(CV_exp, CV_sim))
+                end
+            end            
+            return
+            #####################################  
+          
+          end
+          if size(prms_values[active_idx],1)>1
+            for i in prms_values[active_idx]
+              recursive_simple_run_call(
+                push!(deepcopy(output_prms),i),
+                push!(deepcopy(plot_names),prms_names[active_idx]),
+                append!(deepcopy(plot_values),i),
+                active_idx + 1)
+            end
+          else
+            recursive_simple_run_call(
+              push!(deepcopy(output_prms),prms_values[active_idx][1]),
+              plot_names,
+              plot_values,
+              active_idx + 1)
+          end
         end
-    end    
-    return
+        
+        if nice_plot
+          checknodes = CV_get_nice_checknodes()
+          sample=30
+        else
+          checknodes =  CV_get_shared_checknodes()
+        end
+        if show_experiment && (pyplot > 0)
+          figure(5)
+          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(TC=TC_in, pO2=pO2_in), checknodes)
+          CV_plot(CV_exp, "exp $(CV_experiment_legend(TC_in, pO2_in))")  
+        end
+        
+        recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
+      
+    end
+  end
+    
+    
+    
+    
 end
 
-function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100, EIS_bias=0.0, dx_exp=-10)
+function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100, EIS_bias=0.0, dx_exp=-9)
  
     
   for pO2_in in pO2
     for TC_in in TC
-      function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
-        if active_idx > size(prms_names,1)
-      
-          # perform the standard code #####################
-          prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
-          prms_values_in=get_shared_prms()
+      for EIS_bias_in in EIS_bias
+        function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
+          if active_idx > size(prms_names,1)
+        
+            # perform the standard code #####################
+            prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
+            prms_values_in=get_shared_prms()
+            
+            append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
+            append!(prms_values_in, get_shared_add_prms())
+            
+            append!(prms_names_in, prms_names)
+            append!(prms_values_in, output_prms)
           
-          append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
-          append!(prms_values_in, get_shared_add_prms())
           
-          append!(prms_names_in, prms_names)
-          append!(prms_values_in, output_prms)
-        
-        
-          if check_equal_size(prms_names, prms_values)   
-            EIS_df = ysz_experiments.run_new(
-                pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias, omega_range=EIS_get_shared_omega_range(),
-                dx_exp=dx_exp,
-                T=TCtoT(TC_in), pO2=pO2tosim(pO2_in),
-                prms_names_in=prms_names_in,
-                prms_values_in=prms_values_in,
-            )        
-          end    
-          #@show EIS_df
-          if pyplot > 0
-              figure(6)
-              EIS_sim = EIS_apply_checknodes(EIS_df,checknodes)
-              Nyquist_plot(EIS_sim, "$(string(plot_names))=$(plot_values)")
-              if show_experiment
-                println("EIS_fitting error $(string(plot_names)) = $(plot_values) => ", EIS_fitnessFunction(EIS_exp, EIS_sim))
-              end
-          end            
-          return
-          #####################################  
-        
-        end
-        if size(prms_values[active_idx],1)>1
-          for i in prms_values[active_idx]
+            if check_equal_size(prms_names, prms_values)   
+              EIS_df = ysz_experiments.run_new(
+                  pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias_in, omega_range=EIS_get_shared_omega_range(),
+                  dx_exp=dx_exp,
+                  T=TCtoT(TC_in), pO2=pO2tosim(pO2_in),
+                  prms_names_in=prms_names_in,
+                  prms_values_in=prms_values_in,
+              )        
+            end    
+            #@show EIS_df
+            if pyplot > 0
+                figure(6)
+                EIS_sim = EIS_apply_checknodes(EIS_df,checknodes)
+                if size(plot_names,1) < 1
+                  Nyquist_plot(EIS_sim, "sim $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in))")
+                else
+                  Nyquist_plot(EIS_sim, "sim $(string(plot_names))=$(plot_values)")
+                end
+                if show_experiment
+                  println("EIS_fitting error $(string(plot_names)) = $(plot_values) => ", EIS_fitnessFunction(EIS_exp, EIS_sim))
+                end
+            end            
+            return
+            #####################################  
+          
+          end
+          if size(prms_values[active_idx],1)>1
+            for i in prms_values[active_idx]
+              recursive_simple_run_call(
+                push!(deepcopy(output_prms),i),
+                push!(deepcopy(plot_names),prms_names[active_idx]),
+                append!(deepcopy(plot_values),i),
+                active_idx + 1)
+            end
+          else
             recursive_simple_run_call(
-              push!(deepcopy(output_prms),i),
-              push!(deepcopy(plot_names),prms_names[active_idx]),
-              append!(deepcopy(plot_values),i),
+              push!(deepcopy(output_prms),prms_values[active_idx][1]),
+              plot_names,
+              plot_values,
               active_idx + 1)
           end
-        else
-          recursive_simple_run_call(
-            push!(deepcopy(output_prms),prms_values[active_idx][1]),
-            plot_names,
-            plot_values,
-            active_idx + 1)
         end
+        
+        checknodes =  EIS_get_shared_checknodes()
+        if show_experiment && (pyplot > 0)
+          figure(6)
+          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC_in, pO2=pO2_in, bias=EIS_bias_in), checknodes)
+          Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in))")
+        end
+        
+        recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
       end
-      
-      checknodes =  EIS_get_shared_checknodes()
-      if show_experiment && (pyplot > 0)
-        figure(6)
-        EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC_in, pO2=pO2_in, bias=EIS_bias), checknodes)
-        Nyquist_plot(EIS_exp, EIS_experiment_legend(TC_in, pO2_in, EIS_bias))
-      end
-      
-      recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
     end
   end
 end
@@ -948,7 +1013,7 @@ function plot_CV_matrix(CV_matrix, ok_matrix, rprm1, rprm2, TC, pO2)
     checknodes = CV_get_shared_checknodes()
     CV_exp = DataFrame(U = checknodes[:,1], I = CV_get_I_values(CV_orig, checknodes))
     
-    CV_plot(CV_exp, CV_experiment_legend(TC, pO2))
+    CV_plot(CV_exp, "exp $(CV_experiment_legend(TC, pO2))")
 end
 
 
@@ -973,7 +1038,7 @@ function plot_EIS_matrix(EIS_matrix, ok_matrix, rprm1, rprm2, TC, pO2, EIS_bias=
     EIS_raw = import_EIStoDataFrame(;TC=TC,pO2=pO2,bias=EIS_bias)
     EIS_exp = DataFrame(f = checknodes[:], Z = EIS_get_Z_values(EIS_raw, checknodes))
     
-    Nyquist_plot(EIS_exp, EIS_experiment_legend(TC, pO2, EIS_bias))
+    Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, EIS_bias))")
 end
 
 
@@ -1925,7 +1990,7 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
         )
         if pyplot
             figure(1)
-            CV_plot(CV_exp, CV_experiment_legend(TC, pO2))
+            CV_plot(CV_exp, "exp $(CV_experiment_legend(TC, pO2))")
         end
     end
     
@@ -1937,7 +2002,7 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
 
         if pyplot
             figure(2)
-            Nyquist_plot(EIS_exp, EIS_experiment_legend(TC, pO2, EIS_bias))
+            Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, EIS_bias))")
         end
     end
             
