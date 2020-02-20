@@ -92,26 +92,11 @@ function EIS_get_shared_checknodes()
     return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()...)
 end
 
-function get_shared_prms()
-    #     old_prms =  [21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1]
-    # first dump fit = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.14,      -0.5,   0.6074566741435283,   0.956)
-    # second try = (A0, R0, DGA, DGR, beta, A) = (18.8, 19.2,     -0.18,      -0.5,   0.6074566741435283,   0.956)
-    #return (A0, R0, DGA, DGR, betaR, SR) = [25, 20,     -0.7,      0.3,   0.4,   -1.0] # fit of prms
-    #return (A0, R0, DGA, DGR, beta, A) = [20, 18,     -0.18,      0.22,   0.4,   -0.0] # fit of prms
-    #return (A0, R0, DGA, DGR, beta, A) = [21.71975544711280, 20.606423236896422,     0.0905748,      -0.708014,   0.6074566741435283,   0.1] # fit of prms
-    return (A0, R0, DGA, DGR, betaR, SR) = [25, 20,     -0.7,      0.3,   0.5,   0.0] # fit of prms
-end 
-
-function get_shared_add_prms()
-    # cap_fit + resistance fit = (DD, nu, nus, ms_par) = (4.35e-13,    0.85,      0.21,   0.05)
-    return (DD, nu, nus, ms_par) = [5.39e-13,    0.85,      0.21,   0.05]
-end
 
 function get_fitted_all_prms()
   prms_names=["A0", "R0", "K0", "SA", "SR", "SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"]
   prms_values=[19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,    5.35e-13]  # fitted to EIS 800, 100, 0.0
-  
-  
+    
   return prms_names, prms_values
 end
 
@@ -155,13 +140,21 @@ end
 ##########
 ##########
 
-function CV_experiment_legend(TC, pO2)
-  return "\$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 %\$"
+function CV_experiment_legend(TC, pO2; latex=true)
+  if latex
+    return "\$\\theta=$TC\$°C \$\\mathrm{O}_2=$(pO2)\\%\$"
+  else
+    return "TC=$(TC)°C pO2=$(pO2)%"
+  end
 end
 
 
-function EIS_experiment_legend(TC, pO2, EIS_bias)
-  return "\$\\theta=$TC\$°C \$\\mathrm{O}_2=$pO2 % \$ \$\\mathrm{bias}=$EIS_bias\$"
+function EIS_experiment_legend(TC, pO2, EIS_bias; latex=true)
+  if latex
+    return "\$\\theta=$TC\$°C \$\\mathrm{O}_2=$(pO2)\\% \$ \$\\mathrm{bias}=$EIS_bias\$"
+  else
+    return "TC=$(TC)°C pO2=$(pO2)% bias=$(EIS_bias)V"
+  end
 end
 
 
@@ -619,82 +612,84 @@ function check_equal_size(list_1, list_2)
   end
 end
 
-function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100, sample=8, nice_plot=false)
-    
+function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], 
+                        TC=800, pO2=100, sample=8, fig_size = (9,6), nice_plot=false)
+  
+  
   for pO2_in in pO2
     for TC_in in TC
       
-        function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
-          if active_idx > size(prms_names,1)
+      function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
+        if active_idx > size(prms_names,1)
+      
+          # perform the standard code #####################
+          prms_names_in=[]
+          prms_values_in=[]
+          
+          append!(prms_names_in, prms_names)
+          append!(prms_values_in, output_prms)
         
-            # perform the standard code #####################
-            prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
-            prms_values_in=get_shared_prms()
+        
             
-            append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
-            append!(prms_values_in, get_shared_add_prms())
-            
-            append!(prms_names_in, prms_names)
-            append!(prms_values_in, output_prms)
+          if check_equal_size(prms_names, prms_values)
+            CV_df = ysz_experiments.run_new(
+                out_df_bool=true, voltammetry=true, sample=sample, pyplot=(pyplot == 2 ? true : false),
+                T=TCtoT(TC_in), pO2=pO2tosim(pO2_in),
+                prms_names_in=prms_names_in,
+                prms_values_in=prms_values_in,
+            )
+          end       
           
-          
+          #@show CV_df
+          if pyplot > 0
+              figure(5, figsize=fig_size)
+              CV_sim = CV_apply_checknodes(CV_df, checknodes)
               
-            if check_equal_size(prms_names, prms_values)
-              CV_df = ysz_experiments.run_new(
-                  out_df_bool=true, voltammetry=true, sample=sample, pyplot=(pyplot == 2 ? true : false),
-                  T=TCtoT(TC_in), pO2=pO2tosim(pO2_in),
-                  prms_names_in=prms_names_in,
-                  prms_values_in=prms_values_in,
-              )
-            end       
-            
-            #@show CV_df
-            if pyplot > 0
-                figure(5)
-                CV_sim = CV_apply_checknodes(CV_df, checknodes)
-                if size(plot_names,1) < 1
-                  CV_plot(CV_sim, "sim $(CV_experiment_legend(TC_in, pO2_in))")
-                else
-                  CV_plot(CV_sim, "sim $(string(plot_names))=$(plot_values)")
-                end
-                if show_experiment
-                  println("CV_fitting error = ", CV_fitnessFunction(CV_exp, CV_sim))
-                end
-            end            
-            return
-            #####################################  
-          
-          end
-          if size(prms_values[active_idx],1)>1
-            for i in prms_values[active_idx]
-              recursive_simple_run_call(
-                push!(deepcopy(output_prms),i),
-                push!(deepcopy(plot_names),prms_names[active_idx]),
-                append!(deepcopy(plot_values),i),
-                active_idx + 1)
-            end
-          else
+              if size(plot_names,1) < 1
+                plot_prms_string = ""
+              else
+                plot_prms_string = "$(string(plot_names)) = $(plot_values)"
+              end                
+              
+              CV_plot(CV_sim, "sim $(CV_experiment_legend(TC_in, pO2_in)) $(plot_prms_string)")
+              if show_experiment
+                println("CV_fitting error $(CV_experiment_legend(TC_in, pO2_in, latex=false)) $(plot_prms_string)  => ", CV_fitnessFunction(CV_exp, CV_sim))
+              end                
+          end            
+          return
+          #####################################  
+        
+        end
+        if size(prms_values[active_idx],1)>1
+          for i in prms_values[active_idx]
             recursive_simple_run_call(
-              push!(deepcopy(output_prms),prms_values[active_idx][1]),
-              plot_names,
-              plot_values,
+              push!(deepcopy(output_prms),i),
+              push!(deepcopy(plot_names),prms_names[active_idx]),
+              append!(deepcopy(plot_values),i),
               active_idx + 1)
           end
-        end
-        
-        if nice_plot
-          checknodes = CV_get_nice_checknodes()
-          sample=30
         else
-          checknodes =  CV_get_shared_checknodes()
+          recursive_simple_run_call(
+            push!(deepcopy(output_prms),prms_values[active_idx][1]),
+            plot_names,
+            plot_values,
+            active_idx + 1)
         end
-        if show_experiment && (pyplot > 0)
-          figure(5)
-          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(TC=TC_in, pO2=pO2_in), checknodes)
-          CV_plot(CV_exp, "exp $(CV_experiment_legend(TC_in, pO2_in))")  
-        end
-        
-        recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
+      end
+      
+      if nice_plot
+        checknodes = CV_get_nice_checknodes()
+        sample=30
+      else
+        checknodes =  CV_get_shared_checknodes()
+      end
+      if show_experiment && (pyplot > 0)
+        figure(5, figsize=fig_size)
+        CV_exp = CV_apply_checknodes(import_CVtoDataFrame(TC=TC_in, pO2=pO2_in), checknodes)
+        CV_plot(CV_exp, "exp $(CV_experiment_legend(TC_in, pO2_in))")  
+      end
+      
+      recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
       
     end
   end
@@ -704,8 +699,9 @@ function CV_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_nam
     
 end
 
-function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], TC=800, pO2=100, EIS_bias=0.0, dx_exp=-9)
- 
+function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_names=[], 
+                        TC=800, pO2=100, EIS_bias=0.0, fig_size = (9,6), dx_exp=-9)
+
     
   for pO2_in in pO2
     for TC_in in TC
@@ -714,11 +710,8 @@ function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_na
           if active_idx > size(prms_names,1)
         
             # perform the standard code #####################
-            prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
-            prms_values_in=get_shared_prms()
-            
-            append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
-            append!(prms_values_in, get_shared_add_prms())
+            prms_names_in=[]
+            prms_values_in=[]
             
             append!(prms_names_in, prms_names)
             append!(prms_values_in, output_prms)
@@ -735,16 +728,22 @@ function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_na
             end    
             #@show EIS_df
             if pyplot > 0
-                figure(6)
+                figure(6, figsize=fig_size)
+                
                 EIS_sim = EIS_apply_checknodes(EIS_df,checknodes)
+                
                 if size(plot_names,1) < 1
-                  Nyquist_plot(EIS_sim, "sim $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in))")
+                  plot_prms_string = ""
                 else
-                  Nyquist_plot(EIS_sim, "sim $(string(plot_names))=$(plot_values)")
-                end
+                  plot_prms_string = "$(string(plot_names)) = $(plot_values)"
+                end                
+
+                Nyquist_plot(EIS_sim, "sim $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in)) $(plot_prms_string)")
                 if show_experiment
-                  println("EIS_fitting error $(string(plot_names)) = $(plot_values) => ", EIS_fitnessFunction(EIS_exp, EIS_sim))
+                  println("EIS_fitting error $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in, latex=false)) $(plot_prms_string)  => ", EIS_fitnessFunction(EIS_exp, EIS_sim))
                 end
+                
+
             end            
             return
             #####################################  
@@ -769,7 +768,7 @@ function EIS_simple_run(;pyplot=0, show_experiment=true, prms_values=[], prms_na
         
         checknodes =  EIS_get_shared_checknodes()
         if show_experiment && (pyplot > 0)
-          figure(6)
+          figure(6, figsize=fig_size)
           EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC_in, pO2=pO2_in, bias=EIS_bias_in), checknodes)
           Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in))")
         end
@@ -1275,9 +1274,6 @@ function scan_2D_recursive(;pyplot=false,
     ######################################################
     
     wpn = ["A0","R0","DGA","DGR","betaR","SR"]
-
-    (A0, R0, DGA, DGR, beta, A) = get_shared_prms()
-   (DD, nu, nus, ms_par)  =  get_shared_add_prms()
     
    
     println(recursive_string,"computing 2D scan... ")
@@ -1916,11 +1912,8 @@ function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
         print(" >> mask = ",mask)
         print(" || prms = ",prms)
         
-        prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
-        prms_values_in=get_shared_prms()
-        
-        append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
-        append!(prms_values_in, get_shared_add_prms())
+        prms_names_in=[]
+        prms_values_in=[]
         
         append!(prms_names_in, prms_names)
         append!(prms_values_in, prms)
@@ -2093,11 +2086,8 @@ function par_study(;prms_lists=(
       
       prms = actual_prms
       
-      prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"]
-      prms_values_in=get_shared_prms()
-      
-      append!(prms_names_in, ("DD", "nu", "nus", "ms_par"))
-      append!(prms_values_in, get_shared_add_prms())
+      prms_names_in=[]
+      prms_values_in=[]
       
       append!(prms_names_in, prms_names)
       append!(prms_values_in, prms)
