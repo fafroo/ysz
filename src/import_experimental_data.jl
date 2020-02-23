@@ -45,7 +45,7 @@ function import_CVtoDataFrame(;TC,pO2)
   if pO2==0
     pO2="00"
   end
-  fNAME=string("../snehurka/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/CV.cor")
+  fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/CV.cor")
   return import_CVtoDataFrame_path(fNAME)
 end
 
@@ -53,7 +53,7 @@ function import_EIStoDataFrame(;TC, pO2, bias)
   if pO2==0
     pO2="00"
   end
-  fNAME=string("../snehurka/experimental_data/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",Float64(bias),"DC 50AC.z")
+  fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",Float64(bias),"DC 50AC.z")
   return import_EIStoDataFrame_path(fNAME)
 end
 
