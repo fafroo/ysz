@@ -20,7 +20,7 @@ using CSV
 using LeastSquaresOptim
 
 const bulk_species = (iphi, iy) = (1, 2)
-const surface_species = (ib, iyOs) = (3, 4)
+const surface_species = (iyAs, iyOs) = (3, 4)
 const surface_names = ("yAs", "yOs")
 
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
@@ -46,7 +46,13 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     SO::Float64
     expO::Float64 # bool deciding if EXP should be used instead of LoMA
     
-    L::Float64  # inductance
+    # inductance
+    L::Float64  
+    
+    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
+    OC::Float64
+    
+    
     
     # fixed
     DD::Float64   # diffusion coefficient [m^2/s]
@@ -75,7 +81,13 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     mZr::Float64 
     mY::Float64
     zL::Float64   # average charge number [1]
-    y0::Float64   # electroneutral value [1]
+    yB::Float64   # electroneutral value [1]
+    
+    phi_eq::Float64 # equilibrium voltage [V]
+    y0_eq::Float64
+    yAs_eq::Float64
+    yOs_eq::Float64
+    
     ML::Float64   # averaged molar mass [kg]
     #
     YSZParameters()= YSZParameters( new())
@@ -114,6 +126,9 @@ function YSZParameters(this)
     
     this.L=1.45e-5
     
+    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
+    this.OC = 1/4
+    
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
     #this.DD=9.5658146540360312e-10  # some value  <<<< nearly the BEST hand-guess
@@ -130,16 +145,91 @@ function YSZParameters(this)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)
 
     this.vL=3.35e-29
-    this.areaL=(this.vL)^0.6666
+    #this.areaL=(this.vL)^0.6666
     this.zA  = -2;
-    this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
-    this.y0  = -this.zL/(this.zA*this.m_par*(1-this.nu))
-    this.ML  = (1-this.x_frac)/(1+this.x_frac)*this.mZr + 2*this.x_frac/(1+this.x_frac)*this.mY + this.m_par*this.nu*this.mO
+    #this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
+    #this.yB  = -this.zL/(this.zA*this.m_par*(1-this.nu))
+    #this.ML  = (1-this.x_frac)/(1+this.x_frac)*this.mZr + 2*this.x_frac/(1+this.x_frac)*this.mY + this.m_par*this.nu*this.mO
     # this.zL=1.8182
-    # this.y0=0.9
-    # this.ML=1.77e-25    
+    # this.yB=0.9
+    # this.ML=1.77e-25   
+    
+    #phi_eq=0
+    #y0_eq=0
+    #yAs_eq=0
+    #yOs_eq=0
+    
     return this
 end
+
+# conversions for the equilibrium case
+function y0_to_phi(this::YSZParameters, y0)
+    yB = this.yB
+    return - (this.kB * this.T / (this.zA * this.e0)) * log(y0/(1-y0) * (1-yB)/yB )
+end
+
+function y0_activity_to_phi(this::YSZParameters, a_y0)
+  yB = this.yB
+  return - (this.kB * this.T / (this.zA * this.e0)) * log(a_y0 * (1-yB)/yB )
+end
+
+function phi_to_y0(this::YSZParameters, phi)
+    yB = this.yB
+    X  = yB/(1-yB)*exp.(this.zA*this.e0/this.kB/this.T* (-phi))
+    return X./(1.0.+X)
+end
+
+function equilibrium_boundary_conditions(this::YSZParameters)
+    a_yOs = this.pO2^(1/2.0)*exp(-this.DGO/(2 * this.kB * this.T))
+    a_yAs = a_yOs*exp(-this.DGR/(this.kB * this.T))
+    a_y0 = a_yAs*exp(this.DGA/(this.kB * this.T))
+    
+    #yOs = a_yOs/(1 + a_yOs)
+    #yAs = a_yAs/(1 + a_yAs)
+    #y0 = a_y0/(1 + a_y0)
+    
+    #@show yOs
+    #@show yAs
+    #@show y0    
+    return y0_activity_to_phi(this, a_y0), a_y0/(1 + a_y0),  a_yAs/(1 + a_yAs), a_yOs/(1 + a_yOs)
+end
+
+# boundary conditions
+function set_typical_boundary_conditions!(sys, parameters::YSZParameters)
+    sys.boundary_values[iphi,1]=parameters.phi_eq
+    sys.boundary_values[iphi,2]=0.0e-3
+    #
+    sys.boundary_factors[iphi,1]=VoronoiFVM.Dirichlet
+    sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
+    #
+    sys.boundary_values[iy,2]=parameters.yB
+    sys.boundary_factors[iy,2]=VoronoiFVM.Dirichlet
+end
+
+# initial conditions
+function get_typical_initial_conditions(sys, parameters::YSZParameters)   
+    inival=unknowns(sys)
+    inival.=0.0
+    grid = sys.grid
+    #
+    treshold_for_linear_function = 0.6*10^(-9)
+    for inode=1:size(inival,2)
+        x = nodecoord(grid, inode)[1]
+        if x < treshold_for_linear_function
+          inival[iphi, inode] = (((treshold_for_linear_function - x)*parameters.phi_eq)/
+                                  treshold_for_linear_function)                                  
+          inival[iy, inode] = (((treshold_for_linear_function - x)*parameters.y0_eq + x*parameters.yB)/
+                                  treshold_for_linear_function)
+        else  
+          inival[iphi,inode]=0.0
+          inival[iy,inode]= parameters.yB
+        end
+    end
+    inival[iyAs,1] = parameters.yAs_eq
+    inival[iyOs,1] = parameters.yOs_eq
+    return inival
+end
+
 
 function YSZParameters_update!(this::YSZParameters)
     this.areaL=(this.vL)^0.6666
@@ -147,8 +237,10 @@ function YSZParameters_update!(this::YSZParameters)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)   
     
     this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
-    this.y0  = -this.zL/(this.zA*this.m_par*(1-this.nu))
+    this.yB  = -this.zL/(this.zA*this.m_par*(1-this.nu))
     this.ML  = (1-this.x_frac)/(1+this.x_frac)*this.mZr + 2*this.x_frac/(1+this.x_frac)*this.mY + this.m_par*this.nu*this.mO
+    
+    this.phi_eq, this.y0_eq, this.yAs_eq, this.yOs_eq = equilibrium_boundary_conditions(this)
     return this
 end
 
@@ -185,30 +277,7 @@ end
 
 
 
-# boundary conditions
-function set_typical_boundary_conditions!(sys, parameters::YSZParameters)
-    #sys.boundary_values[iphi,1]=1.0e-0
-    sys.boundary_values[iphi,2]=0.0e-3
-    #
-    sys.boundary_factors[iphi,1]=VoronoiFVM.Dirichlet
-    sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
-    #
-    sys.boundary_values[iy,2]=parameters.y0
-    sys.boundary_factors[iy,2]=VoronoiFVM.Dirichlet
-end
 
-function get_typical_initial_conditions(sys, parameters::YSZParameters)
-    inival=unknowns(sys)
-    inival.=0.0
-    #
-    for inode=1:size(inival,2)
-        inival[iphi,inode]=0.0
-        inival[iy,inode]= parameters.y0
-    end
-    inival[ib,1] = parameters.y0
-    inival[iyOs,1] = parameters.y0
-    return inival
-end
 
 # time derivatives
 function storage!(f,u, node, this::YSZParameters)
@@ -218,8 +287,8 @@ end
 
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
-        f[ib]=this.mO*this.ms_par*(1.0-this.nus)*u[ib]/this.areaL
-        f[iyOs]=this.mO*u[iyOs]/(4*this.areaL)
+        f[iyAs]=this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.OC*u[iyOs]/this.areaL
     end
 end
 
@@ -264,9 +333,9 @@ function exponential_oxide_adsorption(this::YSZParameters, u)
         else  
           # LoMA
           the_fac = (
-                (u[iy]/(1-u[iy]))
+                (u[iy]*(1-u[iy]))
                 *
-                (u[ib]/(1-u[ib]))               
+                (u[iyAs]*(1-u[iyAs]))               
               )^(this.SA/2.0)
         end
         rate = (
@@ -276,14 +345,14 @@ function exponential_oxide_adsorption(this::YSZParameters, u)
                 *(
                   (u[iy]/(1-u[iy]))
                   *
-                  ((1-u[ib])/u[ib])
+                  ((1-u[iyAs])/u[iyAs])
                 )^(this.betaA*this.SA)
                 - 
                 exp((1 - this.betaA)*this.SA*this.DGA/(this.kB*this.T))
                 *(
                   (u[iy]/(1-u[iy]))
                   *
-                  ((1-u[ib])/u[ib])
+                  ((1-u[iyAs])/u[iyAs])
                 )^(-(1 - this.betaA)*this.SA)
                 
             )
@@ -301,20 +370,20 @@ function electroreaction(this::YSZParameters, u)
         else  
           # LoMA
           the_fac = (
-               (u[iyOs]/(1-u[iyOs]))
+               (u[iyOs]*(1-u[iyOs]))
                *
-               (u[ib]/(1-u[ib]))               
+               (u[iyAs]*(1-u[iyAs]))               
             )^(this.SR/2.0)
         end
         eR = (
             (this.R0/this.SR)*the_fac
             *(
                 exp(-this.betaR*this.SR*this.DGR/(this.kB*this.T))
-                *(u[ib]/(1-u[ib]))^(-this.betaR*this.SR)
+                *(u[iyAs]/(1-u[iyAs]))^(-this.betaR*this.SR)
                 *(u[iyOs]/(1-u[iyOs]))^(this.betaR*this.SR)
                 - 
                 exp((1.0-this.betaR)*this.SR*this.DGR/(this.kB*this.T))
-                *(u[ib]/(1-u[ib]))^((1.0-this.betaR)*this.SR)
+                *(u[iyAs]/(1-u[iyAs]))^((1.0-this.betaR)*this.SR)
                 *(u[iyOs]/(1-u[iyOs]))^(-(1.0-this.betaR)*this.SR)
             )
         )
@@ -333,7 +402,7 @@ function exponential_gas_adsorption(this::YSZParameters, u)
           the_fac = (
                (this.pO2)
                *
-               (u[iyOs]/(1-u[iyOs]))^2                                            
+               (u[iyOs]*(1-u[iyOs]))^2                                            
             )^(this.SO/2.0)
         end
         eR = (
@@ -363,7 +432,7 @@ function breaction!(f,u,node,this::YSZParameters)
         f[iy]= this.mO*oxide_ads
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
         # sign is negative bcs of the equation implementation
-        f[ib]= - this.mO*electroR - this.mO*oxide_ads
+        f[iyAs]= - this.mO*electroR - this.mO*oxide_ads
         f[iyOs]= this.mO*electroR - this.mO*2*gas_ads
         f[iphi]=0
     else
@@ -386,7 +455,7 @@ function direct_capacitance(this::YSZParameters, domain)
     end 
     #
     #yB = -this.zL/this.zA/this.m_par/(1-this.nu);
-    yB = this.y0
+    yB = this.yB
     X= yB/(1-yB)*exp.(.- this.zA*this.e0/this.kB/this.T*PHI)
     y  = X./(1.0.+X)
     #
@@ -408,43 +477,28 @@ function direct_capacitance(this::YSZParameters, domain)
     return CBL, CS, y
 end
 
-# conversions for the equilibrium case
-function y0_to_phi(this::YSZParameters, y0)
-    yB = this.y0
-    return - (this.kB * this.T / (this.zA * this.e0)) * log(y0/(1-y0) * (1-yB)/yB )
-end
 
-function phi_to_y0(this::YSZParameters, phi)
-    yB = this.y0
-    X  = yB/(1-yB)*exp.(this.zA*this.e0/this.kB/this.T* (-phi))
-    return X./(1.0.+X)
-end
-
-function equil_phi(this::YSZParameters)
-    B = this.pO2^(1/2.0)*exp((this.DGA - this.DGR - (this.DGO/2.0)) / (this.kB * this.T))
-    return y0_to_phi(this, B/(1+B))
-end
 
 #
 # Transient part of measurement functional
 #
 
-function meas_tran(meas, u, sys, parameters, AreaEllyt, X)
-    U=reshape(u,sys)
+function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
     Qb= - integrate(sys,reaction!,U) # \int n^F            
     dphi_end = U[iphi, end] - U[iphi, end-1]
     dx_end = X[end] - X[end-1]
     dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-    meas[1]= AreaEllyt*(-Qs[1]-Qb[iphi])
+    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+    meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
+    return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
 end
 
 #
 # Steady part of measurement functional
 #
-function meas_stdy(meas, u, sys, parameters, AreaEllyt, X)
-    U=reshape(u,sys)
-    meas[1]=AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
+function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
+    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
+    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
 end
 
 
