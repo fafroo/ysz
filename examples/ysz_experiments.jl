@@ -5,6 +5,7 @@ module ysz_experiments
 # 
 # TODO !!!
 # [x] ramp for EIS steady state
+# [ ] better initial conditions
 ###################################################
 
 
@@ -33,12 +34,34 @@ surface_species = model_symbol.surface_species
 surface_names = model_symbol.surface_names
 iphi = model_symbol.iphi
 iy = model_symbol.iy
-ib = model_symbol.ib
+iyAs = model_symbol.iyAs
+iyOs = model_symbol.iyOs
 
 # --------- end of YSZ import ---------- #
 ##########################################
 
-
+function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
+  point_marker_size = 5
+  
+  
+  subplot(211)
+  plot((x_factor)*X[:],U[iy,:],label="y")
+  for (i, idx) in enumerate(surface_species)
+    plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
+  end
+  PyPlot.ylim(-0.5,1.1)
+  PyPlot.xlim(-0.01*plotted_length, plotted_length)
+  PyPlot.xlabel(x_label)
+  PyPlot.legend(loc="best")
+  PyPlot.grid()
+  
+  subplot(212)
+  plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
+  PyPlot.xlim(-0.01*plotted_length, plotted_length)
+  PyPlot.xlabel(x_label)
+  PyPlot.legend(loc="best")
+  PyPlot.grid()
+end
 
 function run_new(;physical_model_name="",
                 test=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
@@ -130,17 +153,12 @@ function run_new(;physical_model_name="",
       enable_boundary_species!(sys, idx, [1])
     end
 
-    # boundary conditions
+    # set boundary conditions
     model_symbol.set_typical_boundary_conditions!(sys, parameters)
     
-    # initial value of type unknows(sys)
+    # get initial value of type unknows(sys) and initial voltage
     inival = model_symbol.get_typical_initial_conditions(sys, parameters)
-    
-    # equilibrium voltage
-    phi0 = model_symbol.equil_phi(parameters)
-    if dlcap
-        phi0 = 0
-    end
+    phi0 = parameters.phi_eq
 
 
     #
@@ -149,10 +167,20 @@ function run_new(;physical_model_name="",
     control.tol_linear=1.0e-4
     control.tol_relative=1.0e-5
     #control.tol_absolute=1.0e-4
-    #control.max_iterations=3
+    control.max_iterations=200
     control.max_lureuse=0
-    control.damp_initial=1.0e-6
-    control.damp_growth=1.3
+    control.damp_initial=1.0e-3
+    control.damp_growth=1.4
+
+##### used for diplaying initial conditions vs steady state    
+#     figure(111)
+#     plot_solution(inival, X, 10^9)
+#     
+#     steadystate = unknowns(sys)
+#     solve!(steadystate, inival, sys, control=control)
+#     plot_solution(steadystate, X, 10^9)
+#     return
+################
     
     #####################################
     #####################################
@@ -165,13 +193,15 @@ function run_new(;physical_model_name="",
         # Transient part of measurement functional 
         #
         function meas_tran(meas, u)
-          model_symbol.meas_tran(meas, u, sys, parameters, AreaEllyt, X)
+          U=reshape(u,sys)
+          model_symbol.set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
         end
         #
         # Steady part of measurement functional
         #
         function meas_stdy(meas, u)
-          model_symbol.meas_stdy(meas, u, sys, parameters, AreaEllyt, X)
+          U=reshape(u,sys)
+          model_symbol.set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
         end
         
         #
@@ -180,11 +210,12 @@ function run_new(;physical_model_name="",
 
         # Calculate steady state solution
         steadystate = unknowns(sys)
-        phi_steady = phi0 + EIS_bias
+        phi_steady = parameters.phi_eq + EIS_bias
         
         excited_spec=iphi
         excited_bc=1
         excited_bcval=phi_steady
+        
         
         
         # relaxation (ramp to phi_steady)
@@ -198,6 +229,7 @@ function run_new(;physical_model_name="",
           for phi_ramp in (ramp_nodes == 0 ? phi_steady : collect(0.0 : phi_steady/ramp_nodes : phi_steady))
             # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
               try
+                
                 #@show phi_ramp
                 sys.boundary_values[iphi,1] = phi_ramp
                 solve!(steadystate, steadystate_old, sys, control=control)
@@ -342,6 +374,7 @@ function run_new(;physical_model_name="",
     
     # code for performing CV
     if voltammetry
+ 
         istep=1
         phi=0
         phi_prev = 0
@@ -358,8 +391,10 @@ function run_new(;physical_model_name="",
         Ibb_range=zeros(0)
         Ir_range=zeros(0)
         
+        
         if save_files || out_df_bool
             out_df = DataFrame(t = Float64[], U = Float64[], I = Float64[], Ib = Float64[], Is = Float64[], Ir = Float64[])
+
         end
         
         cv_cycles = 1
@@ -367,6 +402,8 @@ function run_new(;physical_model_name="",
         relax_counter = 0
         istep_cv_start = -1
         time_range = zeros(0)  # [s]
+        
+        only_formal_meas = [0.0]  # to pass as an argument to set_meas_get_tran_I_contributions
 
         if print_bool
             print("calculating linear potential sweep\n")
@@ -390,19 +427,62 @@ function run_new(;physical_model_name="",
             #PyPlot.figure(figsize=(5,5))
         end
         
-        state = "ramp"
-        if print_bool
-            println("phi_equilibrium = ",phi0)
-            println("ramp ......")
-        end
-
+        
         U = unknowns(sys)
         U0 = unknowns(sys)
+        U0 .=inival
         if test
             U .= inival
         end
         
-        while state != "cv_is_off"
+        if true
+          # calculating directly steadystate ###############
+          state = "cv_is_on"
+          istep_cv_start = 0
+          phi=parameters.phi_eq
+          dir=1 
+          
+          solve!(U0,inival,sys, control=control)
+          if save_files || out_df_bool
+            push!(out_df, (0, 0, 0, 0, 0, 0))
+          end
+        
+          append!(y0_range,U0[iy,1])
+          surface_species_to_append = []
+          for (i, idx) in enumerate(surface_species)
+            append!(surface_species_to_append,U0[idx,1])
+          end
+          surface_species_range = hcat(surface_species_range, surface_species_to_append)
+          
+          append!(phi_range,parameters.phi_eq)
+          #
+          I_contributions_stdy_0 = [0]
+          I_contributions_tran_0 = [0, 0, 0]
+          append!(Ib_range,0)
+          append!(Is_range,0)
+          append!(Ibb_range,0)
+          append!(Ir_range,0)
+          #
+          append!(time_range,0)
+          
+          phi_prev = phi
+          phi = phi + voltrate*dir*tstep
+          phi_out = (phi_prev + phi)/2.0
+          ##################################################
+          # using the ramp ... not recommended
+        else
+          state = "ramp"
+          I_contributions_stdy_0 = [0]
+          I_contributions_tran_0 = [0, 0, 0]
+          if print_bool
+              println("phi_equilibrium = ",phi0)
+              println("ramp ......")
+          end
+        end
+        
+
+        
+        while state != "cv_is_off"                           
             if state=="ramp" && ((dir==1 && phi > phi0) || (dir==-1 && phi < phi0))
                 phi = phi0
                 state = "relaxation"
@@ -436,45 +516,27 @@ function run_new(;physical_model_name="",
             
             # tstep to potential phi
             sys.boundary_values[iphi,1]=phi
-            solve!(U,inival,sys, control=control,tstep=tstep)
-            Qb= - integrate(sys,model_symbol.reaction!,U) # \int n^F            
-            dphi_end = U[iphi, end] - U[iphi, end-1]
-            dx_end = X[end] - X[end-1]
-            dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-            Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-
-                    
-            # for faster computation, solving of "dtstep problem" is not performed
-            U0 .= inival
-            inival.=U
-            Qb0 = - integrate(sys,model_symbol.reaction!,U0) # \int n^F
-            dphi0_end = U0[iphi, end] - U0[iphi, end-1]
-            dphiB0 = parameters.eps0*(1+parameters.chi)*(dphi0_end/dx_end)
-            Qs0 = (parameters.e0/parameters.areaL)*parameters.zA*U0[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-
-
+            solve!(U, U0, sys, control=control, tstep=tstep)
             
-            # time derivatives
-            Is  = - (Qs[1] - Qs0[1])/tstep                
-            Ib  = - (Qb[iphi] - Qb0[iphi])/tstep 
-            Ibb = - (dphiB - dphiB0)/tstep
-            
-            
-            # reaction average
-            reac = - 2*parameters.e0*model_symbol.electroreaction(parameters, U[:,1])
-            reacd = - 2*parameters.e0*model_symbol.electroreaction(parameters,U0[:,1])
-            Ir= 0.5*(reac + reacd)
-
-            #############################################################
-            #multiplication by area of electrode I = A * ( ... )
-            Ibb = Ibb*AreaEllyt
-            Ib = Ib*AreaEllyt
-            Is = Is*AreaEllyt
-            Ir = Ir*AreaEllyt
+            # Transient part of measurement functional
+            I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
             #
+            # Steady part of measurement functional
+            #
+            I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
             
+            # time derivatives            
+            Is  = (I_contributions_tran[1] - I_contributions_tran_0[1])/tstep                
+            Ib  = (I_contributions_tran[2] - I_contributions_tran_0[2])/tstep 
+            Ibb = (I_contributions_tran[3] - I_contributions_tran_0[3])/tstep 
+
+            # reaction average
+            Ir= 0.5*(I_contributions_stdy[1] + I_contributions_stdy_0[1])
+ 
+
+ 
             if debug_print_bool
-                @printf("t = %g     U = %g   state = %s  ys = %g  ys0 = &g  Ir = %g  Is = %g  Ib = %g  \n", istep*tstep, phi, state, U[ib,1],  Ir, - (Qs[1] - Qs0[1])/tstep, - (Qb[iphi] - Qb0[iphi])/tstep)
+                @printf("t = %g     U = %g   state = %s  ys = %g  ys0 = &g  Ir = %g  Is = %g  Ib = %g  \n", istep*tstep, phi, state, U[iyAs,1],  Ir, - (Qs[1] - Qs0[1])/tstep, - (Qb[iphi] - Qb0[iphi])/tstep)
             end
             
             # storing data
@@ -519,18 +581,19 @@ function run_new(;physical_model_name="",
                 PyPlot.clf() 
                 
                 if num_subplots > 0
-                    subplot(num_subplots*100 + 11)
-                    plot((10^9)*X[:],U[iphi,:],label="phi (V)")
-                    plot((10^9)*X[:],U[iy,:],label="y")
-                    for (i, idx) in enumerate(surface_species)
-                      plot(0,U[idx,1],"o", markersize=ys_marker_size, label=surface_names[i])
-                    end
-                    l_plot = 5.0
-                    PyPlot.xlim(-0.01*l_plot, l_plot)
-                    PyPlot.ylim(-0.5,1.1)
-                    PyPlot.xlabel("x (nm)")
-                    PyPlot.legend(loc="best")
-                    PyPlot.grid()
+
+                      subplot(num_subplots*100 + 11)
+                      plot((10^9)*X[:],U[iphi,:],label="phi (V)")
+                      plot((10^9)*X[:],U[iy,:],label="y")
+                      for (i, idx) in enumerate(surface_species)
+                        plot(0,U[idx,1],"o", markersize=ys_marker_size, label=surface_names[i])
+                      end
+                      l_plot = 5.0
+                      PyPlot.xlim(-0.01*l_plot, l_plot)
+                      PyPlot.ylim(-0.5,1.1)
+                      PyPlot.xlabel("x (nm)")
+                      PyPlot.legend(loc="best")
+                      PyPlot.grid()
                 end
                 
                 if (long_domain_plot_bool=true)
@@ -584,6 +647,9 @@ function run_new(;physical_model_name="",
             
             # preparing for the next step
             istep+=1
+            U0.=U
+            I_contributions_stdy_0 = I_contributions_stdy
+            I_contributions_tran_0 = I_contributions_tran
             if state=="relaxation"
                 relax_counter += 1
                 #println("relaxation ... ",relax_counter/sample*100,"%")
