@@ -1,4 +1,4 @@
-module ysz_model_fitted_parms
+module ysz_model_new_prms_exp_ads
 
 using Printf
 using VoronoiFVM
@@ -7,26 +7,27 @@ using DataFrames
 using CSV
 using LeastSquaresOptim
 
-
-export iphi, iy, ib
-const iphi=1
-const iy=2
-const ib=3
-
+const bulk_species = (iphi, iy) = (1, 2)
+const surface_species = (ib) = (3)
+const surface_names = ("yAs")
 
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
 
     # to fit
-    A0::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
-    R0::Float64 # exhange current density [m^-2 s^-1]
+    A0::Float64   # surface adsorbtion coefficient [ m^-2 s^-1 ]
     DGA::Float64 # difference of gibbs free energy of adsorbtion  [ J ]
+    betaA::Float64 # symmetry of the adsorbtion    
+    SA::Float64 # stechiometry compensatoin of the adsorbtion
+    
+    R0::Float64 # exhange current density [m^-2 s^-1]
     DGR::Float64 # difference of gibbs free energy of electrochemical reaction [ J ]
-    beta::Float64 # symmetry of the reaction
-    A::Float64 # activation energy of the reaction
+    betaR::Float64 # symmetry of the electroreaction
+    SR::Float64 # stechiometry compensatoin of the electroreaction
+    
     
     # fixed
     DD::Float64   # diffusion coefficient [m^2/s]
-    pO::Float64 # O2 partial pressure [bar]
+    pO2::Float64 # O2 partial pressure [bar]
     T::Float64      # Temperature [K]
     nu::Float64    # ratio of immobile ions, \nu [1]
     nus::Float64    # ratio of immobile ions on surface, \nu_s [1]
@@ -71,23 +72,25 @@ function YSZParameters(this)
     this.A0= 10.0^21.71975544711280
     this.R0= 10.0^20.606423236896422
     this.DGA= 0.0905748 * this.e0 # this.e0 = eV
-    this.DGR= -0.708014 * this.e0 
-    this.beta= 0.6074566741435283
-    this.A= 10.0^0.1
+    this.DGR= -0.708014 * this.e0
+    this.betaR= 0.6074566741435283
+    this.betaA = 0.5
+    this.SR= 10.0^0.1
+    this.SA= 1.0
     
     
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
-    this.DD=9.5658146540360312e-10  # some value  <<<< nearly the BEST hand-guess
-    #this.DD=9.5658146540360312e-11  # testing value
-    this.pO=1.0                   # O2 atmosphere 
+    #this.DD=9.5658146540360312e-10  # some value  <<<< nearly the BEST hand-guess
+    this.DD=4.35e-13  # testing value
+    this.pO2=1.0                   # O2 atmosphere 
     this.T=1073                     
-    this.nu=0.9                     # assumption
-    this.nus=0.9                    # assumption
-    this.x_frac=0.08                # 8% YSZ
+    this.nu=0.85                     # assumption
+    this.nus=0.21                    # assumption
+    this.x_frac=0.13                # 13% YSZ
     this.chi=27.e0                  # from relative permitivity e_r = 6 = (1 + \chi) ... TODO reference
-    this.m_par = 2                  
-    this.ms_par = this.m_par        
+    this.m_par =  2                 
+    this.ms_par = 0.05        
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)
     
@@ -103,7 +106,7 @@ function YSZParameters(this)
     return this
 end
 
-function YSZParameters_update(this)
+function YSZParameters_update!(this::YSZParameters)
     this.areaL=(this.vL)^0.6666
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)   
@@ -114,7 +117,6 @@ function YSZParameters_update(this)
     return this
 end
 
-
 function printfields(this)
     for name in fieldnames(typeof(this))
         @printf("%8s = ",name)
@@ -122,8 +124,55 @@ function printfields(this)
     end
 end
 
+function set_parameters!(this::YSZParameters, prms_values, prms_names)
+  found = false
+  for (i,name_in) in enumerate(prms_names)
+    found = false
+    for name in fieldnames(typeof(this))
+      if name==Symbol(name_in)
+        if name_in=="A0" || name_in=="R0" || name_in=="SR"
+          setfield!(this, name, Float64(10^prms_values[i]))
+        elseif name_in=="DGA" || name_in=="DGR" || name_in=="DGO"
+          setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
+        else
+          setfield!(this, name, Float64(prms_values[i]))
+        end
+        found = true
+        break
+      end
+    end
+    if !(found)
+      println("ERROR: set_parameters: parameter name \"$(name_in)\" not found!")
+      throw(Exception)
+    end
+  end
+end
 
 
+
+# boundary conditions
+function set_typical_boundary_conditions!(sys, parameters::YSZParameters)
+    #sys.boundary_values[iphi,1]=1.0e-0
+    sys.boundary_values[iphi,2]=0.0e-3
+    #
+    sys.boundary_factors[iphi,1]=VoronoiFVM.Dirichlet
+    sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
+    #
+    sys.boundary_values[iy,2]=parameters.y0
+    sys.boundary_factors[iy,2]=VoronoiFVM.Dirichlet
+end
+
+function get_typical_initial_conditions(sys, parameters::YSZParameters)
+    inival=unknowns(sys)
+    inival.=0.0
+    #
+    for inode=1:size(inival,2)
+        inival[iphi,inode]=0.0
+        inival[iy,inode]= parameters.y0
+    end
+    inival[ib,1] = parameters.y0
+    return inival
+end
 
 # time derivatives
 function storage!(f,u, node, this::YSZParameters)
@@ -177,13 +226,13 @@ function electroreaction(this::YSZParameters, u)
         eR = (
             this.R0
             *(
-                exp(-this.beta*this.A*this.DGR/(this.kB*this.T))
-                *(u/(1-u))^(-this.beta*this.A)
-                *(this.pO)^(this.beta*this.A/2.0)
+                exp(-this.betaR*this.SR*this.DGR/(this.kB*this.T))
+                *(u[ib]/(1-u[ib]))^(-this.betaR*this.SR)
+                *(this.pO2)^(this.betaR*this.SR/2.0)
                 - 
-                exp((1.0-this.beta)*this.A*this.DGR/(this.kB*this.T))
-                *(u/(1-u))^((1.0-this.beta)*this.A)
-                *(this.pO)^(-(1.0-this.beta)*this.A/2.0)
+                exp((1.0-this.betaR)*this.SR*this.DGR/(this.kB*this.T))
+                *(u[ib]/(1-u[ib]))^((1.0-this.betaR)*this.SR)
+                *(this.pO2)^(-(1.0-this.betaR)*this.SR/2.0)
             )
         )
     else
@@ -191,50 +240,46 @@ function electroreaction(this::YSZParameters, u)
     end
 end
 
-# surface reaction + adsorption
-function breaction!(f,u,node,this::YSZParameters)
-    if  node.region==1
-        electroR=electroreaction(this,u[ib])
-        f[iy]= (
-            this.mO*this.A0*
-            (
-                - this.DGA/(this.kB*this.T) 
-                +    
-                log(u[iy]*(1-u[ib]))
+function exponential_adsorbtion(this::YSZParameters, u)
+    if this.A0 > 0
+        rate = (
+            this.A0
+            *(
+                exp(-this.betaA*this.SA*this.DGA/(this.kB*this.T))
+                *(
+                  (u[iy]/(1-u[iy]))
+                  *
+                  ((1-u[ib])/u[ib])
+                )^(this.betaA*this.SA)
                 - 
-                log(u[ib]*(1-u[iy]))
-            )
-        )
-        # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
-        # sign is negative bcs of the equation implementation
-        f[ib]= (
-            - this.mO*electroR - this.mO*this.A0*
-            (
-                - this.DGA/(this.kB*this.T) 
-                +    
-                log(u[iy]*(1-u[ib]))
-                - 
-                log(u[ib]*(1-u[iy]))
+                exp((1 - this.betaA)*this.SA*this.DGA/(this.kB*this.T))
+                *(
+                  (u[iy]/(1-u[iy]))
+                  *
+                  ((1-u[ib])/u[ib])
+                )^(-(1 - this.betaA)*this.SA)
                 
             )
-        )      
+        )
+    else
+        rate=0
+    end
+end
+
+# surface reaction + adsorbtion
+function breaction!(f,u,node,this::YSZParameters)
+    if  node.region==1
+        electroR=electroreaction(this,u)
+        adsorbtion = exponential_adsorbtion(this, u)
+        f[iy]= this.mO*adsorbtion
+        # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
+        # sign is negative bcs of the equation implementation
+        f[ib]= - this.mO*electroR - this.mO*adsorbtion
         f[iphi]=0
     else
         f[iy]=0
         f[iphi]=0
     end
-end
-
-
-
-function breaction2!(f,u,node,this::YSZParameters)
-  if  node.region==1
-      f[iy]=(u[iy]-u[ib])
-      f[ib]=(u[ib]-u[iy])
-  else
-      f[1]=0
-      f[2]=0
-  end
 end
 
 function direct_capacitance(this::YSZParameters, domain)
@@ -248,7 +293,7 @@ function direct_capacitance(this::YSZParameters, domain)
         if abs(PHI[i]) < my_eps
             PHI[i]=my_eps
         end
-    end
+    end 
     #
     #yB = -this.zL/this.zA/this.m_par/(1-this.nu);
     yB = this.y0
@@ -286,8 +331,30 @@ function phi_to_y0(this::YSZParameters, phi)
 end
 
 function equil_phi(this::YSZParameters)
-    B = exp( - (- this.DGA + this.DGR) / (this.kB * this.T))*this.pO^(1/2.0)
+    B = exp( - (- this.DGA + this.DGR) / (this.kB * this.T))*this.pO2^(1/2.0)
     return y0_to_phi(this, B/(1+B))
+end
+
+#
+# Transient part of measurement functional 
+#
+
+function meas_tran(meas, u, sys, parameters, AreaEllyt, X)
+    U=reshape(u,sys)
+    Qb= - integrate(sys,reaction!,U) # \int n^F            
+    dphi_end = U[iphi, end] - U[iphi, end-1]
+    dx_end = X[end] - X[end-1]
+    dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
+    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+    meas[1]= AreaEllyt*(-Qs[1]-Qb[iphi])
+end
+
+#
+# Steady part of measurement functional
+#
+function meas_stdy(meas, u, sys, parameters, AreaEllyt, X)
+    U=reshape(u,sys)
+    meas[1]=AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
 end
 
 

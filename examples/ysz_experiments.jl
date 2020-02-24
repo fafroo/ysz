@@ -1,4 +1,17 @@
 module ysz_experiments
+### WHAT was done since last commit ###############
+# * phi_out = (phi_previous + phi)/2.0
+# * AreaEllyt added to EIS current computation
+# 
+# TODO !!!
+# [x] ramp for EIS steady state
+# [ ] better initial conditions
+###################################################
+
+
+
+
+
 
 using Printf
 using VoronoiFVM
@@ -9,27 +22,67 @@ using LeastSquaresOptim
 
 ##########################################
 # internal import of YSZ repo ############
-cur_dir=pwd()
-cd("../src")
-src_dir=pwd()
-cd(cur_dir)
+#model_label = "ysz_model_GAS_exp_ads"
+model_label = "ysz_model_GAS_LoMA"
 
-push!(LOAD_PATH,src_dir)
+include("../src/models/$(model_label).jl")
+include("../prototypes/timedomain_impedance.jl")
 
-using ysz_model_fitted_parms
-const label_ysz_model = ysz_model_fitted_parms
+model_symbol = eval(Symbol(model_label))
+bulk_species = model_symbol.bulk_species
+surface_species = model_symbol.surface_species
+surface_names = model_symbol.surface_names
+iphi = model_symbol.iphi
+iy = model_symbol.iy
+iyAs = model_symbol.iyAs
+iyOs = model_symbol.iyOs
 
 # --------- end of YSZ import ---------- #
 ##########################################
 
+function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
+  point_marker_size = 5
+  
+  
+  subplot(211)
+  plot((x_factor)*X[:],U[iy,:],label="y")
+  for (i, idx) in enumerate(surface_species)
+    plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
+  end
+  PyPlot.ylim(-0.5,1.1)
+  PyPlot.xlim(-0.01*plotted_length, plotted_length)
+  PyPlot.xlabel(x_label)
+  PyPlot.legend(loc="best")
+  PyPlot.grid()
+  
+  subplot(212)
+  plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
+  PyPlot.xlim(-0.01*plotted_length, plotted_length)
+  PyPlot.xlabel(x_label)
+  PyPlot.legend(loc="best")
+  PyPlot.grid()
+end
 
-function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=false ,pyplot=false, save_files=false, width=10.0e-9,  dx_exp=-9, voltammetry=false, EIS_TDS=false, EIS_IS=false, EIS_make_plots=false , dlcap=false, voltrate=0.005, upp_bound=0.5, low_bound=-0.5, sample=40, prms_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], nu_in=0.9)
+function run_new(;physical_model_name="",
+                test=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
+                verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
+                width=0.0005, dx_exp=-9,
+                pO2=1.0, T=1073,
+                prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"],
+                prms_values_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
+                EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
+                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, dlcap=false,
+                EIS_TDS=false, tref=0
+                 )
 
+    
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
     # Geometry of the problem
-    AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
-    width_Ellyt = 0.00045           # m     width of the half-cell
+    #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
+    AreaEllyt = 0.018849556 * 0.7        # m^2 (geometrical area)*(1 - porosity)
+    #width_Ellyt = 0.00045           # m     width of the half-cell
+    #width_Ellyt = 0.0005           # m     width of the half-cell
     if dlcap
         AreaEllyt = 1.0      # m^2    
         if print_bool
@@ -40,84 +93,73 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
     dx_start = 10^convert(Float64,dx_exp)
     X=width*VoronoiFVM.geomspace(0.0,1.0,dx_start,1e-1)
     #println("X = ",X)
-    
     #
     grid=VoronoiFVM.Grid(X)
     #
     
-    parameters=label_ysz_model.YSZParameters()
-    # for a parametric study
-    eV = parameters.e0   # electronvolt [J] = charge of electron * 1[V]
-    parameters.A0 = 10.0^prms_in[1]      # [1 / s]
-    parameters.R0 = 10.0^prms_in[2]      # [1 / m^2 s]
+    # Physical condtions and parameters setting
+    parameters=model_symbol.YSZParameters()
+    
+
+    
+    parameters.pO2 = pO2
+    parameters.T = T
+    parameters.x_frac=0.13
+    
+    model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
     if dlcap
         parameters.R0 = 0
-        if print_bool
+        if print_bool 
             println("dlcap > R0= ",parameters.R0)
         end
     end
-    parameters.DGA = prms_in[3] * eV    # [J]
-    parameters.DGR = prms_in[4] * eV    # [J]
-    parameters.beta = prms_in[5]       # [1]
-    parameters.A = 10.0^prms_in[6]        # [1]
     
 
-    parameters.nu = nu_in
     
     # update the "computed" values in parameters
-    parameters = label_ysz_model.YSZParameters_update(parameters)
+    parameters = model_symbol.YSZParameters_update!(parameters)
 
+#     if debug_print_bool 
+#         println("NEW ---- ")
+#         println("prms = ",prms_in)
+#         println("add_prms = (",parameters.DD,",",parameters.nu,",",parameters.nus,",",parameters.ms_par,")")
+#         println("rest_prms = (",parameters.T,",",parameters.pO2,")")
+#     end
+    
+    
+    #model_symbol.printfields(parameters)
+    
+    
     physics=VoronoiFVM.Physics(
         data=parameters,
-        num_species=3,
-        storage=label_ysz_model.storage!,
-        flux=label_ysz_model.flux!,
-        reaction=label_ysz_model.reaction!,
-        breaction=label_ysz_model.breaction!,
-        bstorage=label_ysz_model.bstorage!
+        num_species=size(bulk_species,1)+size(surface_species,1),
+        storage=model_symbol.storage!,
+        flux=model_symbol.flux!,
+        reaction=model_symbol.reaction!,
+        breaction=model_symbol.breaction!,
+        bstorage=model_symbol.bstorage!
     )
     #
     if print_bool
-        label_ysz_model.printfields(parameters)
+        model_symbol.printfields(parameters)
     end
 
     #sys=VoronoiFVM.SparseSystem(grid,physics)
     sys=VoronoiFVM.DenseSystem(grid,physics)
-    enable_species!(sys,iphi,[1])
-    enable_species!(sys,iy,[1])
-    enable_boundary_species!(sys,ib,[1])
+    for idx in bulk_species
+      enable_species!(sys, idx, [1])
+    end
+    for idx in surface_species
+      enable_boundary_species!(sys, idx, [1])
+    end
 
-    #
-    #sys.boundary_values[iphi,1]=1.0e-0
-    sys.boundary_values[iphi,2]=0.0e-3
-    #
-    sys.boundary_factors[iphi,1]=VoronoiFVM.Dirichlet
-    sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
-    #
-    sys.boundary_values[iy,2]=parameters.y0
-    sys.boundary_factors[iy,2]=VoronoiFVM.Dirichlet
-    #
-    inival=unknowns(sys)
-    inival.=0.0
-    #
+    # set boundary conditions
+    model_symbol.set_typical_boundary_conditions!(sys, parameters)
     
-    phi0 = label_ysz_model.equil_phi(parameters)
-    if print_bool
-        println("phi0 = ",phi0)
-    end
-    if dlcap
-        phi0 = 0
-        if print_bool
-            println("dlcap > phi0= ", phi0)
-        end
-    end
+    # get initial value of type unknows(sys) and initial voltage
+    inival = model_symbol.get_typical_initial_conditions(sys, parameters)
+    phi0 = parameters.phi_eq
 
-
-    for inode=1:size(inival,2)
-        inival[iphi,inode]=0.0
-        inival[iy,inode]= parameters.y0
-    end
-    inival[ib,1]=parameters.y0
 
     #
     control=VoronoiFVM.NewtonControl()
@@ -125,275 +167,202 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
     control.tol_linear=1.0e-4
     control.tol_relative=1.0e-5
     #control.tol_absolute=1.0e-4
-    #control.max_iterations=3
+    control.max_iterations=200
     control.max_lureuse=0
-    control.damp_initial=1.0e-5
-    control.damp_growth=1.9
-    time=0.0
- 
- 
-    ######## code for performing EIS ########
-    #########################################
-    #########################################
-    #########################################
-    #########################################
-    #########################################
-    
-        
-    # EIS - VoronoiFVM.ImpedanceSystem
-    if EIS_IS
-        U = unknowns(sys)
-        
-        phi_OCV = 0.0374762
-        
-        
-        # relaxation
-        sys.boundary_values[iphi,1]= phi_OCV
-        solve!(U,inival,sys, control=control)
+    control.damp_initial=1.0e-3
+    control.damp_growth=1.4
 
+##### used for diplaying initial conditions vs steady state    
+#     figure(111)
+#     plot_solution(inival, X, 10^9)
+#     
+#     steadystate = unknowns(sys)
+#     solve!(steadystate, inival, sys, control=control)
+#     plot_solution(steadystate, X, 10^9)
+#     return
+################
+    
+    #####################################
+    #####################################
+    #####################################
+    #####################################
+    #####################################
+    ######### EIS computation #############
+    if EIS_IS || EIS_TDS
+        #
+        # Transient part of measurement functional 
+        #
+        function meas_tran(meas, u)
+          U=reshape(u,sys)
+          model_symbol.set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
+        end
+        #
+        # Steady part of measurement functional
+        #
+        function meas_stdy(meas, u)
+          U=reshape(u,sys)
+          model_symbol.set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
+        end
         
-        factory=VoronoiFVM.TestFunctionFactory(sys)
-        #tf0=testfunction(factory,[2],[1])
-        tfL=testfunction(factory,[1],[2])
-            
+        #
+        # The overall measurement (in the time domain) is meas_stdy(u)+ d/dt meas_tran(u)
+        #
+
+        # Calculate steady state solution
+        steadystate = unknowns(sys)
+        phi_steady = parameters.phi_eq + EIS_bias
+        
         excited_spec=iphi
         excited_bc=1
-        isys=VoronoiFVM.ImpedanceSystem(sys,U,excited_spec, excited_bc)
+        excited_bcval=phi_steady
         
-        w0 = 1.0e-6
-        w1 = 1.0e6
         
-        w = w0
         
-        UZ=unknowns(isys)
+        # relaxation (ramp to phi_steady)
+        ramp_isok = false
+        ramp_nodes_growth = 4 # each phi_step will be divided into $ parts
+        ramp_max_nodes = 30   # number of refinement of phi_step
+        steadystate_old = deepcopy(inival)
+        for ramp_nodes in (0 : ramp_nodes_growth : ramp_max_nodes)
+          steadystate_old = deepcopy(inival)
+          
+          for phi_ramp in (ramp_nodes == 0 ? phi_steady : collect(0.0 : phi_steady/ramp_nodes : phi_steady))
+            # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
+              try
+                
+                #@show phi_ramp
+                sys.boundary_values[iphi,1] = phi_ramp
+                solve!(steadystate, steadystate_old, sys, control=control)
+                steadystate_old .= steadystate
+                
+                ramp_isok = true
+                
+              catch e
+                if e isa InterruptException
+                  rethrow(e)
+                else
+                  #println("fail")
+                  ramp_isok=false
+                  break
+                end
+              end
+          end
+          if ramp_isok
+            break
+          end
+        end
+        if !(ramp_isok)
+          print("ERROR: run_new: ramp cannot reach the steady state") 
+          throw(Exception)
+        end
+
+        # Create impedance system
+        isys=VoronoiFVM.ImpedanceSystem(sys,steadystate,excited_spec, excited_bc)
+
+        # Derivatives of measurement functionals
+        # For the Julia magic behind this we need the measurement functionals
+        # as mutating functions writing on vectors.
+        dmeas_stdy=measurement_derivative(sys,meas_stdy,steadystate)
+        dmeas_tran=measurement_derivative(sys,meas_tran,steadystate)
+
+
         
-        allIL=zeros(Complex{Float64},0)
-        
-        while w<w1
-            solve!(UZ,isys,w)
+        # Impedance arrays
+        z_timedomain=zeros(Complex{Float64},0)
+        z_freqdomain=zeros(Complex{Float64},0)
+        all_w=zeros(0)
+
+        w = omega_range[1]
+
+        # Frequency loop
+        while w < omega_range[2]
+            print_bool && @show w
+            push!(all_w,w)
+            if EIS_IS
+                # Here, we use the derivatives of the measurement functional
+                zfreq=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval,dmeas_stdy, dmeas_tran)
+                inductance = im*parameters.L*w
+                push!(z_freqdomain, inductance + 1.0/zfreq)
+                print_bool && @show zfreq
+            end
             
-            IL=integrate(isys,tfL,w,UZ)[1]
-            
-            push!(allIL,IL)
+            if EIS_TDS
+                # Similar API, but use the the measurement functional themselves    
+                ztime=timedomain_impedance(sys,w,steadystate,excited_spec,excited_bc,excited_bcval,meas_stdy, meas_tran,
+                                    tref=tref,
+                                    fit=true)
+                push!(z_timedomain,1.0/ztime)
+                print_bool && @show ztime
+            end
+
+
             
             # growth factor such that there are 10 points in every order of magnitude
             # (which is consistent with "freq" list below)
-            w=w*1.25892
+            #w=w*1.25892           
+            w = w*omega_range[3]
+        end
+
+
+        if pyplot
+            function positive_angle(z)
+                ϕ=angle(z)
+                if ϕ<0.0
+                    ϕ=ϕ+2*π
+                end
+                return ϕ
+            end
+
+            PyPlot.clf()
+            PyPlot.subplot(311)
+            PyPlot.grid()
+
+            if EIS_IS
+                PyPlot.semilogx(all_w,positive_angle.(1.0/z_freqdomain)',label="\$i\\omega\$",color=:red)
+            end
+            if EIS_TDS
+                PyPlot.semilogx(all_w,positive_angle.(1.0/z_timedomain)',label="\$\\frac{d}{dt}\$",color=:green)
+            end
+            PyPlot.xlabel("\$\\omega\$")
+            PyPlot.ylabel("\$\\phi\$")
+            PyPlot.legend(loc="upper left")
+
+
+            PyPlot.subplot(312)
+            PyPlot.grid()
+            if EIS_IS
+                PyPlot.loglog(all_w,abs.(1.0/z_freqdomain)',label="\$i\\omega\$",color=:red)
+            end
+            if EIS_TDS
+                PyPlot.loglog(all_w,abs.(1.0/z_timedomain)',label="\$\\frac{d}{dt}\$",color=:green)
+            end
+            PyPlot.xlabel("\$\\omega\$")
+            PyPlot.ylabel("a")
+            PyPlot.legend(loc="lower left")
+
+            
+            ax=PyPlot.subplot(313)
+            PyPlot.grid()
+            ax.set_aspect(aspect=1.0)
+            if EIS_IS
+                plot(real(z_freqdomain),-imag(z_freqdomain),label="\$i\\omega\$", color=:red)
+            end
+            if EIS_TDS
+                plot(real(z_timedomain),-imag(z_timedomain),label="\$\\frac{d}{dt}\$", color=:green)
+            end
+            PyPlot.xlabel("Re")
+            PyPlot.ylabel("Im")
+            PyPlot.legend(loc="lower center")
+            PyPlot.tight_layout()
+            pause(1.0e-10)
         end
         
-        PyPlot.clf()
-        PyPlot.grid()
-        plot(real(allIL),imag(allIL),label="calc")
-        PyPlot.legend(loc="upper left")
-        pause(1.0e-10)
-        #waitforbuttonpress()
-    end
-
-
-
-    #########################################
-    #########################################
-    #########################################
-    #########################################
-    #########################################
-    
-    # EIS - time-dependent simulation
-    if EIS_TDS
-        if print_bool
-            println("performing EIS time-dependent simulation ...")  
-        end
-        if EIS_make_plots
-            save_files = true
-        end
-                
-        freq = [1.0E-06 1.3E-06 1.6E-06 2.0E-06 2.5E-06 3.2E-06 4.0E-06 5.0E-06 6.3E-06 7.9E-06 1.0E-05 1.3E-05 1.6E-05 2.0E-05 2.5E-05 3.2E-05 4.0E-05 5.0E-05 6.3E-05 7.9E-05 1.0E-04 1.3E-04 1.6E-04 2.0E-04 2.5E-04 3.2E-04 4.0E-04 5.0E-04 6.3E-04 7.9E-04 1.0E-03 1.3E-03 1.6E-03 2.0E-03 2.5E-03 3.2E-03 4.0E-03 5.0E-03 6.3E-03 7.9E-03 1.0E-02 1.3E-02 1.6E-02 2.0E-02 2.5E-02 3.2E-02 4.0E-02 5.0E-02 6.3E-02 7.9E-02 1.0E-01 1.3E-01 1.6E-01 2.0E-01 2.5E-01 3.2E-01 4.0E-01 5.0E-01 6.3E-01 7.9E-01 1.0E+00 1.3E+00 1.6E+00 2.0E+00 2.5E+00 3.2E+00 4.0E+00 5.0E+00 6.3E+00 7.9E+00 1.0E+01 1.3E+01 1.6E+01 2.0E+01 2.5E+01 3.2E+01 4.0E+01 5.0E+01 6.3E+01 7.9E+01 1.0E+02 1.3E+02 1.6E+02 2.0E+02 2.5E+02 3.2E+02 4.0E+02 5.0E+02 6.3E+02 7.9E+02 1.0E+03 1.3E+03 1.6E+03 2.0E+03 2.5E+03 3.2E+03 4.0E+03 5.0E+03 6.3E+03 7.9E+03 1.0E+04 1.3E+04 1.6E+04 2.0E+04 2.5E+04 3.2E+04 4.0E+04 5.0E+04 6.3E+04 7.9E+04 1.0E+05 1.3E+05 1.6E+05 2.0E+05 2.5E+05 3.2E+05 4.0E+05 5.0E+05 6.3E+05 7.9E+05 1.0E+06]        
-        
-        #freq = freq[1:5]
-        
-        file_label = string("EIS-test")
-        out_dir = string("./results/EIS_aux_data/",file_label)
-        
-        for f in freq
-            ##############################################################################
-            ## Control panel #############################################################
-            
-            pp = 3 			# number of periods
-            pbp = 10      		# number of "time" points per 1 periode
-            t_eis_start = 1 /f	# nominator says after how many cycles the recording of EIS data starts
-            
-            phi_OCV = 0.0374762	# [V]	
-            
-            eis_amplitude = 0.005 	# [V]
-            
-            ##############################################################################
-            ##############################################################################
-            if print_bool
-                println("frequency ",f)
-            end
-            out_name=string(file_label, "_f", @sprintf("%.1e",f))
-        
-            istep=0
-
-
-            # inicializing storage lists
-            y0_range=zeros(0)
-            ys_range=zeros(0)
-            phi_range=zeros(0)
-            #
-            Is_range=zeros(0)
-            Ib_range=zeros(0)
-            Ibb_range=zeros(0)
-            Ir_range=zeros(0)
-            
-            time_range = zeros(0)  # [s]
-            
-            if save_files
-                out_df = DataFrame(U = Float64[], Itot = Float64[])
-            end
-            
-            U = unknowns(sys)
-            U0 = unknowns(sys)
-            
-            w = 2*pi*f
-            T_start = 0.0
-            tstep = 1/(f*pbp)
-            T_end = pp/f
-            
-            t = T_start
-                    
-
-            allt = zeros(0)
-            allphi = zeros(0)
-            allI = zeros(0)
-            
-            istep_eis_start = -1
-               
-            # relaxation
-            sys.boundary_values[iphi,1]=phi_OCV
-            solve!(U,inival,sys, control=control)
-        
-        
-            # eis
-            while t <= T_end
-                istep+= 1
-                t = t + tstep
-                #println(t)
-                if (t > t_eis_start) && (istep_eis_start < 0)
-                    istep_eis_start = istep
-                end
-                
-                phi = eis_amplitude*sin(w*t) + phi_OCV
-                
-                push!(allt,t)
-                push!(allphi,phi)
-                #println(phi)
-                #println(X)
-                
-                
-                sys.boundary_values[iphi,1]=phi
-                
-                #println("bound ",sys.boundary_values[iphi,1]," inival ",inival)
-                
-                solve!(U,inival,sys, control=control,tstep=tstep)
-                Qb= - integrate(sys,label_ysz_model.reaction!,U) # \int n^F            
-                dphi_end = U[iphi, end] - U[iphi, end-1]
-                dx_end = X[end] - X[end-1]
-                dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-                Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-
-                        
-                # for faster computation, solving of "dtstep problem" is not performed
-                U0 .= inival
-                inival.=U
-                Qb0 = - integrate(sys,label_ysz_model.reaction!,U0) # \int n^F
-                dphi0_end = U0[iphi, end] - U0[iphi, end-1]
-                dphiB0 = parameters.eps0*(1+parameters.chi)*(dphi0_end/dx_end)
-                Qs0 = (parameters.e0/parameters.areaL)*parameters.zA*U0[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-
-
-                
-                # time derivatives
-                Is  = - (Qs[1] - Qs0[1])/tstep                
-                Ib  = - (Qb[iphi] - Qb0[iphi])/tstep 
-                Ibb = - (dphiB - dphiB0)/tstep
-                
-                
-                # reaction average
-                reac = - 2*parameters.e0*label_ysz_model.electroreaction(parameters, U[ib,1])
-                reacd = - 2*parameters.e0*label_ysz_model.electroreaction(parameters,U0[ib,1])
-                Ir= 0.5*(reac + reacd)
-
-                #############################################################
-                #multiplication by area of electrode I = A * ( ... )
-                #Ibb = Ibb*AreaEllyt
-                #Ib = Ib*AreaEllyt
-                #Is = Is*AreaEllyt
-                #Ir = Ir*AreaEllyt
-                #
-                
-                # storing data
-                append!(y0_range,U[iy,1])
-                append!(ys_range,U[ib,1])
-                append!(phi_range,phi)
-                #
-                append!(Ib_range,Ib)
-                append!(Is_range,Is)
-                append!(Ibb_range,Ibb)
-                append!(Ir_range, Ir)
-                #
-                append!(time_range,tstep*istep)
-                
-                if save_files && (istep_eis_start > -1 )
-                    if dlcap
-                        push!(out_df,[phi-phi_OCV(Ib+Is+Ir)/voltrate    ])
-                    else
-                        push!(out_df,[phi-phi_OCV    Ib+Is+Ir   ])
-                    end
-                end
-
-                
-                        
-                if (istep_eis_start > -1) && (pyplot)
-                    
-                    clf()
-                    subplot(211)
-                    plot(time_range[istep_eis_start:end],allphi[istep_eis_start:end])
-                    subplot(212)
-                    plot(time_range[istep_eis_start:end],(Ib_range + Is_range + Ibb_range + Ir_range)[istep_eis_start:end])
-                    pause(1.0e-10)
-                    #println(" -- ")
-                end
-
-            end
-            
-            if save_files                
-                #println(out_dir)
-                if !ispath(out_dir)
-                    mkpath(out_dir)
-                end
-                
-                CSV.write(string(out_dir,"/",out_name,".csv"),out_df)
-                #if pyplot
-                #    PyPlot.savefig(string("./images/",out_name,".png"))
-                #end
-            end
-        end
-        if EIS_make_plots
-            run(`python _1D-BODE.py $file_label`)
+        if out_df_bool
+            EIS_df = DataFrame(f = all_w, Z = z_freqdomain)
+            return EIS_df
         end
     end
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    #########################################
-    #########################################
     #########################################
     #########################################
     #########################################
@@ -405,13 +374,16 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
     
     # code for performing CV
     if voltammetry
+ 
         istep=1
         phi=0
-    #        phi=phi0
+        phi_prev = 0
+        phi_out = 0
 
         # inicializing storage lists
         y0_range=zeros(0)
-        ys_range=zeros(0)
+        surface_species_range=Array{Float64}(undef, (size(surface_species,1), 0))
+        yOs_range=zeros(0)
         phi_range=zeros(0)
         #
         Is_range=zeros(0)
@@ -419,8 +391,10 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
         Ibb_range=zeros(0)
         Ir_range=zeros(0)
         
-        if save_files
-            out_df = DataFrame(t = Float64[], U = Float64[], Itot = Float64[], Ibu = Float64[], Isu = Float64[], Ire = Float64[])
+        
+        if save_files || out_df_bool
+            out_df = DataFrame(t = Float64[], U = Float64[], I = Float64[], Ib = Float64[], Is = Float64[], Ir = Float64[])
+
         end
         
         cv_cycles = 1
@@ -428,6 +402,8 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
         relax_counter = 0
         istep_cv_start = -1
         time_range = zeros(0)  # [s]
+        
+        only_formal_meas = [0.0]  # to pass as an argument to set_meas_get_tran_I_contributions
 
         if print_bool
             print("calculating linear potential sweep\n")
@@ -451,19 +427,62 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             #PyPlot.figure(figsize=(5,5))
         end
         
-        state = "ramp"
-        if print_bool
-            println("phi_equilibrium = ",phi0)
-            println("ramp ......")
-        end
-
+        
         U = unknowns(sys)
         U0 = unknowns(sys)
+        U0 .=inival
         if test
             U .= inival
         end
         
-        while state != "cv_is_off"
+        if true
+          # calculating directly steadystate ###############
+          state = "cv_is_on"
+          istep_cv_start = 0
+          phi=parameters.phi_eq
+          dir=1 
+          
+          solve!(U0,inival,sys, control=control)
+          if save_files || out_df_bool
+            push!(out_df, (0, 0, 0, 0, 0, 0))
+          end
+        
+          append!(y0_range,U0[iy,1])
+          surface_species_to_append = []
+          for (i, idx) in enumerate(surface_species)
+            append!(surface_species_to_append,U0[idx,1])
+          end
+          surface_species_range = hcat(surface_species_range, surface_species_to_append)
+          
+          append!(phi_range,parameters.phi_eq)
+          #
+          I_contributions_stdy_0 = [0]
+          I_contributions_tran_0 = [0, 0, 0]
+          append!(Ib_range,0)
+          append!(Is_range,0)
+          append!(Ibb_range,0)
+          append!(Ir_range,0)
+          #
+          append!(time_range,0)
+          
+          phi_prev = phi
+          phi = phi + voltrate*dir*tstep
+          phi_out = (phi_prev + phi)/2.0
+          ##################################################
+          # using the ramp ... not recommended
+        else
+          state = "ramp"
+          I_contributions_stdy_0 = [0]
+          I_contributions_tran_0 = [0, 0, 0]
+          if print_bool
+              println("phi_equilibrium = ",phi0)
+              println("ramp ......")
+          end
+        end
+        
+
+        
+        while state != "cv_is_off"                           
             if state=="ramp" && ((dir==1 && phi > phi0) || (dir==-1 && phi < phi0))
                 phi = phi0
                 state = "relaxation"
@@ -489,59 +508,47 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
                 if print_bool
                     print(direction_switch_count,", ")
                 end
-            end            
-            if state=="cv_is_on" && (dir > 0) && (phi > phi0 + 0.000001) && (direction_switch_count >=2*cv_cycles)
+            end       
+            if state=="cv_is_on" && (dir > 0) && (phi > phi0 + voltrate*dir*tstep + 0.000001) && (direction_switch_count >=2*cv_cycles)
                 state = "cv_is_off"
             end
             
             
             # tstep to potential phi
             sys.boundary_values[iphi,1]=phi
-            solve!(U,inival,sys, control=control,tstep=tstep)
-            Qb= - integrate(sys,label_ysz_model.reaction!,U) # \int n^F            
-            dphi_end = U[iphi, end] - U[iphi, end-1]
-            dx_end = X[end] - X[end-1]
-            dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-            Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-
-                    
-            # for faster computation, solving of "dtstep problem" is not performed
-            U0 .= inival
-            inival.=U
-            Qb0 = - integrate(sys,label_ysz_model.reaction!,U0) # \int n^F
-            dphi0_end = U0[iphi, end] - U0[iphi, end-1]
-            dphiB0 = parameters.eps0*(1+parameters.chi)*(dphi0_end/dx_end)
-            Qs0 = (parameters.e0/parameters.areaL)*parameters.zA*U0[ib,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-
-
+            solve!(U, U0, sys, control=control, tstep=tstep)
             
-            # time derivatives
-            Is  = - (Qs[1] - Qs0[1])/tstep                
-            Ib  = - (Qb[iphi] - Qb0[iphi])/tstep 
-            Ibb = - (dphiB - dphiB0)/tstep
-            
-            
-            # reaction average
-            reac = - 2*parameters.e0*label_ysz_model.electroreaction(parameters, U[ib,1])
-            reacd = - 2*parameters.e0*label_ysz_model.electroreaction(parameters,U0[ib,1])
-            Ir= 0.5*(reac + reacd)
-
-            #############################################################
-            #multiplication by area of electrode I = A * ( ... )
-            Ibb = Ibb*AreaEllyt
-            Ib = Ib*AreaEllyt
-            Is = Is*AreaEllyt
-            Ir = Ir*AreaEllyt
+            # Transient part of measurement functional
+            I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
             #
+            # Steady part of measurement functional
+            #
+            I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
             
+            # time derivatives            
+            Is  = (I_contributions_tran[1] - I_contributions_tran_0[1])/tstep                
+            Ib  = (I_contributions_tran[2] - I_contributions_tran_0[2])/tstep 
+            Ibb = (I_contributions_tran[3] - I_contributions_tran_0[3])/tstep 
+
+            # reaction average
+            Ir= 0.5*(I_contributions_stdy[1] + I_contributions_stdy_0[1])
+ 
+
+ 
             if debug_print_bool
-                @printf("t = %g     U = %g   state = %s  reac = %g  \n", istep*tstep, phi, state, Ir)
+                @printf("t = %g     U = %g   state = %s  ys = %g  ys0 = &g  Ir = %g  Is = %g  Ib = %g  \n", istep*tstep, phi, state, U[iyAs,1],  Ir, - (Qs[1] - Qs0[1])/tstep, - (Qb[iphi] - Qb0[iphi])/tstep)
             end
             
             # storing data
             append!(y0_range,U[iy,1])
-            append!(ys_range,U[ib,1])
-            append!(phi_range,phi)
+            
+            surface_species_to_append = []
+            for (i, idx) in enumerate(surface_species)
+              append!(surface_species_to_append,U[idx,1])
+            end
+            surface_species_range = hcat(surface_species_range, surface_species_to_append)
+            
+            append!(phi_range,phi_out)
             #
             append!(Ib_range,Ib)
             append!(Is_range,Is)
@@ -551,11 +558,11 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             append!(time_range,tstep*istep)
             
             if state=="cv_is_on"
-                if save_files
+                if save_files || out_df_bool
                     if dlcap
-                        push!(out_df,[(istep-istep_cv_start)*tstep   phi-phi0    (Ib+Is+Ir)/voltrate    Ib/voltrate    Is/voltrate    Ir/voltrate])
+                        push!(out_df,[(istep-istep_cv_start)*tstep   phi_out-phi0    (Ib+Is+Ir)/voltrate    Ib/voltrate    Is/voltrate    Ir/voltrate])
                     else
-                        push!(out_df,[(istep-istep_cv_start)*tstep   phi-phi0    Ib+Is+Ir    Ib    Is    Ir])
+                        push!(out_df,[(istep-istep_cv_start)*tstep   phi_out-phi0    Ib+Is+Ir    Ib    Is    Ir])
                     end
                 end
             end
@@ -565,54 +572,63 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             # plotting                  
 
 
-            if pyplot && istep%10 == 0
+            if pyplot && istep%2 == 0
 
                 num_subplots=4
-                ys_marker_size=4
+                ys_marker_size=6
                 PyPlot.subplots_adjust(hspace=0.5)
             
                 PyPlot.clf() 
                 
                 if num_subplots > 0
-                    subplot(num_subplots*100 + 11)
-                    plot((10^9)*X[:],U[iphi,:],label="phi (V)")
-                    plot((10^9)*X[:],U[iy,:],label="y")
-                    plot(0,U[ib,1],"go", markersize=ys_marker_size, label="y_s")
-                    l_plot = 5.0
-                    PyPlot.xlim(-0.01*l_plot, l_plot)
-                    PyPlot.ylim(-0.5,1.1)
-                    PyPlot.xlabel("x (nm)")
-                    PyPlot.legend(loc="best")
-                    PyPlot.grid()
+
+                      subplot(num_subplots*100 + 11)
+                      plot((10^9)*X[:],U[iphi,:],label="phi (V)")
+                      plot((10^9)*X[:],U[iy,:],label="y")
+                      for (i, idx) in enumerate(surface_species)
+                        plot(0,U[idx,1],"o", markersize=ys_marker_size, label=surface_names[i])
+                      end
+                      l_plot = 5.0
+                      PyPlot.xlim(-0.01*l_plot, l_plot)
+                      PyPlot.ylim(-0.5,1.1)
+                      PyPlot.xlabel("x (nm)")
+                      PyPlot.legend(loc="best")
+                      PyPlot.grid()
                 end
                 
-                #if num_subplots > 1
-                #    subplot(num_subplots*100 + 12)
-                #    plot((10^3)*X[:],U[iphi,:],label="phi (V)")
-                #    plot((10^3)*X[:],U[iy,:],label="y")
-                #    plot(0,U[ib,1],"go", markersize=ys_marker_size, #label="y_s")
-                #    PyPlot.ylim(-0.5,1.1)
-                #    PyPlot.xlabel("x (mm)")
-                #    PyPlot.legend(loc="best")
-                #    PyPlot.grid()
-                #end
-                
-                if (num_subplots > 1) && (istep_cv_start > -1)
-                    cv_range = (istep_cv_start+1):length(phi_range)
-                    subplot(num_subplots*100 + 12)
-                    plot(phi_range[cv_range].-phi0, ((Is_range + Ib_range + Ir_range + Ibb_range)[cv_range]) ,label="total current")
-                    
-                    PyPlot.xlabel(L"\eta \ (V)")
-                    PyPlot.ylabel(L"I \ (A)")
-                    PyPlot.legend(loc="best")
-                    PyPlot.grid()
+                if (long_domain_plot_bool=true)
+                    if num_subplots > 1
+                        subplot(num_subplots*100 + 12)
+                        plot((10^3)*X[:],U[iphi,:],label="phi (V)")
+                        plot((10^3)*X[:],U[iy,:],label="y")
+                        for (i, idx) in enumerate(surface_species)
+                          plot(0,U[idx,1],"o", markersize=ys_marker_size, label=surface_names[i])
+                        end
+                        PyPlot.ylim(-0.5,1.1)
+                        PyPlot.xlabel("x (mm)")
+                        PyPlot.legend(loc="best")
+                        PyPlot.grid()
+                    end
+                else
+                    if (num_subplots > 1) && (istep_cv_start > -1)
+                        cv_range = (istep_cv_start+1):length(phi_range)
+                        subplot(num_subplots*100 + 12)
+                        plot(phi_range[cv_range].-phi0, ((Is_range + Ib_range + Ir_range + Ibb_range)[cv_range]) ,label="total current")
+                        
+                        PyPlot.xlabel(L"\eta \ (V)")
+                        PyPlot.ylabel(L"I \ (A)")
+                        PyPlot.legend(loc="best")
+                        PyPlot.grid()
+                    end
                 end
                 
                 if num_subplots > 2
                     subplot(num_subplots*100 + 13)
                     plot(time_range,phi_range,label="phi_S (V)")
                     plot(time_range,y0_range,label="y(0)")
-                    plot(time_range,ys_range,label="y_s")
+                    for (i, idx) in enumerate(surface_species)
+                      plot(time_range,surface_species_range[i,:], label=surface_names[i])
+                    end
                     PyPlot.xlabel("t (s)")
                     PyPlot.legend(loc="best")
                     PyPlot.grid()
@@ -631,19 +647,28 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             
             # preparing for the next step
             istep+=1
+            U0.=U
+            I_contributions_stdy_0 = I_contributions_stdy
+            I_contributions_tran_0 = I_contributions_tran
             if state=="relaxation"
                 relax_counter += 1
                 #println("relaxation ... ",relax_counter/sample*100,"%")
             else
+                phi_prev = phi
                 phi+=voltrate*dir*tstep
+                phi_out = (phi_prev + phi)/2.0
             end
         end
         
         
         
         # the finall plot
-        if pyplot
-            PyPlot.pause(5)
+        if pyplot || pyplot_finall
+            if pyplot_finall
+                PyPlot.figure(figsize=(10,8))
+            else
+                PyPlot.pause(5)
+            end
             
             PyPlot.clf()
             #PyPlot.close()
@@ -713,7 +738,9 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             #plot(phi_range, Ir_range ,label="spec1")
             plot(time_range,phi_range,label="phi_s (V)")        
             plot(time_range,y0_range,label="y(0)")
-            plot(time_range,ys_range,label="y_s")
+            for (i, idx) in enumerate(surface_species)
+              plot(time_range,surface_species_range[i,:], label=surface_names[i])
+            end
             PyPlot.xlabel("t (s)")
             PyPlot.legend(loc="best")
             PyPlot.grid()
@@ -782,9 +809,12 @@ function run_new(;test=false, print_bool=false, debug_print_bool=false, verbose=
             end
         end
         if test
-            I1 = integrate(sys, label_ysz_model.reaction!, U)
+            I1 = integrate(sys, model_symbol.reaction!, U)
             #println(I1)
             return I1[1]
+        end
+        if out_df_bool
+            return out_df
         end
     end
 end
