@@ -63,35 +63,51 @@ using LeastSquaresOptim
 
 ######################################
 
-include("../examples/ysz_experiments.jl")
+#include("../examples/ysz_experiments.jl")
+
+include("../src/import_experimental_data.jl")
+include("../src/incommon_simulation.jl")
+include("../src/CV_simulation.jl")
+include("../src/EIS_simulation.jl")
 include("../src/CV_fitting_supporting_stuff.jl")
 include("../src/EIS_fitting_supporting_stuff.jl")
-include("../src/import_experimental_data.jl")
+
 
 
 ###########
 ###########
 
 
-function CV_get_shared_checknodes()
-    return CV_get_checknodes(0.005,0.99,-0.99,-0.005,0.04)
-end
 
-function CV_get_nice_checknodes()
-  # experimental range is 0.00104 | 0.99990 | -0.9979 | -0.003.21
-  return CV_get_checknodes(0.015,0.99,-0.99,-0.004,0.01)
-end
 
-function EIS_get_shared_omega_range()
-    # experimental range is 0.1 - 65000 Hz
-    # omegas = (w0, w1, w_fac)
-    return omega_range = (1.1, 51000, 1.2)
-end
 
-function EIS_get_shared_checknodes()
-    return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()...)
-end
+####################################################################
+####################################################################
+###################   TO ANOTHER FILE ->>> experiments_class.jl ####
 
+
+
+####################################################################
+# ####################################################################
+# ####################################################################
+# 
+
+
+
+# 
+# 
+# #############################################################
+# ############################################################
+# ###################   TO ANOTHER FILE ->>> par_study.jl ####
+# 
+# class par_study
+# 
+# end
+
+
+#############################################################
+#############################################################
+#############################################################
 
 function get_fitted_all_prms()
   prms_names=["A0", "R0", "K0", "SA", "SR", "SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"]
@@ -100,35 +116,7 @@ function get_fitted_all_prms()
   return prms_names, prms_values
 end
 
-function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple)
 
-  function consistency_check()
-    if (size(prms_names,1) != size(scripted_tuple,1) || 
-        size(prms_names,1) != size(prms,1))
-      return false
-    end
-    return true
-  end
-  
-  if !consistency_check()
-    println("ERROR: file_format_prms(): shape mismatch (!consistency_check())")
-    return throw(Exception)
-  end
-
-  scripted_dir = ""
-  out_name = prefix
-  for i in 1:size(scripted_tuple, 1)
-    if scripted_tuple[i] == 1
-      scripted_dir = string(scripted_dir,"_",prms_names[i],@sprintf("%.2f",prms[i]))
-    end
-    out_name = string(out_name, "_", prms_names[i], @sprintf("%.2f",prms[i]))
-  end
-  
-  out_path = string(save_dir,scripted_dir,"/")
-  out_name = string(out_name, ".csv")
-
-  (out_path, out_name)
-end
 
 
 
@@ -140,110 +128,15 @@ end
 ##########
 ##########
 
-function CV_experiment_legend(TC, pO2; latex=true)
-  if latex
-    return "\$\\theta=$TC\$°C \$\\mathrm{O}_2=$(pO2)\\%\$"
-  else
-    return "TC=$(TC)°C pO2=$(pO2)%"
-  end
-end
-
-
-function EIS_experiment_legend(TC, pO2, EIS_bias; latex=true)
-  if latex
-    return "\$\\theta=$TC\$°C \$\\mathrm{O}_2=$(pO2)\\% \$ \$\\mathrm{bias}=$EIS_bias\$"
-  else
-    return "TC=$(TC)°C pO2=$(pO2)% bias=$(EIS_bias)V"
-  end
-end
 
 
 
-function TCtoT(TC)
-  return TC+273.15
-end
-
-function pO2tosim(pO2)
-  return (pO2/100.0 + 1.0e-5)
-end
 
 
-function CV_apply_checknodes(CV_in, checknodes)
-    DataFrame( U = checknodes[:,1], I = CV_get_I_values(CV_in, checknodes))
-end
 
-function EIS_apply_checknodes(EIS_in,checknodes)
-    DataFrame( f = checknodes, Z = EIS_get_Z_values(EIS_in, checknodes))
-end
 
-function CV_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
-    
-    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
-    
-    df_out = DataFrame()
-    try throw_exception
-      df_out = CSV.read(
-          string(out_path,out_name),
-      )
-    catch e
-      if e isa InterruptException
-        rethrow(e)
-      else
-        if verbose
-          println("file not found: $(out_path)$(out_name)")
-        end
-        if throw_exception
-          rethrow(e)
-        end
-      end
-    end
-    return df_out
-end
 
-function CV_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
-    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
-    run(`mkdir -p $out_path`)
 
-    CSV.write(
-        string(out_path,out_name),
-        df_out
-    )
-    return
-end
-
-function EIS_load_file_prms(;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
-
-    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="EIS", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
-    
-    df_out = DataFrame()
-    try
-      df = CSV.read(string(out_path, out_name))
-      df_out = DataFrame(f = df.f, Z = (df.Re .+ df.Im.*im))
-    catch e
-      if e isa InterruptException
-        rethrow(e)
-      else
-        if verbose
-          println("file not found: $(out_path)$(out_name)")
-        end
-        if throw_exception
-          rethrow(e)
-        end
-      end
-    end
-    return df_out
-end
-
-function EIS_save_file_prms(df_out, save_dir, prms, prms_names, scripted_tuple)
-    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="EIS", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
-    run(`mkdir -p $out_path`)
-
-    CSV.write(
-        string(out_path,out_name),
-        DataFrame(f = df_out.f, Re = real(df_out.Z), Im = imag(df_out.Z))
-    )
-    return
-end
 
 
 function for_each_prms_in_prms_lists(prms_lists, perform_generic)
@@ -397,14 +290,9 @@ function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13
   end
 end
 
-###################################################
 
 
-function EIS_test_checknodes_range(omega_range=EIS_get_shared_omega_range())
-  Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(TC=800,pO2=100,bias=0.0),EIS_get_checknodes_geometrical(omega_range...)))
-end
-
-function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, TC, pO2, EIS_bias,  prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), omega_range=EIS_get_shared_omega_range())
+function get_error_projection_to_prms(sim::EIS_simulation, EIS_hypercube, prms_lists, TC, pO2, EIS_bias,  prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), omega_range=EIS_get_shared_omega_range())
   #scripted_tuple = (1,1,0,0,0,0)
 #prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
   #name = "prvni_vrh_lin_ads"
@@ -422,7 +310,7 @@ function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, TC, pO2, EI
   prmsDIV100 = counter/100
   
   counter=0
-  println("Loading prms_lists")
+  println("performing error projection")
   println("|====================================================================================================|")
   
   function perform_error_projection(prms_indicies)
@@ -462,6 +350,11 @@ function EIS_get_error_projection_to_prms(EIS_hypercube, prms_lists, TC, pO2, EI
   error_df
 end
 
+
+
+###################################################
+
+
 function display_err_projection(error_df, prms_lists, prms_names, count)
   range_to_display = 1:count
   figure(4)
@@ -481,79 +374,10 @@ function display_the_best(err_df, EIS_hypercube, prms_lists, TC, pO2, EIS_bias, 
     Nyquist_plot(EIS_hypercube[err_df.prms_indicies[i]...], "$(i): $(get_prms_from_indicies(prms_lists, err_df.prms_indicies[i]))")
   end
 end
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
-#####################################################
 
 
-function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_num=20)    
-    figure(fig_num)
-    for TC in TC_list
-      for pO2 in pO2_list
-        if use_checknodes
-          checknodes =  CV_get_shared_checknodes()
-          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(TC=TC, pO2=pO2), checknodes)
-        else
-          CV_exp = import_CVtoDataFrame(TC=TC, pO2=pO2)
-        end
-        CV_plot(CV_exp, "exp $(CV_experiment_legend(TC, pO2))")
-      end
-    end
-end
 
-function EIS_view_experimental_data(TC_list, pO2_list, EIS_bias_list; use_checknodes=false, fig_num=10)    
-    figure(fig_num)
-    for TC in TC_list
-      for pO2 in pO2_list
-        for EIS_bias in EIS_bias_list
-          if use_checknodes
-            checknodes =  EIS_get_shared_checknodes()
-            EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias), checknodes)
-          else
-            EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias)
-          end
-          Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, EIS_bias))")
-        end
-      end
-    end
-end
+
 
 
 
@@ -613,9 +437,11 @@ function check_equal_size(list_1, list_2)
 end
 
 function CV_simple_run(;pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
-                        TC=800, pO2=100, sample=8, fig_size = (9,6), nice_plot=false)
+                        TC=800, pO2=100, sample=8, fig_size = (9,6), nice_plot=false, test=false)
   
-  
+  if test
+    test_result = 0
+  end
   for pO2_in in pO2
     for TC_in in TC
       
@@ -652,7 +478,11 @@ function CV_simple_run(;pyplot=0, use_experiment=true, prms_values=[], prms_name
               CV_plot(CV_sim, "sim $(CV_experiment_legend(TC_in, pO2_in)) $(plot_prms_string)")
           end  
           if use_experiment
-            println("CV_fitting error $(CV_experiment_legend(TC_in, pO2_in, latex=false)) $(plot_prms_string)  => ", CV_fitnessFunction(CV_exp, CV_sim))
+            if test
+              test_result+=CV_fitnessFunction(CV_exp, CV_sim)
+            else
+              println("CV_fitting error $(CV_experiment_legend(TC_in, pO2_in, latex=false)) $(plot_prms_string)  => ", CV_fitnessFunction(CV_exp, CV_sim))
+            end
           end 
           return
           #####################################  
@@ -696,91 +526,93 @@ function CV_simple_run(;pyplot=0, use_experiment=true, prms_values=[], prms_name
     
     
     
-    
+  if test
+    return test_result
+  end
 end
 
-function EIS_simple_run(;pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
-                        TC=800, pO2=100, EIS_bias=0.0, fig_size = (9,6), dx_exp=-9,
-                        make_EIS_hypercube=false)
-
-  if make_EIS_hypercube
-    EIS_hypercube = Array{DataFrame}(undef, Tuple([size(list,1) for list in prms_lists]))
+function simple_run(SIM_list; pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+                        EIS_bias=0.0, make_EIS_hypercube=false, test=false)
+  if test
+    test_result = 0
   end
   
-  for pO2_in in pO2
-    for TC_in in TC
-      for EIS_bias_in in EIS_bias
-        function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
-          if active_idx > size(prms_names,1)
+  ## TODO !!!!!!!
+  
+#   if make_EIS_hypercube
+#     EIS_hypercube = Array{DataFrame}(undef, Tuple([size(list,1) for list in prms_lists]))
+#   end
+  println(SIM_list)
+  for SIM in SIM_list
+    function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
+      if active_idx > size(prms_names,1)
+    
+        # perform the standard code #####################
+        prms_names_in=[]
+        prms_values_in=[]
         
-            # perform the standard code #####################
-            prms_names_in=[]
-            prms_values_in=[]
-            
-            append!(prms_names_in, prms_names)
-            append!(prms_values_in, output_prms)
-          
-          
-            if check_equal_size(prms_names, prms_values)   
-              EIS_df = ysz_experiments.run_new(
-                  pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=EIS_bias_in, omega_range=EIS_get_shared_omega_range(),
-                  dx_exp=dx_exp,
-                  T=TCtoT(TC_in), pO2=pO2tosim(pO2_in),
-                  prms_names_in=prms_names_in,
-                  prms_values_in=prms_values_in,
-              )        
-            end    
-            #@show EIS_df
-            if size(plot_names,1) < 1
-              plot_prms_string = ""
-            else
-              plot_prms_string = "$(string(plot_names)) = $(plot_values)"
-            end
-            EIS_sim = EIS_apply_checknodes(EIS_df,checknodes)
-            if make_EIS_hypercube
-              EIS_hypercube[output_prms...]
-            end
-            if pyplot > 0
-                figure(6, figsize=fig_size)
-            
-                Nyquist_plot(EIS_sim, "sim $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in)) $(plot_prms_string)")
-            end  
-            if use_experiment
-              println("EIS_fitting error $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in, latex=false)) $(plot_prms_string)  => ", EIS_fitnessFunction(EIS_exp, EIS_sim))
-            end
-            return
-            #####################################  
-          
-          end
-          if size(prms_values[active_idx],1)>1
-            for i in prms_values[active_idx]
-              recursive_simple_run_call(
-                push!(deepcopy(output_prms),i),
-                push!(deepcopy(plot_names),prms_names[active_idx]),
-                append!(deepcopy(plot_values),i),
-                active_idx + 1)
-            end
-          else
-            recursive_simple_run_call(
-              push!(deepcopy(output_prms),prms_values[active_idx][1]),
-              plot_names,
-              plot_values,
-              active_idx + 1)
-          end
+        append!(prms_names_in, prms_names)
+        append!(prms_values_in, output_prms)
+      
+      
+        if check_equal_size(prms_names, prms_values)  
+          SIM_df = typical_run_simulation(SIM, pyplot, prms_names_in, prms_values_in)        
+        end    
+        #@show EIS_df
+        if size(plot_names,1) < 1
+          plot_prms_string = ""
+        else
+          plot_prms_string = " $(string(plot_names)) = $(plot_values)"
         end
-        
-        checknodes =  EIS_get_shared_checknodes()
+        SIM_sim = apply_checknodes(SIM, SIM_df, checknodes)
+#             if make_EIS_hypercube
+#               EIS_hypercube[output_prms...]
+#             end
+        if pyplot > 0
+            typical_plot_sim(SIM, SIM_sim, plot_prms_string)
+        end  
         if use_experiment
-          EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC_in, pO2=pO2_in, bias=EIS_bias_in), checknodes)
-          if (pyplot > 0)
-            figure(6, figsize=fig_size)
-            Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC_in, pO2_in, EIS_bias_in))")
+          if test
+            test_result+=fitnessFunction(SIM, SIM_exp, SIM_sim)
+          else
+            fitting_report(SIM, plot_prms_string, SIM_exp, SIM_sim)
           end
         end
-        
-        recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
+        return
+        #####################################  
+      
+      end
+      if size(prms_values[active_idx],1)>1
+        for i in prms_values[active_idx]
+          recursive_simple_run_call(
+            push!(deepcopy(output_prms),i),
+            push!(deepcopy(plot_names),prms_names[active_idx]),
+            append!(deepcopy(plot_values),i),
+            active_idx + 1)
+        end
+      else
+        recursive_simple_run_call(
+          push!(deepcopy(output_prms),prms_values[active_idx][1]),
+          plot_names,
+          plot_values,
+          active_idx + 1)
       end
     end
+    
+    # here starts the body
+    checknodes =  get_shared_checknodes(SIM)
+    if use_experiment
+      SIM_exp = apply_checknodes(SIM, import_data_to_DataFrame(SIM), checknodes)
+      if (pyplot > 0)
+        typical_plot_exp(SIM, SIM_exp)
+      end
+    end
+    
+    recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
+  end
+  
+  if test
+    return test_result
   end
 end
 
@@ -2273,7 +2105,7 @@ function meta_run_par_study()
   scripted_tuple = (1, 1, 0, 0, 0, 0, 0)
   
   TC = 850
-  pO2 = 20
+  pO2 = 60
   EIS_bias = 0.0
   
   #######################################################
@@ -2283,7 +2115,7 @@ function meta_run_par_study()
   #bash_command = "echo"
   bash_command = "julia"
   
-  save_dir = "../snehurka/data/TO_DELETE_kraivna/"
+  save_dir = "../snehurka/data/GAS_LoMA_new_pO2_$(pO2)_level_2/"
   CV_bool = "true"
   EIS_bool = "true"
   
@@ -2319,7 +2151,7 @@ function meta_run_par_study()
   for (i,str) in enumerate(prms_strings)
     metafile_string = string(metafile_string,prms_names[i],"_list=",str,"\n")
   end
-  metafile_string = string(metafile_string,"#### nodes / pernode_count  =  ", nodes_count," / ",per_node_count," ( = ",per_node_count*0.8/60.0,"m)  #### \n")
+  metafile_string = string(metafile_string,"#### nodes / pernode_count  =  ", nodes_count," / ",per_node_count," ( = ",per_node_count*3.0/60.0,"m)  #### \n")
   metafile_string = string(metafile_string,"prms_names=", prms_names,"\n")
   metafile_string = string(metafile_string,"scripted_tuple=", scripted_tuple,"\n")
   metafile_string = string(metafile_string,"TC=", TC,"\n")

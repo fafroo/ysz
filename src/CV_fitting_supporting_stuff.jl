@@ -9,22 +9,6 @@ include("./import_experimental_data.jl")
 # - bug in CV_get_I_values >> nekrici, kdyz CV zacina az nad start_i
 #########
 
-
-
-## general functions
-function is_between(x, a, b)
-    if (b - a) > 0
-        if (a <= x) & (x <= b)
-            return true
-        end
-    else
-        if (b <= x) & (x <= a)
-            return true
-        end
-    end
-    return false
-end
-
 function CV_get_I_values(CVraw, checknodes)
     Ix_values = []
     #println(CVraw.U)
@@ -63,7 +47,7 @@ function CV_get_I_values(CVraw, checknodes)
     return Ix_values
 end
 
-function linComb_CVs(CV1,CV2,lambda)
+function linComb(SIM::CV_simulation, CV1,CV2,lambda)
     if CV1.U == CV2.U
         return DataFrame(U = CV1.U, I = CV1.I.*(1-lambda) .+ CV2.I.*(lambda))
     else
@@ -72,7 +56,7 @@ function linComb_CVs(CV1,CV2,lambda)
     end
 end
 
-function biliComb_CVs(Q11,Q12,Q21,Q22,x,y)
+function biliComb(SIM::CV_simulation, Q12,Q21,Q22,x,y)
     if Q11.U == Q12.U && Q11.U == Q21.U && Q11.U ==Q22.U
         return DataFrame(U = Q11.U, 
             I = Q11.I.*(1-x).*(1-y) .+ Q21.I*x.*(1-y) .+ Q12.I.*(1-x).*y .+ Q22.I.*x.*y
@@ -83,7 +67,7 @@ function biliComb_CVs(Q11,Q12,Q21,Q22,x,y)
     end
 end
 
-function CV_fitnessFunction(exp_CV::DataFrame, sim_CV::DataFrame)
+function fitnessFunction(SIM::CV_simulation, exp_CV::DataFrame, sim_CV::DataFrame)
         if (count=size(exp_CV,1)) == size(sim_CV,1)
                 err = 0.0
                 for row = 1:count
@@ -95,35 +79,6 @@ function CV_fitnessFunction(exp_CV::DataFrame, sim_CV::DataFrame)
         end
         # returns average error per checknode
         return sqrt(err)/Float32(count)
-end
-
-function get_checknodes_short()
-    # nodes of voltage U with direction of sweep where I will be fitted
-    # [U direction; ... ]
-    # the list must be sorted !!! w.r.t. U and direction 1 -> -1 -> 1
-    # like in the real CV measurement
-    checknodes = [
-        0.05 1;
-        0.25 1;
-        0.5 1;
-        0.75 1;
-        0.95 1;
-        0.95 -1;
-        0.75 -1
-        0.5 -1;
-        0.25 -1;
-        0.0 -1;
-        -0.05 -1;
-        -0.25 -1;
-        -0.5 -1;
-        -0.75 -1;
-        -0.95 -1;
-        -0.95 1;
-        -0.75 1
-        -0.5 1;
-        -0.25 1;
-        -0.05 1;
-    ]
 end
 
 function CV_get_checknodes(start_n,upper_n,lower_n,end_n,step_n)

@@ -9,18 +9,6 @@ include("./import_experimental_data.jl")
 # - bug in CV_get_I_values >> nekrici, kdyz CV zacina az nad start_i
 #########
 
-function is_between(x, a, b)
-    if (b - a) > 0
-        if (a <= x) & (x <= b)
-            return true
-        end
-    else
-        if (b <= x) & (x <= a)
-            return true
-        end
-    end
-    return false
-end
 
 function EIS_get_Z_values(Q_raw, checknodes)
     Zx_values = []
@@ -56,7 +44,7 @@ function EIS_get_Z_values(Q_raw, checknodes)
     return Zx_values
 end
 
-function EIS_linComb(Q1,Q2,lambda)
+function linComb(SIM::EIS_simulation, Q1,Q2,lambda)
     if Q1[!, 1] == Q2[!, 1]
         return DataFrame(f = Q1.f, Z = Q1.Z.*(1-lambda) .+ Q2.Z.*(lambda))
     else
@@ -65,7 +53,7 @@ function EIS_linComb(Q1,Q2,lambda)
     end
 end
 
-function EIS_biliComb(Q11,Q12,Q21,Q22,x,y)
+function biliComb(SIM::EIS_simulation, Q11,Q12,Q21,Q22,x,y)
     if Q11[!, 1] == Q12[!, 1] && Q11[!, 1] == Q21[!, 1] && Q11[!, 1] ==Q22[!, 1]
         return DataFrame(f = Q11[!, 1], 
              Z = Q11[!, 2].*(1-x).*(1-y) .+ Q21[!, 2].*x.*(1-y) .+ Q12[!, 2].*(1-x).*y .+ Q22[!, 2].*x.*y
@@ -76,7 +64,8 @@ function EIS_biliComb(Q11,Q12,Q21,Q22,x,y)
     end
 end
 
-function EIS_fitnessFunction(exp_EIS::DataFrame, sim_EIS::DataFrame)
+
+function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataFrame)
         err = 0.0
         if  exp_EIS.f == sim_EIS.f
                 
@@ -91,6 +80,7 @@ function EIS_fitnessFunction(exp_EIS::DataFrame, sim_EIS::DataFrame)
         # returns average error per checknode
         return sqrt(err)/Float32(size(exp_EIS,1))
 end
+
 
 function EIS_get_checknodes_short()
     # frequency nodes to compare
@@ -121,48 +111,4 @@ function EIS_get_checknodes_geometrical(start_n, end_n, n_fac)
         w *= n_fac
     end    
     return w_list
-end
-
-function main()
-        checknodes = EIS_get_checknodes_geometrical(1, 8000, 2)
-        
-        EIS_raw2 = import_EIStoDataFrame(TC="800",pO2="00",bias="0.0" )
-        
-        EIS_raw= import_EIStoDataFrame(TC="800", pO2="00",bias="-0.5")
-        #plot(real(EIS_raw2.Z), -imag(EIS_raw2.Z), "x-")      
-        
-        EIS_raw3= import_EIStoDataFrame(TC="800", pO2="00",bias="-1.0")
-        #plot(real(EIS_raw3.Z), -imag(EIS_raw3.Z), "x-")      
- 
-        exp_EIS_nodes = DataFrame(
-                f=checknodes[:], 
-                Z=EIS_get_Z_values(EIS_raw, checknodes), 
-        )
-        a = figure(1)
-        Nyquist_plot(EIS_raw, "raw")
-        Nyquist_plot(exp_EIS_nodes, "nodes")
-        Nyquist_plot(exp_EIS_nodes, "nodes")
-
-        
-        b = figure(2)
-        Nyquist_plot(EIS_raw, "baf")
-        Nyquist_plot(exp_EIS_nodes, "krach")
-        
-        return
-        
-        exp_EIS_nodes = DataFrame(
-                f = checknodes[:,1], 
-                Z = CV_get_I_values(EISraw, checknodes), 
-        )
-        sim_CV_nodes = exp_CV_nodes[:, :]
-        sim_CV_nodes.I.+=0.1
-        
-        println(exp_CV_nodes)
-        println(sim_CV_nodes)
-        
-        fitnessFunction(exp_CV_nodes,sim_CV_nodes)
-        #sim_CV_nodes = DataFrame(
-        #	U=checknodes[:,1],
-        #	I=CV_get_I_values(CVsim, checknodes), 
-        #)
 end
