@@ -4,6 +4,15 @@ abstract type abstract_simulation end
 
 include("../examples/ysz_experiments.jl")
 
+function string(SIM_list::Array{abstract_simulation})
+  string_to_print = ""
+  string_to_print = "$(string_to_print)["
+  for SIM in SIM_list
+    string_to_print = "$(string_to_print)$(string(SIM)), "
+  end
+  string_to_print = string_to_print[1:end-2]
+  string_to_print = "$(string_to_print)]"
+end
 
 function TCtoT(TC)
   return TC+273.15
