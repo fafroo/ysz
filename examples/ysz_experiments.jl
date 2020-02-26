@@ -167,10 +167,10 @@ function run_new(;physical_model_name="",
     control.tol_linear=1.0e-4
     control.tol_relative=1.0e-5
     #control.tol_absolute=1.0e-4
-    control.max_iterations=200
+    #control.max_iterations=200
     control.max_lureuse=0
     control.damp_initial=1.0e-3
-    control.damp_growth=1.4
+    control.damp_growth=1.3
 
 ##### used for diplaying initial conditions vs steady state    
 #     figure(111)
