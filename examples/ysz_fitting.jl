@@ -4,8 +4,8 @@ module ysz_fitting
 # [x] better ramp ... starting directly from steadystate :)
 # [x] general global search using projection to each variable
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
-# [ ] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
-# [ ] spoustet run_new() v ruznych procedurach stejnou funkci "EIS_default_run_new( ... )"
+# [x] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
+# [x] spoustet run_new() v ruznych procedurach stejnou funkci "EIS_default_run_new( ... )"
 # [x] implement LM algorithm
 # [x] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina
 # [x] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
@@ -20,19 +20,27 @@ module ysz_fitting
 # ------[ ] spis bude lepsi skriptovaci soubor nechat stejny a prohanet pres nej jen ARGS bez cisel
 # [!] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI" -> JUERGEN
 # ---[!] zadavani modulu by melo byt v hlavicce meta_run_par_study()
-# ------[!] mozna by se include mel vykonavat na vyssi urovni a do ysz_experiments preposilat uz hotovou tridu
+# ------[!] mozna by se include mel vykonavat na vyssi urovni a do ysz_experiments preposilat uz hotovy modul
 # [x] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry 
-# [o] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
-# ---[o] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
-# ---[ ] udelat tridu par_study
-# [ ] PAR_STUDY vyhodnoceni ... soubory do slozky dane studie .. automatizovane
+# [x] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
+# ---[x] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
+# ---[x] udelat tridu par_study
+# [x] PAR_STUDY vyhodnoceni ... soubory do slozky dane studie .. automatizovane
 # ---[ ] pri zobrazovani dat udelat clustery dle chyby/prms a pak zobrazit (prms ci Nyquist) 1 reprezentanta z kazde
 # ---[ ] automatizovat ukladani souboru vysledku par_study.vyhodnoceni()
 # [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
 # [x] get rig od shared_prms and shared_add_prms !!!
 # [ ] snehurka by rada ./zabal.sh a pocitac zase ./rozbal_par_study.sh
 # [!] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ...
-# ---[!!!!!!] nejak si preposilat steadystate?! 
+# ---[ ] nejak si preposilat steadystate?! 
+# ------[x] zacina se ze steady_statu, ktery se pocita rychle
+# [ ] simple_run by mohl vracet par_study
+# ---[ ] par study by pak mohla mit funcki "uloz me"
+# [ ] par_study_struct by mohla nest velikosti poli
+# [ ] znicit EIS_bias -> bias
+#
+#            #### od Affra ####
+# [ ] fitness funkce s maximovou metrikou
 #
 # 
 # #### Fitting process
@@ -70,8 +78,6 @@ include("../src/import_experimental_data.jl")
 include("../src/incommon_simulation.jl")
 include("../src/CV_simulation.jl")
 include("../src/EIS_simulation.jl")
-include("../src/CV_fitting_supporting_stuff.jl")
-include("../src/EIS_fitting_supporting_stuff.jl")
 
 
 
@@ -133,14 +139,15 @@ end
 
 mutable struct par_study_struct
   physical_model_name::String
-  simulation_list::Array{abstract_simulation}
+  SIM_list::Array{abstract_simulation}
   prms_names::Array{Any}
   prms_lists::Array{Any}
   scripted_tuple::Tuple
-  simulation_data::Array{Any}
-  simulation_err::DataFrame
+  SIMs_data::Array{Any}
+  SIMs_err::DataFrame
   #
   name::String
+  save_dir::String
   #
   par_study_struct() = new()
 end
@@ -173,62 +180,86 @@ end
 
 
 
-
-
+function get_SIM_list_rectangle(TC,pO2, bias, simulations::Array{String})
+    CV_bool = ("CV" in simulations)
+    EIS_bool = ("EIS" in simulations)
+    SIM_list = Array{abstract_simulation}(undef,0)
+    if CV_bool && EIS_bool
+      append!(SIM_list,[
+        CV_simulation(TC, pO2)... ,
+        EIS_simulation(TC, pO2, bias)...
+      ])
+    elseif CV_bool
+      append!(SIM_list,[
+        CV_simulation(TC, pO2)...
+      ])
+    elseif EIS_bool
+      append!(SIM_list,[
+        EIS_simulation(TC, pO2, bias)...
+      ])
+    end
+    return SIM_list
+end
 
 
 ############## import large amount of data ##########
-function import_par_study_from_metafile(;save_dir="../snehurka/data/", name="", metafile_name="__metafile_par_study.txt", CV_bool=false, EIS_bool=false, verbose=false)
-  prms_lists = []
-  prms_names = []
-  scripted_tuple = []
-  TC=-600
-  pO2=-600
-  EIS_bias=-600
+function par_study_import_info_from_metafile(name; save_dir="../snehurka/data/", metafile_name="__metafile_par_study.txt")
+
+  actual_par_study = par_study_struct()
+  
+  actual_par_study.save_dir = save_dir
+  
+  TC = Inf
+  pO2 = Inf
+  bias = Inf
+  
+  simulations = []
   
   file_lines = readlines(string(save_dir,name,"/",metafile_name))
   for str in file_lines
     if occursin('=',str)
       (token_name,token_value)=split(str,"=")
-      token_name=="prms_lists" && (prms_lists = eval(Meta.parse(token_value)))
-      token_name=="prms_names" && (prms_names = eval(Meta.parse(token_value)))
-      token_name=="scripted_tuple" && (scripted_tuple = eval(Meta.parse(token_value)))
+      token_name=="physical_model_name" && (actual_par_study.physical_model_name = token_value)
+      token_name=="prms_names" && (actual_par_study.prms_names = eval(Meta.parse(token_value)))
+      token_name=="prms_lists" && (actual_par_study.prms_lists = eval(Meta.parse(token_value)))
+      token_name=="scripted_tuple" && (actual_par_study.scripted_tuple = eval(Meta.parse(token_value)))
+      token_name=="name" && (actual_par_study.name = token_value)
+      #
       token_name=="TC" && (TC = eval(Meta.parse(token_value)))
       token_name=="pO2" && (pO2 = eval(Meta.parse(token_value)))
-      token_name=="EIS_bias" && (EIS_bias = eval(Meta.parse(token_value)))
+      token_name=="EIS_bias" && (bias = eval(Meta.parse(token_value)))
+      token_name=="simulations" && (simulations = eval(Meta.parse(token_value)))
     end
   end
+  
+  if (TC == Inf) || (pO2 == Inf) || (bias == Inf)
+    println("ERROR: par_study_import_info_from_metafile: load error of TC, pO2 or EIS_bias!")
+    throw(Exception)
+  else
+    actual_par_study.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, simulations)
+  end
 
-  (
-    import_par_study(save_dir=save_dir, name=name, prms_lists=prms_lists, prms_names=prms_names, scripted_tuple=scripted_tuple, CV_bool=CV_bool,  EIS_bool=EIS_bool, verbose=verbose), 
-    prms_lists, 
-    scripted_tuple, 
-    prms_names, 
-    TC, 
-    pO2, 
-    EIS_bias
-  )
+  return actual_par_study
 end
 
 
-function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13, 13, 0.10, 0.10, 0.4, 0.0], prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(1,1,0,0,0,0), EIS_bool=false, CV_bool=false, verbose=false)
+function par_study_import_data!(actual_par_study; verbose=false)
   
   
-  save_dir_forwarded = string(save_dir, name, "/")
-  if CV_bool
-    CV_hypercube = Array{DataFrame}(undef, Tuple([size(list,1) for list in prms_lists]))
-    CV_good_count = 0
-    CV_bad_count = 0
-  end
+  save_dir_forwarded = string(actual_par_study.save_dir, actual_par_study.name, "/")
   
-  if EIS_bool
-    EIS_hypercube = Array{DataFrame}(undef, Tuple([size(list,1) for list in prms_lists]))
-    EIS_good_count = 0
-    EIS_bad_count = 0
-  end
-
+  SIMs_length = size(actual_par_study.SIM_list,1)
+  SIMs_dimensions = Tuple(append!([SIMs_length], [size(list,1) for list in actual_par_study.prms_lists]))
+  
+  SIMs_data = Array{DataFrame}(undef, SIMs_dimensions)
+  SIM_good_count = zeros(Int64, size(actual_par_study.SIM_list,1))
+  SIM_bad_count = zeros(Int64, size(actual_par_study.SIM_list,1))
+  
+  
+  empty_df = DataFrame()
+  
   counter=1
-  for list in prms_lists
+  for list in actual_par_study.prms_lists
     counter*= size(list,1)
   end
   prmsDIV100 = counter/100
@@ -245,145 +276,242 @@ function import_par_study(;save_dir="../snehurka/data/", name="", prms_lists=[13
       counter=1
     end
     
-    if CV_bool
+    for (i, SIM) in enumerate(actual_par_study.SIM_list)
       try
-        CV_hypercube[prms_indicies...] = CV_load_file_prms(save_dir=save_dir_forwarded, prms=get_prms_from_indicies(prms_lists, prms_indicies), prms_names=prms_names, scripted_tuple=scripted_tuple, throw_exception=true, verbose=verbose)
-        CV_good_count += 1
+        SIMs_data[i, prms_indicies...] = load_file_prms(
+            SIM, 
+            save_dir=string(save_dir_forwarded,string(SIM),"/"), 
+            prms=get_prms_from_indicies(actual_par_study.prms_lists, prms_indicies), 
+            prms_names=actual_par_study.prms_names, 
+            scripted_tuple=actual_par_study.scripted_tuple, 
+            throw_exception=true, 
+            verbose=verbose)
+        SIM_good_count[i] += 1
       catch e
         if e isa InterruptException
           rethrow(e)
         else
-          CV_hypercube[prms_indicies...] = DataFrame()
-          CV_bad_count += 1
-        end
-      end
-    end
-    if EIS_bool
-      try
-        EIS_hypercube[prms_indicies...] = EIS_load_file_prms(save_dir=save_dir_forwarded, prms=get_prms_from_indicies(prms_lists, prms_indicies), prms_names=prms_names, scripted_tuple=scripted_tuple, throw_exception=true,verbose=verbose)
-        EIS_good_count += 1
-      catch e
-        if e isa InterruptException
-          rethrow(e)
-        else
-          EIS_hypercube[prms_indicies...] = DataFrame()
-          EIS_bad_count += 1
+          SIMs_data[i, prms_indicies...] = empty_df
+          SIM_bad_count[i] += 1
         end
       end
     end
   end
   
   print("|")
-  for_each_indicies_in_prms_lists(prms_lists, perform_import)
+  for_each_indicies_in_prms_lists(actual_par_study.prms_lists, perform_import)
   println("|")
   
-  if CV_bool && EIS_bool
-    println("import_par_study: CV_good / all = ",CV_good_count, " / ", CV_good_count + CV_bad_count)
-    println("import_par_study: EIS_good / all = ",EIS_good_count, " / ", EIS_good_count + EIS_bad_count)
-    return (CV_hypercube, EIS_hypercube)
-  end
-  if CV_bool
-    println("import_par_study: CV_good / all = ",CV_good_count, " / ", CV_good_count + CV_bad_count)
-    return CV_hypercube
-  end
-  if EIS_bool
-    println("import_par_study: EIS_good / all = ",EIS_good_count, " / ", EIS_good_count + EIS_bad_count)
-    return EIS_hypercube
-  end
+  actual_par_study.SIMs_data = SIMs_data
+  println(string(actual_par_study.SIM_list))
+  println("par_study_import_data: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  return
 end
 
 
-
-function get_error_projection_to_prms(sim::EIS_simulation, EIS_hypercube, prms_lists, TC, pO2, EIS_bias,  prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), omega_range=EIS_get_shared_omega_range())
-  #scripted_tuple = (1,1,0,0,0,0)
-#prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
-  #name = "prvni_vrh_lin_ads"
-  
-  checknodes = EIS_get_checknodes_geometrical(omega_range...)
-  
-  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias), checknodes)
-  
-  error_df = DataFrame(error = [], prms_indicies = [])
-  
-  counter=1
-  for list in prms_lists
-    counter*= size(list,1)
+function par_study_err_evaluation!(actual_par_study; data_already_imported=false, verbose=false)
+  save_dir_forwarded = string(actual_par_study.save_dir, actual_par_study.name, "/")
+ 
+  # compute length of error DataFrame
+  product_size_prms=1
+  for list in actual_par_study.prms_lists
+    product_size_prms*= size(list,1)
   end
-  prmsDIV100 = counter/100
+  prmsDIV100 = product_size_prms/100
+  SIMs_length = size(actual_par_study.SIM_list,1)
   
+  # SIMs_err stores errors in columns (1, 2, 3, 4, .. SIMs_length, prms)
+  SIMs_err = DataFrame()
+  for i in 1:SIMs_length
+    SIMs_err[!, Symbol(string(i))] = Array{Float32}(undef, product_size_prms)
+  end
+  SIMs_err[!, Symbol("prms_indicies")] = Array{Array{Int16}}(undef, product_size_prms)
+
+  # experimental data to compare
+  SIM_list_exp = []
+  for (i, SIM) in enumerate(actual_par_study.SIM_list)
+    push!(SIM_list_exp, apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes))
+  end  
+  
+  
+  
+  SIM_good_count = zeros(Int64, size(actual_par_study.SIM_list,1))
+  SIM_bad_count = zeros(Int64, size(actual_par_study.SIM_list,1))
+
   counter=0
-  println("performing error projection")
+  circle_counter=0
+  println("Evaluating error")
   println("|====================================================================================================|")
-  
-  function perform_error_projection(prms_indicies)
+
+  function perform_error_evaluate(prms_indicies)
     
     counter += 1
     if counter >= prmsDIV100 - 0.00000001
       print("o")
       counter=1
     end
+    SIMs_err[!, SIMs_length + 1][counter] = prms_indicies
     
-    if size(EIS_hypercube[prms_indicies...],1) > 0
-      #@show EIS_hypercube[prms_indicies...]
-      #EIS_sim = EIS_apply_checknodes(EIS_hypercube[prms_indicies...], EIS_get_shared_checknodes())
-      #close()
-      #Nyquist_plot(EIS_exp)
-      #Nyquist_plot(EIS_sim)      
-      #println("OK")
-      push!(error_df, 
-        (EIS_fitnessFunction(
-          EIS_exp,
-          EIS_apply_checknodes(EIS_hypercube[prms_indicies...], checknodes)
-          )
-          , 
-          prms_indicies
-        )
-      )
+    if data_already_imported
+      # load SIM from database and apply fitnessFuncion
+      for (i, SIM) in enumerate(actual_par_study.SIM_list)
+        if size(actual_par_study.SIMs_data[i, prms_indicies...],1) > 0
+          SIM_sim = actual_par_study.SIMs_data[i, prms_indicies...]
+          SIMs_err[!, i][counter] = fitnessFunction(SIM, 
+                SIM_list_exp[i],
+                apply_checknodes(SIM, SIM_sim, SIM.checknodes)
+              )
+          SIM_good_count[i] += 1
+        else
+          SIMs_err[!, i][counter] = -1
+          SIM_bad_count[i] += 1
+        end
+      end 
+      
+    else
+      # compute SIM and apply fitnessFunction
+      for (i, SIM) in enumerate(actual_par_study.SIM_list)
+        try
+          SIM_sim = load_file_prms(
+            SIM, 
+            save_dir=string(save_dir_forwarded, string(SIM), "/"), 
+            prms=get_prms_from_indicies(actual_par_study.prms_lists, prms_indicies), 
+            prms_names=actual_par_study.prms_names, 
+            scripted_tuple=actual_par_study.scripted_tuple, 
+            throw_exception=true, 
+            verbose=verbose)
+
+          SIMs_err[!, i][counter] = fitnessFunction(SIM, 
+                SIM_list_exp[i],
+                apply_checknodes(SIM, SIM_sim, SIM.checknodes)
+              )
+          SIM_good_count[i] += 1
+        catch e
+          if e isa InterruptException
+            rethrow(e)
+          else
+            SIMs_err[!, i][counter] = -1
+            SIM_bad_count[i] += 1
+          end
+        end
+      end
     end
   end
-
+  
   print("|")
-  for_each_indicies_in_prms_lists(prms_lists, perform_error_projection)
+  for_each_indicies_in_prms_lists(actual_par_study.prms_lists, perform_error_evaluate)
   println("|")
   
-  sort!(error_df, :error)
+  actual_par_study.SIMs_err = SIMs_err
   
-
-  error_df
+  println("par_study_err_evaluation: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  return
 end
 
 
 
-###################################################
 
 
-function display_err_projection(error_df, prms_lists, prms_names, count)
-  # TODO
-  # [ ] mention the par_study name in the title (and checknodes)
-  
-  range_to_display = 1:count
-  figure(4)
-  suptitle("The best $count")
-  for i in 1:6
-    subplot(230+i)
-    title(prms_names[i])
-    plot([prms_lists[i][item[i]] for item in error_df.prms_indicies[range_to_display]], error_df.error[range_to_display], "x")
-  end
-end
-
-function display_the_best(err_df, EIS_hypercube, prms_lists, TC, pO2, EIS_bias; from=1, till=10)
-  # TODO
-  # [ ] mention the par_study name in the title ( and checknodes)
-  
-  figure(3)
-  EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias),EIS_get_shared_checknodes())
-  Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, EIS_bias))")
-  for i in from:till
-    Nyquist_plot(EIS_hypercube[err_df.prms_indicies[i]...], "$(i): $(get_prms_from_indicies(prms_lists, err_df.prms_indicies[i]))")
-  end
-end
 
 
+
+
+# # # # # # # 
+# # # # # # # 
+# # # # # # # 
+# # # # # # # 
+# # # # # # # 
+# # # # # # # 
+# # # # # # # function get_error_projection_to_prms(sim::EIS_simulation, EIS_hypercube, prms_lists, TC, pO2, EIS_bias,  prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), omega_range=EIS_get_shared_omega_range())
+# # # # # # #   #scripted_tuple = (1,1,0,0,0,0)
+# # # # # # # #prms_lists=([13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], [-0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7], 0.4, [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8])
+# # # # # # #   #name = "prvni_vrh_lin_ads"
+# # # # # # #   
+# # # # # # #   checknodes = EIS_get_checknodes_geometrical(omega_range...)
+# # # # # # #   
+# # # # # # #   EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias), checknodes)
+# # # # # # #   
+# # # # # # #   error_df = DataFrame(error = [], prms_indicies = [])
+# # # # # # #   
+# # # # # # #   counter=1
+# # # # # # #   for list in prms_lists
+# # # # # # #     counter*= size(list,1)
+# # # # # # #   end
+# # # # # # #   prmsDIV100 = counter/100
+# # # # # # #   
+# # # # # # #   counter=0
+# # # # # # #   println("performing error projection")
+# # # # # # #   println("|====================================================================================================|")
+# # # # # # #   
+# # # # # # #   function perform_error_projection(prms_indicies)
+# # # # # # #     
+# # # # # # #     counter += 1
+# # # # # # #     if counter >= prmsDIV100 - 0.00000001
+# # # # # # #       print("o")
+# # # # # # #       counter=1
+# # # # # # #     end
+# # # # # # #     
+# # # # # # #     if size(EIS_hypercube[prms_indicies...],1) > 0
+# # # # # # #       #@show EIS_hypercube[prms_indicies...]
+# # # # # # #       #EIS_sim = EIS_apply_checknodes(EIS_hypercube[prms_indicies...], EIS_get_shared_checknodes())
+# # # # # # #       #close()
+# # # # # # #       #Nyquist_plot(EIS_exp)
+# # # # # # #       #Nyquist_plot(EIS_sim)      
+# # # # # # #       #println("OK")
+# # # # # # #       push!(error_df, 
+# # # # # # #         (EIS_fitnessFunction(
+# # # # # # #           EIS_exp,
+# # # # # # #           EIS_apply_checknodes(EIS_hypercube[prms_indicies...], checknodes)
+# # # # # # #           )
+# # # # # # #           , 
+# # # # # # #           prms_indicies
+# # # # # # #         )
+# # # # # # #       )
+# # # # # # #     end
+# # # # # # #   end
+# # # # # # # 
+# # # # # # #   print("|")
+# # # # # # #   for_each_indicies_in_prms_lists(prms_lists, perform_error_projection)
+# # # # # # #   println("|")
+# # # # # # #   
+# # # # # # #   sort!(error_df, :error)
+# # # # # # #   
+# # # # # # # 
+# # # # # # #   error_df
+# # # # # # # end
+# # # # # # # 
+# # # # # # # 
+# # # # # # # 
+# # # # # # # ###################################################
+# # # # # # # 
+# # # # # # # 
+# # # # # # # function display_err_projection(error_df, prms_lists, prms_names, count)
+# # # # # # #   # TODO
+# # # # # # #   # [ ] mention the par_study name in the title (and checknodes)
+# # # # # # #   
+# # # # # # #   range_to_display = 1:count
+# # # # # # #   figure(4)
+# # # # # # #   suptitle("The best $count")
+# # # # # # #   for i in 1:6
+# # # # # # #     subplot(230+i)
+# # # # # # #     title(prms_names[i])
+# # # # # # #     plot([prms_lists[i][item[i]] for item in error_df.prms_indicies[range_to_display]], error_df.error[range_to_display], "x")
+# # # # # # #   end
+# # # # # # # end
+# # # # # # # 
+# # # # # # # function display_the_best(err_df, EIS_hypercube, prms_lists, TC, pO2, EIS_bias; from=1, till=10)
+# # # # # # #   # TODO
+# # # # # # #   # [ ] mention the par_study name in the title ( and checknodes)
+# # # # # # #   
+# # # # # # #   figure(3)
+# # # # # # #   EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=EIS_bias),EIS_get_shared_checknodes())
+# # # # # # #   Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, EIS_bias))")
+# # # # # # #   for i in from:till
+# # # # # # #     Nyquist_plot(EIS_hypercube[err_df.prms_indicies[i]...], "$(i): $(get_prms_from_indicies(prms_lists, err_df.prms_indicies[i]))")
+# # # # # # #   end
+# # # # # # # end
+# # # # # # # 
+# # # # # # # 
 
 
 
@@ -444,43 +572,38 @@ function check_equal_size(list_1, list_2)
   end
 end
 
+
+
 function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
-                        make_EIS_hypercube=false, test=false)
+                        test=false)
+  # here starts the true body
   if test
     test_result = 0
   end
   
-  ## TODO !!!!!!!
-  
-#   if make_EIS_hypercube
-#     EIS_hypercube = Array{DataFrame}(undef, Tuple([size(list,1) for list in prms_lists]))
-#   end
-  
   for SIM in SIM_list
+  
     function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
       if active_idx > size(prms_names,1)
-    
-        # perform the standard code #####################
+
+        ###################################################################
+        # for each combination of output_prms from prms_lists perform this #######
         prms_names_in=[]
         prms_values_in=[]
         
         append!(prms_names_in, prms_names)
         append!(prms_values_in, output_prms)
       
-      
+        
         if check_equal_size(prms_names, prms_values)  
-          SIM_df = typical_run_simulation(SIM, prms_names_in, prms_values_in, pyplot)        
+          SIM_raw = typical_run_simulation(SIM, prms_names_in, prms_values_in, pyplot)        
         end    
-        #@show EIS_df
         if size(plot_names,1) < 1
           plot_prms_string = ""
         else
           plot_prms_string = " $(string(plot_names)) = $(plot_values)"
         end
-        SIM_sim = apply_checknodes(SIM, SIM_df, checknodes)
-#             if make_EIS_hypercube
-#               EIS_hypercube[output_prms...]
-#             end
+        SIM_sim = apply_checknodes(SIM, SIM_raw, checknodes)
         if pyplot > 0
             typical_plot_sim(SIM, SIM_sim, plot_prms_string)
         end  
@@ -488,11 +611,12 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
           if test
             test_result+=fitnessFunction(SIM, SIM_exp, SIM_sim)
           else
-            fitting_report(SIM, plot_prms_string, SIM_exp, SIM_sim)
+            fitness_error_report(SIM, plot_prms_string, SIM_exp, SIM_sim)
           end
         end
         return
-        #####################################  
+        ###################################################################
+        ###################################################################
       
       end
       if size(prms_values[active_idx],1)>1
@@ -511,8 +635,8 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
           active_idx + 1)
       end
     end
-    
-    # here starts the body
+
+    # here the true body continues
     checknodes =  get_shared_checknodes(SIM)
     if use_experiment
       SIM_exp = apply_checknodes(SIM, import_data_to_DataFrame(SIM), checknodes)
@@ -520,16 +644,23 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
         typical_plot_exp(SIM, SIM_exp)
       end
     end
-    
     recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
   end
   
   if test
     return test_result
+  else
+    return
   end
 end
 
 
+# useful wrap
+function simple_run(;TC, pO2, bias=0.0, simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+                         test=false)
+    simple_run(get_SIM_list_rectangle(TC, pO2, bias, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
+                        test=false)
+end
 
 #####################################################
 #####################################################
@@ -1789,7 +1920,7 @@ end
 #### SNEHURKA COMPUTATION #####
 ###############################
 
-function run_par_study(actual_par_study::par_study_struct; save_dir="../snehurka/data/", save_file_bool=false, mode="test")
+function run_par_study(actual_par_study::par_study_struct; save_dir="../snehurka/data/", save_file_bool=false, mode="test", verbose=true)
      
      
   function consistency_check()
@@ -1800,15 +1931,13 @@ function run_par_study(actual_par_study::par_study_struct; save_dir="../snehurka
       
       return true
   end
-  SIM_length = size(actual_par_study.simulation_list,1)
+  SIM_length = size(actual_par_study.SIM_list,1)
   
   SIM_err_counter = zeros(Int64,SIM_length)
   SIM_good_counter = zeros(Int64,SIM_length)
   all_counter::Int64 = 0
   
   save_file_path = "$(save_dir)$(actual_par_study.name)/"
-
-  
 
   #println(" >> number of sets of parameters: ",
   #    length(A0_list)*length(R0_list)*length(DGA_list)*length(DGR_list)*length(beta_list)*length(A_list))
@@ -1836,12 +1965,14 @@ function run_par_study(actual_par_study::par_study_struct; save_dir="../snehurka
 
     # printing info
     all_counter = all_counter + 1
-    println(
-      string(" <><><><><><><><><><><><> all_counter <><><> calculating ",all_counter," of ", overall_count)
-    )
-    print("parameters: ($(string_prms_names)) = ($(string_prms))")
+    if verbose
+      println(
+        string(" <><><><><><><><><><><><> all_counter <><><> calculating ",all_counter," of ", overall_count)
+      )
+      println("parameters: ($(string_prms_names)) = ($(string_prms))")
+    end
     
-    for (i,SIM) in enumerate(actual_par_study.simulation_list)
+    for (i,SIM) in enumerate(actual_par_study.SIM_list)
         try
 
             SIM_sim = typical_run_simulation(SIM, prms_names_in, prms_values_in)
@@ -1850,14 +1981,18 @@ function run_par_study(actual_par_study::par_study_struct; save_dir="../snehurka
               save_file_prms(SIM, SIM_sim, "$(save_file_path)$(string(SIM))/", prms_values_in, prms_names_in, actual_par_study.scripted_tuple)           
             end
             SIM_good_counter[i] += 1
-            print(" $(string(SIM)) ok :) ")
+            if verbose
+              print("  $(string(SIM)) ok")
+            end
           catch e
             if e isa InterruptException
                 rethrow(e)
             else
                 println(e)
                 SIM_err_counter[i] += 1
-                print("<<<<< $(string(SIM))  FAIL! >>>>>")
+                if verbose
+                  print("<<<<< $(string(SIM))  FAIL! >>>>>")
+                end
             end
         end        
     end
@@ -1865,9 +2000,9 @@ function run_par_study(actual_par_study::par_study_struct; save_dir="../snehurka
   end
       
   for_each_prms_in_prms_lists(actual_par_study.prms_lists, perform_par_study)
-
-  println(string("<<<<< SIM_good_count / SIM_err_count  >>> ", SIM_good_counter,"  /  ", SIM_err_counter ," >>>>>>>"))
-
+  if verbose
+    println(string("<<< run_par_study(): SIM_good_count / all_count  >>> ", SIM_good_counter,"  /  ", SIM_err_counter .+ SIM_good_counter ," >>>>>>>"))
+  end
 end
 
 
@@ -1881,8 +2016,7 @@ function run_par_study_script_wrap(
                     TC_string="800",
                     pO2_string="100",
                     EIS_bias_string="0.0",
-                    CV_bool_string="true", 
-                    EIS_bool_string="true", 
+                    simulations_string="[\"EIS\"]",
                     mode="test",
                     physical_model_name="nothing")
   
@@ -1891,6 +2025,7 @@ function run_par_study_script_wrap(
   
   actual_par_study.physical_model_name = physical_model_name
   actual_par_study.name = name
+  actual_par_study.save_dir = save_dir
   actual_par_study.prms_lists = eval(Meta.parse(prms_lists_string))
   actual_par_study.scripted_tuple = eval(Meta.parse(scripted_tuple_string))
   actual_par_study.prms_names = eval(Meta.parse(prms_names_string))
@@ -1898,25 +2033,9 @@ function run_par_study_script_wrap(
   TC = eval(Meta.parse(TC_string))
   pO2 = eval(Meta.parse(pO2_string))
   EIS_bias = eval(Meta.parse(EIS_bias_string))
-  CV_bool = eval(Meta.parse(CV_bool_string))
-  EIS_bool = eval(Meta.parse(EIS_bool_string)) 
+  simulations = eval(Meta.parse(simulations_string))
   #
-  if CV_bool && EIS_bool
-    actual_par_study.simulation_list = [
-      CV_simulation(TC, pO2)... ,
-      EIS_simulation(TC, pO2, EIS_bias)...
-    ]
-  elseif CV_bool
-    actual_par_study.simulation_list = [
-      CV_simulation(TC, pO2)...
-    ]
-  elseif EIS_bool
-    actual_par_study.simulation_list = [
-      EIS_simulation(TC, pO2, EIS_bias)...
-    ]
-  else
-    actual_par_study.simulation_list = Array{abstract_simulation}[]
-  end
+  actual_par_study.SIM_list = get_SIM_list_rectangle(TC, pO2, EIS_bias, simulations)
   
   run_par_study(    actual_par_study,
                     save_dir=save_dir, 
@@ -1931,34 +2050,50 @@ function meta_run_par_study()
       scripted_tuple_string = string(scripted_tuple)
       output_prms_lists_string = string(output_prms_lists)
       prms_names_string = string(prms_names)
-      CV_bool_string = string(CV_bool)
-      EIS_bool_string = string(EIS_bool)
+      simulations_string = string(simulations)
       TC_string = string(TC)
       pO2_string = string(pO2)
-      EIS_bias_string = string(EIS_bias)
-      return run(`
-                  $bash_command  
-                  $run_file_name 
-                  $output_prms_lists_string 
-                  $save_dir 
-                  $name 
-                  $scripted_tuple_string 
-                  $prms_names_string 
-                  $TC_string 
-                  $(pO2_string) 
-                  $EIS_bias_string 
-                  $CV_bool_string 
-                  $EIS_bool_string 
-                  $mode 
-                  $physical_model_name 
-      `)
-    end
-    if scripted_tuple[active_idx] == 1
-      for i in prms_lists[active_idx]
-        recursive_bash_call(push!(deepcopy(output_prms_lists),i), active_idx + 1)
+      EIS_bias_string = string(EIS_bias) 
+      
+      if direct_bool
+        return run_par_study_script_wrap(
+                    output_prms_lists_string ,
+                    save_dir ,
+                    name ,
+                    scripted_tuple_string ,
+                    prms_names_string ,
+                    TC_string ,
+                    pO2_string ,
+                    EIS_bias_string ,
+                    simulations_string ,
+                    mode ,
+                    physical_model_name        
+        )
+      else
+        return run(`
+                    $bash_command  
+                    $run_file_name 
+                    $output_prms_lists_string 
+                    $save_dir 
+                    $name 
+                    $scripted_tuple_string 
+                    $prms_names_string 
+                    $TC_string 
+                    $(pO2_string) 
+                    $EIS_bias_string 
+                    $simulations_string 
+                    $mode 
+                    $physical_model_name 
+        `)
       end
     else
-      recursive_bash_call(push!(deepcopy(output_prms_lists),prms_lists[active_idx]), active_idx + 1)
+      if scripted_tuple[active_idx] == 1
+        for i in prms_lists[active_idx]
+          recursive_bash_call(push!(deepcopy(output_prms_lists),i), active_idx + 1)
+        end
+      else
+        recursive_bash_call(push!(deepcopy(output_prms_lists),prms_lists[active_idx]), active_idx + 1)
+      end
     end
   end
   
@@ -2000,15 +2135,7 @@ function meta_run_par_study()
   pO2 = [60, 80]
   EIS_bias = 0.0
   
-  EIS_bool = true
-  CV_bool = true
-  
-  # TODO !!!
-#   simulation_list = [
-#     CV_simulation(TC, pO2)... ,
-#     EIS_simulation(TC, pO2, EIS_bias)...
-#   ] 
-  
+  simulations = ["EIS", "CV"]  
   #######################################################
   
   # preparing bash output ###############################
@@ -2022,6 +2149,9 @@ function meta_run_par_study()
   mode = "test_one_prms"
   #mode = "only_print"
   #mode = "go"
+  
+  # if true, no script is called! Just direclty run_par_study_script_wrap()
+  direct_bool = true
   
   run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
   #######################################################
@@ -2058,16 +2188,15 @@ function meta_run_par_study()
   metafile_string = string(metafile_string,"TC=", TC,"\n")
   metafile_string = string(metafile_string,"pO2=", pO2,"\n")
   metafile_string = string(metafile_string,"EIS_bias=", EIS_bias,"\n")
-  metafile_string = string(metafile_string,"CV_bool=", CV_bool,"\n")
-  metafile_string = string(metafile_string,"EIS_bool=", EIS_bool,"\n")
-  #metafile_string = string(metafile_string,"string(simulation_list)=", string(simulation_list),"\n") 
+  metafile_string = string(metafile_string,"simulations=", simulations,"\n")
+  #metafile_string = string(metafile_string,"string(SIM_list)=", string(SIM_list),"\n") 
   metafile_string = string(metafile_string,"name=", name,"\n")
   metafile_string = string(metafile_string,"save_dir=", save_dir,"\n")
   metafile_string = string(metafile_string,"mode=", mode,"\n")
   metafile_string = string(metafile_string,"bash_command=", bash_command,"\n")
   metafile_string = string(metafile_string,"run_file_name=", run_file_name,"\n")
   metafile_string = string(metafile_string,"prms_lists=", prms_lists,"\n")
-  #metafile_string = string(metafile_string,"simulation_list=", simulation_list,"\n")
+  #metafile_string = string(metafile_string,"SIM_list=", SIM_list,"\n")
   
   
   

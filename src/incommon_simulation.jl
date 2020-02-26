@@ -10,7 +10,9 @@ function string(SIM_list::Array{abstract_simulation})
   for SIM in SIM_list
     string_to_print = "$(string_to_print)$(string(SIM)), "
   end
-  string_to_print = string_to_print[1:end-2]
+  if size(SIM_list,1) > 0 
+    string_to_print = string_to_print[1:end-2]
+  end
   string_to_print = "$(string_to_print)]"
 end
 

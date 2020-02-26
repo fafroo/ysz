@@ -2,10 +2,8 @@ using CSV
 using DataFrames
 using PyPlot
 
-#include("../src/incommon_simulation.jl")
 
 
-  
 
 
 
@@ -20,6 +18,8 @@ mutable struct CV_simulation <: abstract_simulation
   dx_exp::Float64
   sample::Int64
   fig_size::Tuple
+  #
+  checknodes::Any
   #
   name::String
   
@@ -43,7 +43,9 @@ function CV_simulation(TC, pO2; dx_exp=-9, sample=8, fig_size=(9, 6))
       this.sample = sample
       this.fig_size = fig_size
       #
-      name = string(this)
+      this.checknodes = get_shared_checknodes(this)
+      #
+      this.name = string(this)
       
       push!(output, this)
     end
@@ -51,10 +53,14 @@ function CV_simulation(TC, pO2; dx_exp=-9, sample=8, fig_size=(9, 6))
   return output
 end
 
+function CV_simulation(TC, pO2, bias; dx_exp=-9, sample=8, fig_size=(9, 6))
+    CV_simulation(TC, pO2; dx_exp=dx_exp, sample=sample, fig_size=fig_size)
+end
+
 
 #######################################
 
-function get_shared_checknodes(sim::CV_simulation)
+function get_shared_checknodes(SIM::CV_simulation)
     return CV_get_checknodes(0.005,0.99,-0.99,-0.005,0.04)
 end
 
@@ -78,7 +84,7 @@ end
 
 
 
-function load_file_prms(sim::CV_simulation;save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
+function load_file_prms(sim::CV_simulation; save_dir, prms, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple=(0, 0, 0, 0, 0, 0), throw_exception=true, verbose=true)
     
     (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
     
@@ -171,6 +177,92 @@ function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_
     end
 end
 
-function fitting_report(SIM::CV_simulation, plot_prms_string, CV_exp, CV_sim)
-  println("CV_fitting error $(experiment_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, CV_exp, CV_sim))
+function fitness_error_report(SIM::CV_simulation, plot_prms_string, CV_exp, CV_sim)
+  println("CV fitness error $(experiment_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, CV_exp, CV_sim))
+end
+
+function CV_get_I_values(CVraw, checknodes)
+    Ix_values = []
+    #println(CVraw.U)
+    #println(CVraw.I)
+
+    start_i = 1
+    for row = 1:size(checknodes,1)
+        direction = 1
+        Ux = checknodes[row,1]
+        xk = -1
+        i = start_i
+        while i < length(CVraw.U)
+            #println(Ux, " // ", i, " // [", CVraw.U[i], ", ", CVraw.U[i+1], "]")
+            if direction*(CVraw.U[i+1] - CVraw.U[i]) < 0
+                direction *= -1
+            end
+            if is_between(Ux, CVraw.U[i], CVraw.U[i+1]) & (direction == checknodes[row,2]) 
+                xk = i
+                start_i = i
+                break
+            end
+            i += 1
+        end
+        
+        if xk == -1
+            println("Error: CV_get_I_values: Ux ",Ux," is not in CVraw.U: ",CVraw.U)
+            return Exception()
+        end
+        Ik = CVraw.I[xk]
+        Il = CVraw.I[xk+1]
+        Ix = Ik + ((Il - Ik)/(CVraw.U[xk+1] - CVraw.U[xk])) * (Ux - CVraw.U[xk])
+        
+        Ix_values = [Ix_values; Ix]
+        end
+    
+    return Ix_values
+end
+
+function linComb(SIM::CV_simulation, CV1,CV2,lambda)
+    if CV1.U == CV2.U
+        return DataFrame(U = CV1.U, I = CV1.I.*(1-lambda) .+ CV2.I.*(lambda))
+    else
+        println("ERROR: linComb_CVs: shape or value mismatch:\n",CV1.U,"\n",CV2.U)
+        return Exception()
+    end
+end
+
+function biliComb(SIM::CV_simulation, Q12,Q21,Q22,x,y)
+    if Q11.U == Q12.U && Q11.U == Q21.U && Q11.U ==Q22.U
+        return DataFrame(U = Q11.U, 
+            I = Q11.I.*(1-x).*(1-y) .+ Q21.I*x.*(1-y) .+ Q12.I.*(1-x).*y .+ Q22.I.*x.*y
+            )
+    else
+        println("ERROR: biliComb_CVs: shape mismatch or different *.U values")
+        return Exception()
+    end
+end
+
+function fitnessFunction(SIM::CV_simulation, exp_CV::DataFrame, sim_CV::DataFrame)
+        if (count=size(exp_CV,1)) == size(sim_CV,1)
+                err = 0.0
+                for row = 1:count
+                        err += (exp_CV.I[row] - sim_CV.I[row])^2
+                end
+        else
+                println("ERROR: fitnesFunction: shape mismatch")
+                return Exception()
+        end
+        # returns average error per checknode
+        return sqrt(err)/Float32(count)
+end
+
+function CV_get_checknodes(start_n,upper_n,lower_n,end_n,step_n)
+    # nodes of voltage U with direction of sweep where I will be fitted
+    # [U direction; ... ]
+    # the list must be sorted !!! w.r.t. U and direction 1 -> -1 -> 1
+    # like in the real CV measurement
+    ll = start_n : step_n : upper_n
+    res = [ll [1 for i in 1:size(ll,1)]]
+    ll = upper_n : -step_n : lower_n
+    res = vcat(res, [ll [-1 for i in 1:size(ll,1)]])
+    ll = lower_n : step_n : end_n
+    res = vcat(res, [ll [1 for i in 1:size(ll,1)]])
+    return res
 end
