@@ -4,7 +4,7 @@ using PyPlot
 
 
 
-
+const  CV_standard_figure_num = 5
 
 
 
@@ -20,8 +20,10 @@ mutable struct CV_simulation <: abstract_simulation
   fig_size::Tuple
   #
   checknodes::Any
+  fitness_factor::Float64
   #
   name::String
+  ID::Int16
   
   CV_simulation() = new()
 end
@@ -44,8 +46,10 @@ function CV_simulation(TC, pO2; dx_exp=-9, sample=8, fig_size=(9, 6))
       this.fig_size = fig_size
       #
       this.checknodes = get_shared_checknodes(this)
+      this.fitness_factor = 10.0
       #
-      this.name = string(this)
+      this.name = "CV"
+      this.ID = 1
       
       push!(output, this)
     end
@@ -119,8 +123,10 @@ function save_file_prms(sim::CV_simulation, df_out, save_dir, prms, prms_names, 
     return
 end
 
-function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="")
-  figure(5, figsize=SIM.fig_size)
+function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_standard_figure=true)
+  if to_standard_figure
+    figure(CV_standard_figure_num, figsize=SIM.fig_size)
+  end
   my_label = "sim $(experiment_legend(SIM))$(additional_string)"
   
   PyPlot.title("CV curve")
@@ -134,8 +140,10 @@ function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="")
   end
 end
 
-function typical_plot_exp(SIM::CV_simulation, CV_df, additional_string="")
-  figure(5, figsize=SIM.fig_size)
+function typical_plot_exp(SIM::CV_simulation, CV_df, additional_string="", to_standard_figure=true)
+  if to_standard_figure
+    figure(CV_standard_figure_num, figsize=SIM.fig_size)
+  end
   my_label = "exp $(experiment_legend(SIM))$(additional_string)"
   
   PyPlot.title("CV curve")

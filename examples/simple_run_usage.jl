@@ -31,7 +31,7 @@
 #       - I know it should influence also the other parameters like \nu, but this is the first approximation to match overall resistance of the system
 ##############################################################
 
-includet("ysz_fitting.jl")
+includet("../src/ysz_fitting.jl")
 
 # example 1
 ysz_fitting.simple_run(TC=850, pO2=[20, 40], simulations=["EIS", "CV"], pyplot=1, 
