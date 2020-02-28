@@ -258,7 +258,7 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
     for name in fieldnames(typeof(this))
       if name==Symbol(name_in)
         if name_in in ["A0", "R0", "K0", "SA", "SR", "SO"]
-          setfield!(this, name, Float64(10^prms_values[i]))
+          setfield!(this, name, Float64(10.0^prms_values[i]))
         elseif name_in in ["DGA", "DGR", "DGO"]
           setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
         else 

@@ -4,7 +4,7 @@ using PyPlot
 
 
 
-
+const EIS_standard_figure_num = 6
 
 
 
@@ -20,8 +20,10 @@ mutable struct EIS_simulation <: abstract_simulation
   fig_size::Tuple 
   #
   checknodes::Any
+  fitness_factor::Float64
   #
   name::String
+  ID::Int16
   
   EIS_simulation() = new()
 end
@@ -46,8 +48,10 @@ function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, omega_range=EIS_get_shared
         this.fig_size = fig_size
         #
         this.checknodes = get_shared_checknodes(this)
+        this.fitness_factor = 1.0
         #
-        this.name = string(this)
+        this.name = "EIS"
+        this.ID = 2
         
         push!(output, this)
       end
@@ -78,9 +82,11 @@ function experiment_legend(SIM::EIS_simulation; latex=true)
 end
 
 
-function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="")
-  figure(6, figsize=SIM.fig_size)
-  my_label = "exp $(experiment_legend(SIM))$(additional_string)"
+function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
+  if to_standard_figure
+    figure(EIS_standard_figure_num, figsize=SIM.fig_size)
+  end
+  my_label = "sim $(experiment_legend(SIM))$(additional_string)"
 
   title("Nyquist plot")
   xlabel("Re\$(Z)\$")
@@ -96,9 +102,11 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="")
   ax.set_aspect(1.0)
 end
 
-function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="")
-  figure(6, figsize=SIM.fig_size)
-  my_label = "sim $(experiment_legend(SIM))$(additional_string)"
+function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
+  if to_standard_figure
+    figure(EIS_standard_figure_num, figsize=SIM.fig_size)
+  end
+  my_label = "exp $(experiment_legend(SIM))$(additional_string)"
 
   title("Nyquist plot")
   xlabel("Re\$(Z)\$")
@@ -167,7 +175,7 @@ function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_
       dx_exp=SIM.dx_exp,
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
       prms_names_in=prms_names_in,
-      prms_values_in=prms_values_in,
+      prms_values_in=prms_values_in
   )
 end
 
