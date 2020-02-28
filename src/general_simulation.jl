@@ -2,7 +2,7 @@
 
 abstract type abstract_simulation end
 
-include("../examples/ysz_experiments.jl")
+include("../src/ysz_experiments.jl")
 
 function string(SIM_list::Array{abstract_simulation})
   string_to_print = ""
@@ -24,6 +24,10 @@ function pO2tosim(pO2)
   return (pO2/100.0 + 1.0e-5)
 end
 
+
+function get_experiment(SIM::abstract_simulation)
+  apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
+end
 
 
 function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple)

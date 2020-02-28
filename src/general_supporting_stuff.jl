@@ -1,0 +1,65 @@
+function for_each_prms_in_prms_lists(prms_lists, perform_generic)
+  function recursive_call(output_set, active_idx)
+    if active_idx > size(prms_lists,1)
+      perform_generic(output_set)
+    else
+      for parameter in prms_lists[active_idx]
+        recursive_call(push!(deepcopy(output_set),parameter), active_idx + 1)
+      end
+    end
+  end
+  recursive_call([],1)
+  return
+end
+
+function for_each_indicies_in_prms_lists(prms_lists, perform_generic)
+  function recursive_call(output_set, active_idx)
+    if active_idx > size(prms_lists,1)
+      perform_generic(output_set)
+    else
+      for i in 1:size(prms_lists[active_idx],1)
+        recursive_call(push!(deepcopy(output_set),i), active_idx + 1)
+      end
+    end
+  end
+  recursive_call([],1)
+  return
+end
+
+function get_prms_from_indicies(prms_lists, tuple)
+  output_array = []
+  for (i,list) in enumerate(prms_lists)
+    append!(output_array, list[tuple[i]])
+  end
+  return output_array
+end
+
+function check_equal_size(list_1, list_2)
+  if size(list_1,1) == size(list_2,1)
+    return true
+  else
+    println("ERROR: check_equal_size: shape mismatch $(list_1) and $(list_2)")
+    return throw(Exception)
+  end
+end
+
+function get_SIM_list_rectangle(TC,pO2, bias, simulations::Array{String})
+    CV_bool = ("CV" in simulations)
+    EIS_bool = ("EIS" in simulations)
+    SIM_list = Array{abstract_simulation}(undef,0)
+    if CV_bool && EIS_bool
+      append!(SIM_list,[
+        CV_simulation(TC, pO2)... ,
+        EIS_simulation(TC, pO2, bias)...
+      ])
+    elseif CV_bool
+      append!(SIM_list,[
+        CV_simulation(TC, pO2)...
+      ])
+    elseif EIS_bool
+      append!(SIM_list,[
+        EIS_simulation(TC, pO2, bias)...
+      ])
+    end
+    return SIM_list
+end
