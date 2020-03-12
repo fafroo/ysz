@@ -535,8 +535,12 @@ function run_new(;physical_model_name="",
  
 
  
-            if debug_print_bool
-                @printf("t = %g     U = %g   state = %s  ys = %g  ys0 = &g  Ir = %g  Is = %g  Ib = %g  \n", istep*tstep, phi, state, U[iyAs,1],  Ir, - (Qs[1] - Qs0[1])/tstep, - (Qb[iphi] - Qb0[iphi])/tstep)
+            if false
+                @printf("t = %.2g   U = %g   ys0 = %g  yAs = %g  yOs = %g  r=(%g, %g, %g)\n", istep*tstep, phi, U[iy,1], U[iyAs,1], U[iyOs,1], 
+                      model_symbol.exponential_oxide_adsorption(parameters, U[:,1], debug_bool=true),
+                      model_symbol.electroreaction(parameters, U[:,1], debug_bool=true),
+                      model_symbol.exponential_gas_adsorption(parameters, U[:,1], debug_bool=true)
+                      )
             end
             
             # storing data

@@ -6,7 +6,7 @@ module ysz_fitting
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [x] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
 # [x] spoustet run_new() v ruznych procedurach stejnou funkci "EIS_default_run_new( ... )"
-# [x] implement LM algorithm
+# [o] implement LM algorithm
 # [x] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina
 # [x] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
 # [x] vymyslet novy relevantni vektor parametru
@@ -29,7 +29,7 @@ module ysz_fitting
 # ---[ ] pri zobrazovani dat udelat clustery dle chyby/prms a pak zobrazit (prms ci Nyquist) 1 reprezentanta z kazde
 # ---[ ] automatizovat ukladani souboru vysledku par_study.vyhodnoceni()
 # [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
-# [x] get rig od shared_prms and shared_add_prms !!!
+# [x] get rig of shared_prms and shared_add_prms !!!
 # [ ] snehurka by rada ./zabal.sh a pocitac zase ./rozbal_par_study.sh
 # [!] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ...
 # ---[ ] nejak si preposilat steadystate?! 
@@ -37,12 +37,18 @@ module ysz_fitting
 # [ ] simple_run by mohl vracet par_study
 # ---[ ] par study by pak mohla mit funcki "uloz me"
 # [ ] par_study_struct by mohla nest velikosti poli
-# [ ] znicit bias -> bias
 # [ ] promyslet velikost Floatu pri importu velkeho mnozstvi dat
-# [ ] funkci pro par_study, aby umela zmenit sve info (redukovat pO2_list a tak)
+# [x] funkci pro par_study, aby umela zmenit sve info (redukovat pO2_list a tak) -> funkce par_study_filter()
 # [ ] par_study_plot_the_best() by mela vyhodit jeden figure s dvema subploty... asi ... 
+# [ ] prms_names a prms_values dat do jedne tridy
+# ---[ ] vlastne jakoby nevim, jestli je to dobry napad?
+# [ ] automaticke vybirani vhodne scripted_tuple
 #
-#            #### od Affra ####
+# ##### interpolace ######
+# [o] vizualizace trendu chyby mezi interpolanty
+# ---[o] zobrazovat soucty odchylek
+#
+# #### od Affra ####
 # [ ] fitness funkce s maximovou metrikou
 #
 # 
@@ -64,6 +70,7 @@ module ysz_fitting
 
 using Printf
 using PyPlot
+#using Plots
 using DataFrames
 using LeastSquaresOptim
 
@@ -189,6 +196,140 @@ function simple_run(;TC, pO2, bias=0.0, simulations=[], pyplot=0, use_experiment
     simple_run(get_SIM_list_rectangle(TC, pO2, bias, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
                         test=false)
 end
+
+
+###########################################################
+###########################################################
+#### Fitness_function_interpolation #######################
+###########################################################
+###########################################################
+
+function findin(a::Array, item)
+  findall(x->x==item, a)
+end
+
+function remove!(a::Array, item)
+    deleteat!(a, findin(a, item))
+end
+
+function par_study_get_sim(this_par_study::par_study_struct, SIM_idx, prms_indicies::Union{Array, Tuple})
+  this_par_study.SIMs_data[SIM_idx, prms_indicies...  ]
+end
+
+function in_interval_filter(array::Array, a, b)
+  res = []
+  for item in array
+    if is_between(item, a, b)
+      append!(res, [item])
+    end
+  end
+  return res
+end
+
+function par_study_display_fitness_profile(tested_prm_name, int_a, int_b)
+  
+  function for_each_non_tested_indicies_in_prms_lists(this_par_study, perform_generic)
+    function recursive_call(output_set, active_idx)
+      if active_idx > size(this_par_study.prms_lists,1)
+        perform_generic(output_set)
+      else
+        if this_par_study.prms_names[active_idx]==tested_prm_name
+          recursive_call(
+            push!(
+              deepcopy(output_set), 
+              this_par_study.prms_lists[active_idx]
+            ), 
+            active_idx + 1
+          )
+        else
+          for parameter in this_par_study.prms_lists[active_idx]
+            recursive_call(push!(deepcopy(output_set), parameter), active_idx + 1)
+          end
+        end
+      end
+    end
+    recursive_call([],1)
+    return
+  end
+
+  function display_fitness_profile(output_prms)
+    println("ted")
+    test_par_study = ysz_fitting.par_study_get_subset_of_info(act_par_study, prms_names=act_par_study.prms_names, prms_values=output_prms);
+    ysz_fitting.par_study_import_data!(test_par_study, verbose=0);
+    
+    idx_array = output_prms
+    ok_bool = true
+    for (SIM_idx, SIM) in enumerate(test_par_study.SIM_list)
+      
+      idx_array .= 1
+      SIM_ref = par_study_get_sim(test_par_study, SIM_idx, idx_array)
+      if size(SIM_ref,1) == 0
+        ok_bool=false
+        println("F")
+        return
+      end
+      
+      # preparing trend_tuples
+      trend_tuples = initialize_trend_tuples(SIM, SIM_ref)
+      
+      #typical_plot_exp(SIM, SIM_ref)
+      for (prm_idx, value) in enumerate(test_par_study.prms_lists[tested_prm_idx])
+        idx_array[tested_prm_idx] = prm_idx
+        SIM_test = par_study_get_sim(test_par_study, SIM_idx, idx_array)
+        if size(SIM_test, 1) == 0
+          ok_bool=false
+          println("F")
+          return
+        end
+        #typical_plot_sim(SIM, SIM_test)
+        
+        trend_tuple = get_trend_tuple(SIM, SIM_ref, SIM_test)
+        push!(trend_tuples, [value, trend_tuple...])
+      end
+      for i in 1:(size(trend_tuples,2)-1)
+        trend_tuples[!, Symbol(string(i))] = trend_tuples[!, Symbol(string(i))]./(trend_tuples[!, Symbol(string(i))][end])
+        
+        figure(8)
+        plot(trend_tuples.prm_value, trend_tuples[!, Symbol(string(i))], "x")  
+        
+        
+        #SIM_trend_tuples_holder[SIM_idx], trend_tuples)
+      end
+      
+    end
+  end
+  
+  my_par_study = ysz_fitting.par_study_import_info_from_metafile("GAS_LoMA_$(tested_prm_name)_test")
+    
+  tested_prm_idx = findin(my_par_study.prms_names, tested_prm_name)
+  if size(tested_prm_idx,1) < 1
+    println("ERROR: par_study_display_fitness_profile: tested_prm_name not in prms_names ($tested_prm_name in $(my_par_study.prms_names))")
+    throw(Exception)
+  elseif size(tested_prm_idx, 1) > 1
+    println("ERROR: par_study_display_fitness_profile: tested_prm_name not UNIQUE in prms_names ($tested_prm_name in $(my_par_study.prms_names))")
+    throw(Exception)
+  else
+    tested_prm_idx = tested_prm_idx[1]
+  end
+  
+  # TO DELETE !!!!
+  act_par_study = ysz_fitting.par_study_get_subset_of_info(my_par_study, 
+    simulations=["CV"], pO2=[60], 
+    prms_names=[tested_prm_name], 
+    prms_values=[in_interval_filter(my_par_study.prms_lists[tested_prm_idx], int_a, int_b)]);
+  
+  #test_par_study = my_par_study;
+        
+  SIM_trend_tuples_holder = Array{Any}(undef, size(act_par_study.SIM_list, 1))
+  
+  PyPlot.ioff()
+  for_each_non_tested_indicies_in_prms_lists(act_par_study, display_fitness_profile)
+  PyPlot.show()
+
+end
+
+
+
 
 
 ###########################################################
@@ -426,6 +567,7 @@ function meta_run_par_study()
   name = "GAS_LoMA_ULTRA_level_2"
   
   prms_names = ["A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"]
+  # BE CAREFUL! data are saved to files only with TWO digits after comma!
   prms_lists = [
     collect(20.0 : 1.0 : 21.0),  
     collect(20.0 : 1.0 : 21.0),  
@@ -447,6 +589,7 @@ function meta_run_par_study()
   save_dir = "../data/par_studies/"
   #######################################################  
   # preparing bash output ###############################
+  
   # if true, no script is called! Just direclty run_par_study_script_wrap()
   direct_bool = true
   
@@ -457,8 +600,6 @@ function meta_run_par_study()
   #mode = "test_one_prms"
   #mode = "only_print"
   mode = "go"
-  
-
   
   run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
   #######################################################
