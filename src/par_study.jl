@@ -9,20 +9,56 @@ mutable struct par_study_struct
   prms_names::Array{Any}
   prms_lists::Array{Any}
   scripted_tuple::Tuple
-  SIMs_data::Array{Any}
-  SIMs_err::DataFrame
   #
   name::String
   save_dir::String
   #
+  #
+  SIMs_data::Array{Any}
+  SIMs_err::DataFrame
+  #
   par_study_struct() = new()
 end
 
-# function par_study()
-# end
-
-
+function shallowcopy(original::par_study_struct)
+  new = par_study_struct()
+  
+  not_copy_list = ["SIMs_data", "SIMs_err"]
+  
+  for name in fieldnames(typeof(original))
+    if !(name in [Symbol(item) for item in not_copy_list])
+      setfield!(new, name, deepcopy(getfield(original, name)))
+    end
+  end
+  return new
+end
 #############################################################
+
+function string(par_study::par_study_struct)
+  not_display_list = ["checknodes", "SIMs_data", "SIMs_err"]
+  
+  out_string = "---- Par_study_struct ----\n"
+  for name in fieldnames(typeof(par_study))
+    out_string = string(out_string, name, " = ",
+      if name in [Symbol(item) for item in not_display_list]
+        try
+          getfield(par_study, name)
+          "defined"
+        catch
+          "UNDEFINED !!!"
+        end
+      else
+        string(getfield(par_study, name))
+      end
+      ,
+      "\n")
+  end  
+  return out_string
+end
+
+function show(par_study::par_study_struct)
+  println(string(par_study))
+end
 
 
 ############## import large amount of data ##########
@@ -89,17 +125,19 @@ function par_study_import_data!(actual_par_study; verbose=false)
   prmsDIV100 = counter/100
   
   counter=0
-  println("Loading prms_lists")
-  println("|====================================================================================================|")
-
+  (verbose > 0) && begin
+    println("Loading prms_lists")
+    println("|====================================================================================================|")
+  end
   function perform_import(prms_indicies)
     
     counter += 1
-    while (circle_counter + 1)*prmsDIV100 <= counter + 0.00000001
-      circle_counter+=1
-      print("o")
-    end
-    
+    (verbose > 0) && (
+      while (circle_counter + 1)*prmsDIV100 <= counter + 0.00000001
+        circle_counter+=1
+        print("o")
+      end
+    )
     for (i, SIM) in enumerate(actual_par_study.SIM_list)
       try
         SIMs_data[i, prms_indicies...] = load_file_prms(
@@ -109,7 +147,7 @@ function par_study_import_data!(actual_par_study; verbose=false)
             prms_names=actual_par_study.prms_names, 
             scripted_tuple=actual_par_study.scripted_tuple, 
             throw_exception=true, 
-            verbose=verbose)
+            verbose=(verbose > 1 ? true : false))
         SIM_good_count[i] += 1
       catch e
         if e isa InterruptException
@@ -122,18 +160,20 @@ function par_study_import_data!(actual_par_study; verbose=false)
     end
   end
   
-  print("|")
+  (verbose > 0) && print("|")
   for_each_indicies_in_prms_lists(actual_par_study.prms_lists, perform_import)
-  println("|")
+  (verbose > 0) && println("|")
   
   actual_par_study.SIMs_data = SIMs_data
-  println(string(actual_par_study.SIM_list))
-  println("par_study_import_data: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  (verbose > 0) && begin
+    println(string(actual_par_study.SIM_list))
+    println("par_study_import_data: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  end
   return
 end
 
 
-function par_study_err_evaluation!(actual_par_study; data_already_imported=false, verbose=false)
+function par_study_err_evaluation!(actual_par_study; data_already_imported=false, verbose=1)
   save_dir_forwarded = string(actual_par_study.save_dir, actual_par_study.name, "/")
  
   # compute length of error DataFrame
@@ -166,15 +206,18 @@ function par_study_err_evaluation!(actual_par_study; data_already_imported=false
   
   counter::Int64 = 0
   circle_counter::Int64 = 0
-  println("Evaluating error")
-  println("|====================================================================================================|")
-
+  if verbose > 0
+    println("Evaluating error")
+    println("|====================================================================================================|")
+  end
   function perform_error_evaluate(prms_indicies)
     
     counter += 1
-    while (circle_counter + 1)*prmsDIV100 <= counter + 0.00000001
-      circle_counter+=1
-      print("o")
+    if verbose > 0
+      while (circle_counter + 1)*prmsDIV100 <= counter + 0.00000001
+        circle_counter+=1
+        print("o")
+      end
     end
     SIMs_err[!, SIMs_length + 1][counter] = prms_indicies
 
@@ -210,7 +253,7 @@ function par_study_err_evaluation!(actual_par_study; data_already_imported=false
             prms_names=actual_par_study.prms_names, 
             scripted_tuple=actual_par_study.scripted_tuple, 
             throw_exception=true, 
-            verbose=verbose)
+            verbose=(verbose > 1 ? true : false))
           
           # compute fitness function
           error = fitnessFunction(SIM, 
@@ -239,15 +282,20 @@ function par_study_err_evaluation!(actual_par_study; data_already_imported=false
     
   end
   
-  print("|")
+  if verbose > 0
+    print("|")
+  end
   for_each_indicies_in_prms_lists(actual_par_study.prms_lists, perform_error_evaluate)
-  println("|")
+  if verbose > 0
+    println("|")
+  end
   
   sort!(SIMs_err, SIMs_length + 2)
   
   actual_par_study.SIMs_err = SIMs_err
-  
-  println("par_study_err_evaluation: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  if verbose > 0
+    println("par_study_err_evaluation: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  end
   return
 end
 
@@ -328,8 +376,7 @@ function get_SIMs_err_for_show_tuple(actual_par_study, show_tuple)
     prms_indicies = Array{Array{Int16}}(undef, product_size_prms),
     error_total = Array{Float32}(undef, product_size_prms)
     )
-
-
+  
   temp_error_df.prms_indicies .= actual_par_study.SIMs_err.prms_indicies
   for i in 1:product_size_prms
     err_sum = 0
@@ -346,6 +393,46 @@ end
 
 
 ### API functions ######################################
+function par_study_get_subset_of_info(actual_par_study; prms_names=Nothing, prms_values=Nothing, TC=Nothing, pO2=Nothing, bias=Nothing, simulations=Nothing)
+  new_par_study = shallowcopy(actual_par_study)
+  prms = prms_struct(prms_names, prms_values)
+  
+  consistency_check(prms)
+  
+  show_tuple = get_show_tuple(actual_par_study; TC=TC, pO2=pO2, bias=bias, simulations=simulations)
+  new_SIM_list = Array{abstract_simulation}(undef,0)
+  for i in 1:size(show_tuple,1)
+    if Bool(show_tuple[i])
+      push!(new_SIM_list, actual_par_study.SIM_list[i])
+    end
+  end
+  new_par_study.SIM_list = new_SIM_list
+  
+  if prms_names!=Nothing
+    for (i, name) in enumerate(prms.names)
+      name_idx = findfirst(isequal(name), actual_par_study.prms_names)
+      if typeof(name_idx) == Nothing
+        println("ERROR: par_study_filter: name $(name) is not in actual_par_study.prms_names = $(actual_par_study.prms_names)!")
+        throw(Exception)
+      else
+        #@show name_idx
+        if typeof(prms.values[i]) != Colon
+          actual_intersection = intersect(actual_par_study.prms_lists[name_idx], prms.values[i])
+          if size(actual_intersection,1) < 1
+            println("ERROR: par_study_filter: no intersection of $(name): $(actual_par_study.prms_lists[name_idx]) and $(prms.values[i])")
+            throw(Exception)
+          elseif size(actual_intersection,1) < size(prms.values[i],1)
+            println("Warning: par_study_filter: some of the $(name) desired values $(prms.values[i]) are not in $(actual_par_study.prms_lists[name_idx])")
+          else
+            new_par_study.prms_lists[name_idx] = [prms.values[i]...]
+          end
+        end
+      end
+    end
+  end
+  return new_par_study
+end
+
 function par_study_plot_err_projections(actual_par_study, show_tuple; count=300)
 #   if show_tuple == Nothing
 #     show_tuple = get_show_tuple(actual_par_study)
@@ -380,7 +467,19 @@ function par_study_plot_err_projections(actual_par_study; count=300,
 end
 
 
+###################
 
+
+
+
+
+
+
+
+
+
+
+##################
 
 function par_study_plot_the_best(actual_par_study, show_tuple; from=1, till=1, data_already_imported=false, plot_all_SIMs=false)
   par_study_dir = string(actual_par_study.save_dir, actual_par_study.name, "/")
@@ -417,6 +516,7 @@ function par_study_plot_the_best(actual_par_study; from=1, till=1, plot_all_SIMs
 end
 
 
+#### RUN_PAR_STUDY ####
 
 function run_par_study(actual_par_study::par_study_struct; save_dir="../data/par_studies/", save_file_bool=false, mode="test", verbose=true)
      

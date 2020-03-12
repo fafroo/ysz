@@ -89,8 +89,8 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
   my_label = "sim $(experiment_legend(SIM))$(additional_string)"
 
   title("Nyquist plot")
-  xlabel("Re\$(Z)\$")
-  ylabel("-Im\$(Z)\$")
+  xlabel("Re\$(Z) \\ [\\Omega]\$")
+  ylabel("-Im\$(Z) \\ [\\Omega]\$")
   
   plot(real(EIS_df.Z), -imag(EIS_df.Z), "x-", label = my_label)
   
@@ -109,8 +109,8 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
   my_label = "exp $(experiment_legend(SIM))$(additional_string)"
 
   title("Nyquist plot")
-  xlabel("Re\$(Z)\$")
-  ylabel("-Im\$(Z)\$")
+  xlabel("Re\$(Z) \\ [\\Omega]\$")
+  ylabel("-Im\$(Z) \\ [\\Omega]\$")
   
   plot(real(EIS_df.Z), -imag(EIS_df.Z), "x:", label = my_label)
   
@@ -275,6 +275,22 @@ function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataF
         # returns average error per checknode
         return sqrt(err)/Float32(size(exp_EIS,1))
 end
+
+# function monotony_test_function(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataFrame)
+#         err = 0.0
+#         if  exp_EIS.f == sim_EIS.f
+#                 
+#                 for row = 1:size(exp_EIS,1)
+#                         err +=( (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))^2 
+#                                  + (imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))^2)
+#                 end
+#         else
+#                 println("ERROR: EIS_fitnesFunction: shape mismatch or different *.f values")
+#                 return Exception()
+#         end
+#         # returns average error per checknode
+#         return sqrt(err)/Float32(size(exp_EIS,1))
+# end
 
 
 function EIS_get_checknodes_short()

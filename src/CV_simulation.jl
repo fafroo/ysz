@@ -130,11 +130,11 @@ function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_st
   my_label = "sim $(experiment_legend(SIM))$(additional_string)"
   
   PyPlot.title("CV curve")
-  PyPlot.xlabel(L"\eta \ (V)")
-  PyPlot.ylabel(L"I \ (A)")
+  PyPlot.xlabel(L"\eta \ [V]")
+  PyPlot.ylabel(L"I \ [A]")
   
   PyPlot.plot(CV_df.U, CV_df.I, label=my_label)
-
+  PyPlot.grid(true)
   if !(my_label == "")
       legend(loc="best")
   end
@@ -147,10 +147,11 @@ function typical_plot_exp(SIM::CV_simulation, CV_df, additional_string="", to_st
   my_label = "exp $(experiment_legend(SIM))$(additional_string)"
   
   PyPlot.title("CV curve")
-  PyPlot.xlabel(L"\eta \ (V)")
-  PyPlot.ylabel(L"I \ (A)")
+  PyPlot.xlabel(L"\eta \ [V]")
+  PyPlot.ylabel(L"I \ [A]")
   
   PyPlot.plot(CV_df.U, CV_df.I, "--", label=my_label)
+  PyPlot.grid(true)
 
   if !(my_label == "")
       legend(loc="best")
@@ -274,3 +275,24 @@ function CV_get_checknodes(start_n,upper_n,lower_n,end_n,step_n)
     res = vcat(res, [ll [1 for i in 1:size(ll,1)]])
     return res
 end
+
+function initialize_trend_tuples(SIM::CV_simulation, CV_ref::DataFrame)
+  trend_tuples = DataFrame(prm_value=[])
+  #for i in 1:size(SIM.checknodes, 1)
+  for i in 1:38
+    trend_tuples[!, Symbol(string(i))] = Array{Float32}(undef, 0)
+  end
+  return trend_tuples
+end
+
+function get_trend_tuple(SIM::CV_simulation, CV_ref::DataFrame, CV_test::DataFrame)
+  # plot signed deviation from referent simulation_curve
+  trend_tuple = deepcopy(CV_test.I - CV_ref.I)
+#   if trend_tuple[end]!=0
+#     trend_tuple = trend_tuple./trend_tuple[end]
+#   end
+  return trend_tuple
+end
+
+
+
