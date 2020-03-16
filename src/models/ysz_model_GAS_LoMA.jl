@@ -325,9 +325,9 @@ function reaction!(f,u, node, this::YSZParameters)
 end
 
 # surface reactions
-function exponential_oxide_adsorption(this::YSZParameters, u)
+function exponential_oxide_adsorption(this::YSZParameters, u; debug_bool=false)
     if this.A0 > 0
-        # O-2(y) => O-2(s) 
+        # O-2(y) + V(s) => O-2(s) + V(y)
         if Bool(this.expA)
           the_fac = 1
         else  
@@ -350,7 +350,7 @@ function exponential_oxide_adsorption(this::YSZParameters, u)
                 - 
                 exp((1 - this.betaA)*this.SA*this.DGA/(this.kB*this.T))
                 *(
-                  (u[iy]/(1-u[iy]))
+                  (u[iy]/(1-u[iy])) 
                   *
                   ((1-u[iyAs])/u[iyAs])
                 )^(-(1 - this.betaA)*this.SA)
@@ -360,9 +360,24 @@ function exponential_oxide_adsorption(this::YSZParameters, u)
     else
         rate=0
     end
+    if debug_bool
+      print("A > ")
+      a_reac = (
+                  (u[iy]/(1-u[iy]))
+                  *
+                  ((1-u[iyAs])/u[iyAs])
+                )^(this.betaA*this.SA)
+      a_prod = (
+                  (u[iy]/(1-u[iy]))
+                  *
+                  ((1-u[iyAs])/u[iyAs])
+                )^(-(1 - this.betaA)*this.SA)
+      @show the_fac, rate, a_reac, a_prod
+    end
+    return rate
 end
 
-function electroreaction(this::YSZParameters, u)
+function electroreaction(this::YSZParameters, u; debug_bool=false)
     if this.R0 > 0
         # O(s) + 2e-(s) => O-2(s)
         if Bool(this.expR)
@@ -375,7 +390,7 @@ function electroreaction(this::YSZParameters, u)
                (u[iyAs]*(1-u[iyAs]))               
             )^(this.SR/2.0)
         end
-        eR = (
+        rate = (
             (this.R0/this.SR)*the_fac
             *(
                 exp(-this.betaR*this.SR*this.DGR/(this.kB*this.T))
@@ -390,9 +405,14 @@ function electroreaction(this::YSZParameters, u)
     else
         eR=0
     end
+    if debug_bool
+      print("R > ")
+      @show the_fac, rate
+    end
+    return rate
 end
 
-function exponential_gas_adsorption(this::YSZParameters, u)
+function exponential_gas_adsorption(this::YSZParameters, u; debug_bool=false)
     if this.A0 > 0
         # O2(g) => 2O(s)
         if Bool(this.expO)
@@ -405,7 +425,7 @@ function exponential_gas_adsorption(this::YSZParameters, u)
                (u[iyOs]*(1-u[iyOs]))^2                                            
             )^(this.SO/2.0)
         end
-        eR = (
+        rate = (
             (this.K0/this.SO)*the_fac
             *(
                 exp(-this.betaO*this.SO*this.DGO/(this.kB*this.T))
@@ -420,6 +440,11 @@ function exponential_gas_adsorption(this::YSZParameters, u)
     else
         rate=0
     end
+    if debug_bool
+      print("O > ")
+      @show the_fac, rate
+    end
+    return rate
 end
 
 
