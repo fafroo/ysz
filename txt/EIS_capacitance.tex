@@ -1,0 +1,52 @@
+%        File: EIS_capacitance.tex
+%     Created: Fri Mar 13 10:00 am 2020 C
+% Last Change: Fri Mar 13 10:00 am 2020 C
+%
+\documentclass[a4 paper]{article}
+\usepackage[]{amsmath}
+\usepackage{amsthm}
+\usepackage[]{SIunits}
+\usepackage[]{hyperref}
+\newcommand{\dd}{\mathrm{d}}
+\begin{document}
+
+\section{Measurement}
+A voltage protocol $U(t)$ is applied and a current response $I(t)$ is measured.
+\section{Capacitance}
+% For a certain voltage range $[-R,R]$ the following voltage protocol is given
+% \begin{align}
+%     U(t) = \text{linear triangular wave}
+% \end{align}
+% 
+The capacitance $C$ is the change of the charge w.r.t.\ voltage.
+For a sufficiently slow change of voltage U(t) we can write
+\begin{align}
+    I(t) = \frac{\dd Q}{\dd t} = \frac{\dd Q}{\dd U} \frac{\dd U}{\dd t} \approx C(U) v_{\text{rate}}~.
+    \label{CAP01}
+\end{align}
+
+\section{Impedance spectroscopy}
+For a certain frequency $\omega$ and voltage amplitude $A$ the protocol
+\begin{align}
+    U(t) = A \sin \left( \omega t \right) 
+\end{align}
+is applied. The measured current response is assumed to take form of
+an amplified and shifted harmonic wave
+\begin{align}
+    I(t) = B \sin \left( \omega t  + \omega_0 \right) ~.
+\end{align}
+
+Using~\eqref{CAP01} for slow changes of the voltage ($\omega \ll 1$)
+\begin{align}
+    C(U=0) \approx \frac{I}{\frac{\dd U}{\dd t}} 
+    &=  \frac{B \sin \left( \omega t+ \omega_0  \right)}
+            {-A \omega\cos \left( \omega t  \right)}\\
+            &\approx\left. \frac{B ( \omega t + \omega_0) }
+                  {-A \omega \left( 1 - \omega t  \right)}\right|_{ t = 0}\\
+    &= -\frac{B}{A} 
+              \frac{\omega_0 }{\omega}   
+\end{align}
+yields a formula for approximation of the capacitance.
+\end{document}
+
+
