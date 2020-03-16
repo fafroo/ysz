@@ -46,7 +46,9 @@ module ysz_fitting
 #
 # ##### interpolace ######
 # [o] vizualizace trendu chyby mezi interpolanty
-# ---[o] zobrazovat soucty odchylek
+# ---[x] zobrazovat soucty odchylek
+# ------[x] obrazky po normalizaci vypadaji ruznorode
+# ---[o] zkusit vykoukat trend z nenormalizovanych dat
 #
 # #### od Affra ####
 # [ ] fitness funkce s maximovou metrikou
@@ -226,7 +228,7 @@ function in_interval_filter(array::Array, a, b)
   return res
 end
 
-function par_study_display_fitness_profile(tested_prm_name, int_a, int_b)
+function par_study_display_fitness_profile(tested_prm_name, int_a, int_b, simulations, pO2=60)
   
   function for_each_non_tested_indicies_in_prms_lists(this_par_study, perform_generic)
     function recursive_call(output_set, active_idx)
@@ -272,7 +274,8 @@ function par_study_display_fitness_profile(tested_prm_name, int_a, int_b)
       # preparing trend_tuples
       trend_tuples = initialize_trend_tuples(SIM, SIM_ref)
       
-      #typical_plot_exp(SIM, SIM_ref)
+      typical_plot_sim(SIM, SIM_ref)
+      
       for (prm_idx, value) in enumerate(test_par_study.prms_lists[tested_prm_idx])
         idx_array[tested_prm_idx] = prm_idx
         SIM_test = par_study_get_sim(test_par_study, SIM_idx, idx_array)
@@ -281,17 +284,59 @@ function par_study_display_fitness_profile(tested_prm_name, int_a, int_b)
           println("F")
           return
         end
-        #typical_plot_sim(SIM, SIM_test)
+        typical_plot_sim(SIM, SIM_test)
+        legend("",frameon=false)
         
         trend_tuple = get_trend_tuple(SIM, SIM_ref, SIM_test)
+        #@show trend_tuple
         push!(trend_tuples, [value, trend_tuple...])
       end
-      for i in 1:(size(trend_tuples,2)-1)
-        trend_tuples[!, Symbol(string(i))] = trend_tuples[!, Symbol(string(i))]./(trend_tuples[!, Symbol(string(i))][end])
+      
+      normalize = false
+                
+      #for i in 1:(size(trend_tuples,2)-1)
+      for i in 1:5
+        if SIM.name == "CV"
+          normalize && (trend_tuples[!, Symbol(string(i))] = trend_tuples[!, Symbol(string(i))]./(trend_tuples[!, Symbol(string(i))][end]))
         
-        figure(8)
-        plot(trend_tuples.prm_value, trend_tuples[!, Symbol(string(i))], "x")  
+          figure(8)
+          plot(trend_tuples.prm_value, trend_tuples[!, Symbol(string(i))], "x")  
+          PyPlot.title("interpolation profile CV: $(tested_prm_name)")
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("relative deviation")
+        end
+        if SIM.name == "EIS"
+          figure(9)
+          PyPlot.suptitle("interpolation profile EIS: $(tested_prm_name)")
+          
+          subplot(221)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("real relative deviation")
+          to_plot = real.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
         
+          subplot(222)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("imag relative deviation")
+          to_plot = imag.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+          
+          subplot(223)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("abs relative deviation")
+          to_plot = abs.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+          
+          subplot(224)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("angle relative deviation")
+          to_plot = angle.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+        end
         
         #SIM_trend_tuples_holder[SIM_idx], trend_tuples)
       end
@@ -313,14 +358,25 @@ function par_study_display_fitness_profile(tested_prm_name, int_a, int_b)
   end
   
   # TO DELETE !!!!
-  act_par_study = ysz_fitting.par_study_get_subset_of_info(my_par_study, 
-    simulations=["CV"], pO2=[60], 
+  act_par_study = par_study_get_subset_of_info(my_par_study, 
+    simulations=simulations, pO2=pO2, 
     prms_names=[tested_prm_name], 
     prms_values=[in_interval_filter(my_par_study.prms_lists[tested_prm_idx], int_a, int_b)]);
   
-  #test_par_study = my_par_study;
-        
+  act_par_study = par_study_get_subset_of_info(act_par_study,
+    prms_names = ["A0", "K0", "DGA", "DGR", "DGO"],
+    prms_values = [20, 20, 0.0, 0.0, 0.0]
+    );
+    
+#    act_par_study = par_study_get_subset_of_info(act_par_study,
+#      prms_names = ["A0", "K0", "DGA"],
+#      prms_values = [20, 20, 0.0]
+#      );
+#   
+  
   SIM_trend_tuples_holder = Array{Any}(undef, size(act_par_study.SIM_list, 1))
+  
+  #### TODO !!!  change all checknodes !!!!
   
   PyPlot.ioff()
   for_each_non_tested_indicies_in_prms_lists(act_par_study, display_fitness_profile)

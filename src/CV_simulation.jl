@@ -181,7 +181,7 @@ function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_
         else
           CV_exp = import_CVtoDataFrame(TC=TC, pO2=pO2)
         end
-        CV_plot(CV_exp, "exp $(experiment_legend(CV_simulation(TC, pO2)))")
+        CV_plot(CV_exp, "exp $(experiment_legend(CV_simulation(TC, pO2)...))")
       end
     end
 end
@@ -278,8 +278,7 @@ end
 
 function initialize_trend_tuples(SIM::CV_simulation, CV_ref::DataFrame)
   trend_tuples = DataFrame(prm_value=[])
-  #for i in 1:size(SIM.checknodes, 1)
-  for i in 1:38
+  for i in 1:size(CV_ref,1)
     trend_tuples[!, Symbol(string(i))] = Array{Float32}(undef, 0)
   end
   return trend_tuples
@@ -288,11 +287,10 @@ end
 function get_trend_tuple(SIM::CV_simulation, CV_ref::DataFrame, CV_test::DataFrame)
   # plot signed deviation from referent simulation_curve
   trend_tuple = deepcopy(CV_test.I - CV_ref.I)
-#   if trend_tuple[end]!=0
-#     trend_tuple = trend_tuple./trend_tuple[end]
-#   end
   return trend_tuple
 end
 
-
+# function plot_trend_tuples(SIM::CV_simulation, trend_tuples)
+#   
+# end
 
