@@ -11,6 +11,7 @@
 #                 bias \in  {-1.0, -0.5, 0.0, 0.5, 1.0} but for 700 is missing {-1.0, 1.0}
 #         note: You can write an array instead of 1 value for this parameters (as for prms_values described below)
 #   simulations     >>> =["EIS"] or =["CV"] or =["EIS", "CV"] for perform both methods for all experimental settings
+#                       or now also ["CAP"] means differential capacitance computed with R0 = 0
 #   pyplot          >>> 0 = plot nothing, 1 = finall plot of the experiment, 2 = plot details
 #   prms_names      >>> in array or tuple of strings specify, which parametr of the model should be changed
 #   prms_values     >>> spedify, to which value it will be changed
@@ -29,6 +30,18 @@
 #   - "L" inductance
 #   - TC = (700, 750, 800, 850)°C  => use => DD = ( 1.277, 2.92, 5.35, 9.05)e-13
 #       - I know it should influence also the other parameters like \nu, but this is the first approximation to match overall resistance of the system
+#
+#
+# #### update: CAP stuff ####
+# 
+# ["CAP"] simulation is also implemented
+#   - overpotential = 0 is the equilibrium voltage !!!
+#   - parametr R0 is set to 0 (but it can be overwriten by prms_values)
+#   - there are no experimental data, you must use "use_experiment=false" switch!
+#   >>> Analytical version  - using direct capacitance for defined voltage checknodes in simulation_struct
+#                           
+#                         
+#                       
 ##############################################################
 
 includet("../src/ysz_fitting.jl")
@@ -47,3 +60,14 @@ prms_values=[      21.0, 20.0, 20.5,        0.7, 0.0, 0.0,     9.05e-13
 ysz_fitting.simple_run(TC=850, pO2=20, simulations=["EIS"], pyplot=1, 
 prms_names=["A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"], 
 prms_values=[      collect(20.5 : 0.5 : 21.5), collect(19.5 : 0.5 : 20.5), 20.5,        0.7, 0.0, 0.0,     9.05e-13])
+
+# example 4 (capacitance & not using the experimental data)
+ysz_fitting.simple_run(TC=850, pO2=[20, 40], simulations=["CAP"], pyplot=1, 
+prms_names=["A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"], 
+prms_values=[      21.0, 20.0, 20.5,        0.7, 0.0, 0.0,     9.05e-13], use_experiment=false)
+
+# example 5 
+ysz_fitting.simple_run(TC=850, pO2=[20, 40], simulations=["EIS", "CV", "CAP"], pyplot=1, 
+prms_names=["A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"], 
+prms_values=[      21.0, 20.0, 20.5,        0.7, 0.0, 0.0,     9.05e-13], use_experiment=false)
+

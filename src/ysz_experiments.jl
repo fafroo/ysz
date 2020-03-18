@@ -73,7 +73,7 @@ function run_new(;physical_model_name="",
                 #
                 EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
                 #
-                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, 
+                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, checknodes=[],
                 #
                 dlcap=false, dlcap_analytical=false,
                 #
@@ -198,11 +198,7 @@ function run_new(;physical_model_name="",
 
     if dlcap_analytical
       @show parameters.phi_eq
-      phi_range = parameters.phi_eq .+ vcat(
-          collect(0 :0.01: float(upp_bound)),
-          collect(float(upp_bound):-0.01:float(low_bound)),
-          collect(float(low_bound):0.01: 0)
-        )
+      phi_range = parameters.phi_eq .+ checknodes
       cbl, cs = AreaEllyt.*model_symbol.direct_capacitance(parameters, phi_range)
       out_df = DataFrame(U = phi_range .- parameters.phi_eq, C = cbl + cs, Cs = cs, Cb = cbl) 
       return out_df
