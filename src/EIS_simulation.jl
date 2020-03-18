@@ -11,8 +11,8 @@ const EIS_standard_figure_num = 6
 ######################################
 
 mutable struct EIS_simulation <: abstract_simulation
-  TC::Int64
-  pO2::Int64
+  TC::Float64
+  pO2::Float64
   bias::Float64
   #
   dx_exp::Float64
@@ -73,7 +73,7 @@ function get_shared_checknodes(SIM::EIS_simulation)
     return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()...)
 end
 
-function experiment_legend(SIM::EIS_simulation; latex=true)
+function setting_legend(SIM::EIS_simulation; latex=true)
   if latex
     return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\% \$ \$\\mathrm{bias}=$(SIM.bias)\$"
   else
@@ -86,7 +86,7 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
   if to_standard_figure
     figure(EIS_standard_figure_num, figsize=SIM.fig_size)
   end
-  my_label = "sim $(experiment_legend(SIM))$(additional_string)"
+  my_label = "sim $(setting_legend(SIM))$(additional_string)"
 
   title("Nyquist plot")
   xlabel("Re\$(Z) \\ [\\Omega]\$")
@@ -106,7 +106,7 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
   if to_standard_figure
     figure(EIS_standard_figure_num, figsize=SIM.fig_size)
   end
-  my_label = "exp $(experiment_legend(SIM))$(additional_string)"
+  my_label = "exp $(setting_legend(SIM))$(additional_string)"
 
   title("Nyquist plot")
   xlabel("Re\$(Z) \\ [\\Omega]\$")
@@ -123,7 +123,7 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
-  println("EIS fitness error $(experiment_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, EIS_exp, EIS_sim))
+  println("EIS fitness error $(setting_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, EIS_exp, EIS_sim))
 end
 
 
@@ -199,7 +199,7 @@ function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes
           else
             EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias)
           end
-          Nyquist_plot(EIS_exp, "exp $(experiment_legend(EIS_simulation(TC, pO2, bias)...))")
+          Nyquist_plot(EIS_exp, "exp $(setting_legend(EIS_simulation(TC, pO2, bias)...))")
         end
       end
     end

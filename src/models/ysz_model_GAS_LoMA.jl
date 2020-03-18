@@ -358,10 +358,11 @@ function exponential_oxide_adsorption(this::YSZParameters, u; debug_bool=false)
             )
         )
     else
-        rate=0
+      the_fac = 0
+      rate=0
     end
     if debug_bool
-      print("A > ")
+      print("  A > ")
       a_reac = (
                   (u[iy]/(1-u[iy]))
                   *
@@ -403,10 +404,11 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
             )
         )
     else
-        eR=0
+      the_fac = 0
+      rate = 0
     end
     if debug_bool
-      print("R > ")
+      print("  R > ")
       @show the_fac, rate
     end
     return rate
@@ -438,10 +440,11 @@ function exponential_gas_adsorption(this::YSZParameters, u; debug_bool=false)
             )
         )
     else
-        rate=0
+      the_fac = 0
+      rate=0
     end
     if debug_bool
-      print("O > ")
+      print("  O > ")
       @show the_fac, rate
     end
     return rate
@@ -466,18 +469,18 @@ function breaction!(f,u,node,this::YSZParameters)
     end
 end
 
-function direct_capacitance(this::YSZParameters, domain)
+function direct_capacitance(this::YSZParameters, PHI)
     # Clemens' analytic solution
     #printfields(this)
     
-    PHI = domain
+    PHI
     #PHI=collect(-1:0.01:1) # PHI = phi_B-phi_S, so domain as phi_S goes with minus
     my_eps = 0.001
     for i in collect(1:length(PHI))
         if abs(PHI[i]) < my_eps
             PHI[i]=my_eps
         end
-    end 
+    end
     #
     #yB = -this.zL/this.zA/this.m_par/(1-this.nu);
     yB = this.yB

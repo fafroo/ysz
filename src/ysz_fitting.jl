@@ -92,6 +92,7 @@ include("../src/import_experimental_data.jl")
 include("../src/general_simulation.jl")
 include("../src/CV_simulation.jl")
 include("../src/EIS_simulation.jl")
+include("../src/CAP_simulation.jl")
 include("../src/par_study.jl")
 #include("../src/interpolation_fitting.jl")
 
@@ -140,7 +141,7 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
         else
           plot_prms_string = " $(string(plot_names)) = $(plot_values)"
         end
-        SIM_sim = apply_checknodes(SIM, SIM_raw, checknodes)
+        SIM_sim = apply_checknodes(SIM, SIM_raw, SIM.checknodes)
         if pyplot > 0
             typical_plot_sim(SIM, SIM_sim, plot_prms_string)
         end  
@@ -174,9 +175,8 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
     end
 
     # here the true body continues
-    checknodes =  get_shared_checknodes(SIM)
     if use_experiment
-      SIM_exp = apply_checknodes(SIM, import_data_to_DataFrame(SIM), checknodes)
+      SIM_exp = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
       if (pyplot > 0)
         typical_plot_exp(SIM, SIM_exp)
       end
@@ -193,7 +193,7 @@ end
 
 
 # useful wrap
-function simple_run(;TC, pO2, bias=0.0, simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+function simple_run(;TC, pO2=1.0, bias=0.0, simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
                          test=false)
     simple_run(get_SIM_list_rectangle(TC, pO2, bias, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
                         test=false)

@@ -71,23 +71,4 @@ function check_equal_size(list_1, list_2)
   end
 end
 
-function get_SIM_list_rectangle(TC,pO2, bias, simulations::Array{String})
-    CV_bool = ("CV" in simulations)
-    EIS_bool = ("EIS" in simulations)
-    SIM_list = Array{abstract_simulation}(undef,0)
-    if CV_bool && EIS_bool
-      append!(SIM_list,[
-        CV_simulation(TC, pO2)... ,
-        EIS_simulation(TC, pO2, bias)...
-      ])
-    elseif CV_bool
-      append!(SIM_list,[
-        CV_simulation(TC, pO2)...
-      ])
-    elseif EIS_bool
-      append!(SIM_list,[
-        EIS_simulation(TC, pO2, bias)...
-      ])
-    end
-    return SIM_list
-end
+
