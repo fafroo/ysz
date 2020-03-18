@@ -12,9 +12,11 @@ const  CV_standard_figure_num = 5
 
 
 mutable struct CV_simulation <: abstract_simulation
-  TC::Int64
-  pO2::Int64
+  TC::Float32
+  pO2::Float32
   #
+  upp_bound::Float32
+  low_bound::Float32
   dx_exp::Float64
   sample::Int64
   fig_size::Tuple
@@ -32,7 +34,7 @@ function string(SIM::CV_simulation)
   return "CV_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CV_simulation(TC, pO2; dx_exp=-9, sample=8, fig_size=(9, 6))
+function CV_simulation(TC, pO2; upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, fig_size=(9, 6), fitness_factor=10.0)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -41,12 +43,14 @@ function CV_simulation(TC, pO2; dx_exp=-9, sample=8, fig_size=(9, 6))
       this.TC = TC_item
       this.pO2 = pO2_item 
       #
+      this.upp_bound = upp_bound
+      this.low_bound = low_bound
       this.dx_exp = dx_exp
       this.sample = sample
       this.fig_size = fig_size
       #
       this.checknodes = get_shared_checknodes(this)
-      this.fitness_factor = 10.0
+      this.fitness_factor = fitness_factor
       #
       this.name = "CV"
       this.ID = 1
@@ -57,7 +61,7 @@ function CV_simulation(TC, pO2; dx_exp=-9, sample=8, fig_size=(9, 6))
   return output
 end
 
-function CV_simulation(TC, pO2, bias; dx_exp=-9, sample=8, fig_size=(9, 6))
+function CV_simulation(TC, pO2, bias; upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, fig_size=(9, 6), fitness_factor=10.0)
     CV_simulation(TC, pO2; dx_exp=dx_exp, sample=sample, fig_size=fig_size)
 end
 
@@ -73,7 +77,7 @@ function get_nice_checknodes(sim::CV_simulation)
   return CV_get_checknodes(0.015,0.99,-0.99,-0.004,0.01)
 end
 
-function experiment_legend(SIM::CV_simulation; latex=true)
+function setting_legend(SIM::CV_simulation; latex=true)
   if latex
     return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\%\$"
   else
@@ -127,7 +131,7 @@ function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_st
   if to_standard_figure
     figure(CV_standard_figure_num, figsize=SIM.fig_size)
   end
-  my_label = "sim $(experiment_legend(SIM))$(additional_string)"
+  my_label = "sim $(setting_legend(SIM))$(additional_string)"
   
   PyPlot.title("CV curve")
   PyPlot.xlabel(L"\eta \ [V]")
@@ -144,7 +148,7 @@ function typical_plot_exp(SIM::CV_simulation, CV_df, additional_string="", to_st
   if to_standard_figure
     figure(CV_standard_figure_num, figsize=SIM.fig_size)
   end
-  my_label = "exp $(experiment_legend(SIM))$(additional_string)"
+  my_label = "exp $(setting_legend(SIM))$(additional_string)"
   
   PyPlot.title("CV curve")
   PyPlot.xlabel(L"\eta \ [V]")
@@ -160,7 +164,8 @@ end
 
 function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_in, pyplot::Int=0) 
   ysz_experiments.run_new(
-      out_df_bool=true, voltammetry=true, dx_exp=SIM.dx_exp, sample=SIM.sample, pyplot=(pyplot == 2 ? true : false),
+      out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false), 
+      dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound,
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in,
@@ -181,13 +186,13 @@ function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_
         else
           CV_exp = import_CVtoDataFrame(TC=TC, pO2=pO2)
         end
-        CV_plot(CV_exp, "exp $(experiment_legend(CV_simulation(TC, pO2)...))")
+        CV_plot(CV_exp, "exp $(setting_legend(CV_simulation(TC, pO2)...))")
       end
     end
 end
 
 function fitness_error_report(SIM::CV_simulation, plot_prms_string, CV_exp, CV_sim)
-  println("CV fitness error $(experiment_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, CV_exp, CV_sim))
+  println("CV fitness error $(setting_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, CV_exp, CV_sim))
 end
 
 function CV_get_I_values(CVraw, checknodes)

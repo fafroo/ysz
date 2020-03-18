@@ -29,6 +29,31 @@ function get_experiment(SIM::abstract_simulation)
   apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
 end
 
+function get_sim_list(SIM_list)
+  SIM_list = Array{abstract_simulation}(undef,0)
+  #TODO!!
+end
+
+function get_SIM_list_rectangle(TC,pO2, bias, simulations::Array{String})
+    SIM_list = Array{abstract_simulation}(undef,0)
+    if "CV" in simulations
+      append!(SIM_list,[
+        CV_simulation(TC, pO2)...
+      ])
+    end
+    if "EIS" in simulations
+      append!(SIM_list,[
+        EIS_simulation(TC, pO2, bias)...
+      ])
+    end
+    if "CAP" in simulations
+      append!(SIM_list,[
+        CAP_simulation(TC)...
+      ])
+    end
+    return SIM_list
+end
+
 
 function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple)
 
