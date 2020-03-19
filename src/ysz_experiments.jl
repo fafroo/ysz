@@ -111,13 +111,14 @@ function run_new(;physical_model_name="",
     parameters.T = T
     
     # 
-    model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
     if dlcap
         parameters.R0 = 0
         if print_bool 
             println("dlcap > R0= ",parameters.R0)
         end
     end
+    model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
+
     
 
     

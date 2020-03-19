@@ -13,6 +13,7 @@ const  CAP_standard_figure_num = 7
 
 mutable struct CAP_simulation <: abstract_simulation
   TC::Float32
+  pO2::Float32
   #
   upp_bound::Float32
   low_bound::Float32
@@ -31,36 +32,39 @@ mutable struct CAP_simulation <: abstract_simulation
 end
 
 function string(SIM::CAP_simulation)
-  return "CAP_sim_TC_$(SIM.TC)"
+  return "CAP_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CAP_simulation(TC; analytical=true, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=20, fig_size=(9, 6), fitness_factor=10.0)
+function CAP_simulation(TC, pO2; analytical=true, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=40, fig_size=(9, 6), fitness_factor=10.0)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
-    this = CAP_simulation()
-    
-    this.TC = TC_item
-    #
-    this.upp_bound = upp_bound
-    this.low_bound = low_bound
-    this.dx_exp = dx_exp
-    this.sample = sample
-    this.fig_size = fig_size
-    #
-    this.analytical = analytical
-    this.checknodes = get_nice_checknodes(this)
-    this.fitness_factor = fitness_factor
-    #
-    this.name = "CAP"
-    this.ID = 3
-    
-    push!(output, this)
+    for pO2_item in pO2
+      this = CAP_simulation()
+      
+      this.TC = TC_item
+      this.pO2 = pO2_item
+      #
+      this.upp_bound = upp_bound
+      this.low_bound = low_bound
+      this.dx_exp = dx_exp
+      this.sample = sample
+      this.fig_size = fig_size
+      #
+      this.analytical = analytical
+      this.checknodes = get_shared_checknodes(this)
+      this.fitness_factor = fitness_factor
+      #
+      this.name = "CAP(a)"
+      this.ID = 3
+      
+      push!(output, this)
+    end
   end
   return output
 end
 
-function CAP_simulation(TC, pO2, bias; analytical=true, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=20, fig_size=(9, 6), fitness_factor=10.0)
-    CAP_simulation(TC; analytical=analytical, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, fig_size=fig_size, fitness_factor=fitness_factor)
+function CAP_simulation(TC, pO2, bias; analytical=true, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=40, fig_size=(9, 6), fitness_factor=10.0)
+    CAP_simulation(TC, pO2; analytical=analytical, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, fig_size=fig_size, fitness_factor=fitness_factor)
 end
 
 
@@ -72,7 +76,7 @@ function typical_run_simulation(SIM::CAP_simulation, prms_names_in, prms_values_
         out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false),
         dlcap=true, dlcap_analytical=true, checknodes=SIM.checknodes[:,1],
         dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound, 
-        T=TCtoT(SIM.TC), pO2=1.0,
+        T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
         prms_names_in=prms_names_in,
         prms_values_in=prms_values_in,
     )
@@ -80,8 +84,8 @@ function typical_run_simulation(SIM::CAP_simulation, prms_names_in, prms_values_
     ysz_experiments.run_new(
         out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false),
         dlcap=true,
-        dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound, voltrate=0.00001,
-        T=TCtoT(SIM.TC), pO2=1.0,
+        dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound, voltrate=0.000001,
+        T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
         prms_names_in=prms_names_in,
         prms_values_in=prms_values_in,
     )
@@ -105,7 +109,7 @@ function CAP_get_checknodes(start_n,upper_n,lower_n,end_n,step_n)
 end
 
 function get_shared_checknodes(SIM::CAP_simulation)
-  return CAP_get_checknodes(0.0,1.0,-1.0, 0.0,0.01)
+  return CAP_get_checknodes(0.0,0.99,-0.99, 0.0,0.01)
 end
 
 function get_nice_checknodes(sim::CAP_simulation)
@@ -159,9 +163,9 @@ end
 #### plotting stuff ####
 function setting_legend(SIM::CAP_simulation; latex=true)
   if latex
-    return "\$\\theta=$(SIM.TC)\$°C"
+    return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\%\$"
   else
-    return "TC=$(SIM.TC)°C"
+    return "TC=$(SIM.TC)°C pO2=$(SIM.pO2)%"
   end
 end
 
