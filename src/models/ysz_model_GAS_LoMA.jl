@@ -415,7 +415,7 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
 end
 
 function exponential_gas_adsorption(this::YSZParameters, u; debug_bool=false)
-    if this.A0 > 0
+    if this.A0 > 0 && !(this.pO2 == 0)
         # O2(g) => 2O(s)
         if Bool(this.expO)
           the_fac = 1
@@ -445,7 +445,7 @@ function exponential_gas_adsorption(this::YSZParameters, u; debug_bool=false)
     end
     if debug_bool
       print("  O > ")
-      @show the_fac, rate
+      @show the_fac, rate, this.pO2
     end
     return rate
 end
