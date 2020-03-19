@@ -479,7 +479,193 @@ end
 
 
 
+
+
 ##################
+
+
+
+function findin(a::Array, item)
+  findall(x->x==item, a)
+end
+
+function remove!(a::Array, item)
+    deleteat!(a, findin(a, item))
+end
+
+function par_study_get_sim(this_par_study::par_study_struct, SIM_idx, prms_indicies::Union{Array, Tuple})
+  this_par_study.SIMs_data[SIM_idx, prms_indicies...  ]
+end
+
+function in_interval_filter(array::Array, a, b)
+  res = []
+  for item in array
+    if is_between(item, a, b)
+      append!(res, [item])
+    end
+  end
+  return res
+end
+
+function par_study_display_fitness_profile(tested_prm_name, int_a, int_b, simulations, pO2=60)
+  
+  function for_each_non_tested_indicies_in_prms_lists(this_par_study, perform_generic)
+    function recursive_call(output_set, active_idx)
+      if active_idx > size(this_par_study.prms_lists,1)
+        perform_generic(output_set)
+      else
+        if this_par_study.prms_names[active_idx]==tested_prm_name
+          recursive_call(
+            push!(
+              deepcopy(output_set), 
+              this_par_study.prms_lists[active_idx]
+            ), 
+            active_idx + 1
+          )
+        else
+          for parameter in this_par_study.prms_lists[active_idx]
+            recursive_call(push!(deepcopy(output_set), parameter), active_idx + 1)
+          end
+        end
+      end
+    end
+    recursive_call([],1)
+    return
+  end
+
+  function display_fitness_profile(output_prms)
+    println("ted")
+    test_par_study = ysz_fitting.par_study_get_subset_of_info(act_par_study, prms_names=act_par_study.prms_names, prms_values=output_prms);
+    ysz_fitting.par_study_import_data!(test_par_study, verbose=0);
+    
+    idx_array = output_prms
+    ok_bool = true
+    for (SIM_idx, SIM) in enumerate(test_par_study.SIM_list)
+      
+      idx_array .= 1
+      SIM_ref = par_study_get_sim(test_par_study, SIM_idx, idx_array)
+      if size(SIM_ref,1) == 0
+        ok_bool=false
+        println("F")
+        return
+      end
+      
+      # preparing trend_tuples
+      trend_tuples = initialize_trend_tuples(SIM, SIM_ref)
+      
+      typical_plot_sim(SIM, SIM_ref)
+      
+      for (prm_idx, value) in enumerate(test_par_study.prms_lists[tested_prm_idx])
+        idx_array[tested_prm_idx] = prm_idx
+        SIM_test = par_study_get_sim(test_par_study, SIM_idx, idx_array)
+        if size(SIM_test, 1) == 0
+          ok_bool=false
+          println("F")
+          return
+        end
+        typical_plot_sim(SIM, SIM_test)
+        legend("",frameon=false)
+        
+        trend_tuple = get_trend_tuple(SIM, SIM_ref, SIM_test)
+        #@show trend_tuple
+        push!(trend_tuples, [value, trend_tuple...])
+      end
+      
+      normalize = false
+                
+      #for i in 1:(size(trend_tuples,2)-1)
+      for i in 1:5
+        if SIM.name == "CV"
+          normalize && (trend_tuples[!, Symbol(string(i))] = trend_tuples[!, Symbol(string(i))]./(trend_tuples[!, Symbol(string(i))][end]))
+        
+          figure(8)
+          plot(trend_tuples.prm_value, trend_tuples[!, Symbol(string(i))], "x")  
+          PyPlot.title("interpolation profile CV: $(tested_prm_name)")
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("relative deviation")
+        end
+        if SIM.name == "EIS"
+          figure(9)
+          PyPlot.suptitle("interpolation profile EIS: $(tested_prm_name)")
+          
+          subplot(221)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("real relative deviation")
+          to_plot = real.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+        
+          subplot(222)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("imag relative deviation")
+          to_plot = imag.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+          
+          subplot(223)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("abs relative deviation")
+          to_plot = abs.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+          
+          subplot(224)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("angle relative deviation")
+          to_plot = angle.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+        end
+        
+        #SIM_trend_tuples_holder[SIM_idx], trend_tuples)
+      end
+      
+    end
+  end
+  
+  my_par_study = ysz_fitting.par_study_import_info_from_metafile("GAS_LoMA_$(tested_prm_name)_test")
+    
+  tested_prm_idx = findin(my_par_study.prms_names, tested_prm_name)
+  if size(tested_prm_idx,1) < 1
+    println("ERROR: par_study_display_fitness_profile: tested_prm_name not in prms_names ($tested_prm_name in $(my_par_study.prms_names))")
+    throw(Exception)
+  elseif size(tested_prm_idx, 1) > 1
+    println("ERROR: par_study_display_fitness_profile: tested_prm_name not UNIQUE in prms_names ($tested_prm_name in $(my_par_study.prms_names))")
+    throw(Exception)
+  else
+    tested_prm_idx = tested_prm_idx[1]
+  end
+  
+  # TO DELETE !!!!
+  act_par_study = par_study_get_subset_of_info(my_par_study, 
+    simulations=simulations, pO2=pO2, 
+    prms_names=[tested_prm_name], 
+    prms_values=[in_interval_filter(my_par_study.prms_lists[tested_prm_idx], int_a, int_b)]);
+  
+  act_par_study = par_study_get_subset_of_info(act_par_study,
+    prms_names = ["A0", "K0", "DGA", "DGR", "DGO"],
+    prms_values = [20, 20, 0.0, 0.0, 0.0]
+    );
+    
+#    act_par_study = par_study_get_subset_of_info(act_par_study,
+#      prms_names = ["A0", "K0", "DGA"],
+#      prms_values = [20, 20, 0.0]
+#      );
+#   
+  
+  SIM_trend_tuples_holder = Array{Any}(undef, size(act_par_study.SIM_list, 1))
+  
+  #### TODO !!!  change all checknodes !!!!
+  
+  PyPlot.ioff()
+  for_each_non_tested_indicies_in_prms_lists(act_par_study, display_fitness_profile)
+  PyPlot.show()
+
+end
+
+
+
+
 
 function par_study_plot_the_best(actual_par_study, show_tuple; from=1, till=1, data_already_imported=false, plot_all_SIMs=false)
   par_study_dir = string(actual_par_study.save_dir, actual_par_study.name, "/")
@@ -643,3 +829,5 @@ function run_par_study_script_wrap(
                     save_file_bool=true,
                     mode=mode)
 end
+
+
