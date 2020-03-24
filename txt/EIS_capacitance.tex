@@ -40,13 +40,35 @@ Using~\eqref{CAP01} for slow changes of the voltage ($\omega \ll 1$)
 \begin{align}
     C(U=0) \approx \frac{I}{\frac{\dd U}{\dd t}} 
     &=  \frac{B \sin \left( \omega t+ \omega_0  \right)}
-            {-A \omega\cos \left( \omega t  \right)}\\
-            &\approx\left. \frac{B ( \omega t + \omega_0) }
-                  {-A \omega \left( 1 - \omega t  \right)}\right|_{ t = 0}\\
+            {-A \omega\cos \left( \omega t  \right)}right|_{ t = 0}\\\
     &= -\frac{B}{A} 
-              \frac{\omega_0 }{\omega}   
+              \frac{\sin \left(\omega_0 \right) }{\omega}   
 \end{align}
 yields a formula for approximation of the capacitance.
+
+\section{Vojtas Opinion}
+
+\subsection{Differential capacitance vs RC element capacitance}
+Differential capacitance is defined as 
+\begin{align}
+C_\text{Diff}(U) = \frac{\dd Q}{\dd U}
+\end{align}
+which should be independent on the time sweep. This approach is widely used in the field of batteries where there is a bounded capacity for applied voltage. In the case of solide oxide fuel cell, it is very hard to make a perfectly blocking electrode in order to measure the differential capacitance. The experimental guys from UTC tried hard and were not able to obtain pure capacitance behavior (as in the case of bateries). They can only somehow decrease the through-going electric current by decreasing the oxygen partial pressure atmosphere around. 
+
+In fact, the same was done by Henny. As written in the article
+\footnote{"Results and discussion: Due to pressure build-up of oxygen gas at the gold/YSZ interface at high (positive) potential, no differential capacity
+measurements were performed at bias potentials Q b over z50 mV. In the low potential regime, measurements were performed down to bias potentials at which the data could no longer be interpreted in terms of a circuit consisting of a
+resistance and a CPE with power nw0.85 in parallel. Depending on composition and temperature, this lower limit was between –50 mV and –250 mV."}, he fitted Nyquist diagram with CPE and resistor. From my point of view, he obtained the value for capacitor parameter from the equivalent circuit, but this is a different thing then the differential capacitance defined above. If he would apply some voltage, he would obtain infinity capacitance, because the current would still flow though (he had maybe small electric current due to the physical conditions, but there had to be some nonzero current in order to obtain a semicircle or "CPE circle" in Nyquist).
+
+\subsection{Future suggestions}
+Regarding the previous subsection, I think that setting $R0 = 0$ in our model to stop the electron-transfer reaction in order to fit the data from Henny is not a good approach. I suggest these:
+\begin{enumerate}
+\item Using the same approach as Henny: We we can perform EIS simulation for low partial pressure as well and apply RC (or CPE) element fitting in the same manner and compare the obtained values of capacitance parameter. Or possibly we can ask the experimental guys to make new experiments with a very low oxygen parial pressure around the cell and measure Nyquist diagram  $\rightarrow$ hopefully only one semicircle. Fit it with RC (or CPE) element and extract the value of capacitance parameter.
+
+\item Using the DRT (Distribution of relaxation times) analysis to extract the information about the capacitances of several ongoing processes. The idea is the same as Hanny had, but it is generalized to multiple dominating processes. One can extract peaks in the relaxation time function and estimate the appropriate capacitances. It has nothing to do with differential capacitance but it can serve for the estimation of the "non-kinetic" parameters, which is the goal at the end. Then we can perform the DRT analysis to simulated Nyquist diagram, extract the capacitances and compare them to the experimental ones. My claim (not verified yet) is that the capacitances should be (to some extend) independend of the kinetic parameters (as the analogy to the case of one RC element). We can use the DRT approach on already measured EIS data.
+\end{enumerate}
+
+
 \end{document}
 
 
