@@ -1,3 +1,31 @@
+
+mutable struct prms_struct
+  names
+  values
+end
+
+function consistency_check(prms::prms_struct)
+  if prms.names == Nothing && prms.values == Nothing
+    return true
+  end
+  
+  if size(prms.names,1) != size(prms.values,1)
+    println("ERROR: consistency_check: shape mismatch size(prms.names,1) != size(prms.values,1) >>>> $(size(prms.names,1)) != $(size(prms.values,1)) ")
+    return throw(Exception)
+  end
+  
+  for i in 1:size(prms.values,1)
+    if typeof(prms.values[i]) != Colon
+      if size(prms.values[i],1) < 1
+        println("ERROR: consistency_check: empty_field prms.values[$i]")
+        return throw(Exception)
+      end
+    end
+  end
+  
+  return true
+end
+
 function for_each_prms_in_prms_lists(prms_lists, perform_generic)
   function recursive_call(output_set, active_idx)
     if active_idx > size(prms_lists,1)
@@ -43,23 +71,4 @@ function check_equal_size(list_1, list_2)
   end
 end
 
-function get_SIM_list_rectangle(TC,pO2, bias, simulations::Array{String})
-    CV_bool = ("CV" in simulations)
-    EIS_bool = ("EIS" in simulations)
-    SIM_list = Array{abstract_simulation}(undef,0)
-    if CV_bool && EIS_bool
-      append!(SIM_list,[
-        CV_simulation(TC, pO2)... ,
-        EIS_simulation(TC, pO2, bias)...
-      ])
-    elseif CV_bool
-      append!(SIM_list,[
-        CV_simulation(TC, pO2)...
-      ])
-    elseif EIS_bool
-      append!(SIM_list,[
-        EIS_simulation(TC, pO2, bias)...
-      ])
-    end
-    return SIM_list
-end
+

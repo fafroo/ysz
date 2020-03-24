@@ -6,7 +6,7 @@ module ysz_fitting
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [x] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
 # [x] spoustet run_new() v ruznych procedurach stejnou funkci "EIS_default_run_new( ... )"
-# [x] implement LM algorithm
+# [o] implement LM algorithm
 # [x] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina
 # [x] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
 # [x] vymyslet novy relevantni vektor parametru
@@ -29,7 +29,7 @@ module ysz_fitting
 # ---[ ] pri zobrazovani dat udelat clustery dle chyby/prms a pak zobrazit (prms ci Nyquist) 1 reprezentanta z kazde
 # ---[ ] automatizovat ukladani souboru vysledku par_study.vyhodnoceni()
 # [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
-# [x] get rig od shared_prms and shared_add_prms !!!
+# [x] get rig of shared_prms and shared_add_prms !!!
 # [ ] snehurka by rada ./zabal.sh a pocitac zase ./rozbal_par_study.sh
 # [!] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ...
 # ---[ ] nejak si preposilat steadystate?! 
@@ -37,12 +37,20 @@ module ysz_fitting
 # [ ] simple_run by mohl vracet par_study
 # ---[ ] par study by pak mohla mit funcki "uloz me"
 # [ ] par_study_struct by mohla nest velikosti poli
-# [ ] znicit bias -> bias
 # [ ] promyslet velikost Floatu pri importu velkeho mnozstvi dat
-# [ ] funkci pro par_study, aby umela zmenit sve info (redukovat pO2_list a tak)
+# [x] funkci pro par_study, aby umela zmenit sve info (redukovat pO2_list a tak) -> funkce par_study_filter()
 # [ ] par_study_plot_the_best() by mela vyhodit jeden figure s dvema subploty... asi ... 
+# [ ] prms_names a prms_values dat do jedne tridy
+# ---[ ] vlastne jakoby nevim, jestli je to dobry napad?
+# [ ] automaticke vybirani vhodne scripted_tuple
 #
-#            #### od Affra ####
+# ##### interpolace ######
+# [o] vizualizace trendu chyby mezi interpolanty
+# ---[x] zobrazovat soucty odchylek
+# ------[x] obrazky po normalizaci vypadaji ruznorode
+# ---[o] zkusit vykoukat trend z nenormalizovanych dat
+#
+# #### od Affra ####
 # [ ] fitness funkce s maximovou metrikou
 #
 # 
@@ -64,6 +72,7 @@ module ysz_fitting
 
 using Printf
 using PyPlot
+#using Plots
 using DataFrames
 using LeastSquaresOptim
 
@@ -80,9 +89,12 @@ import Base.string
 
 include("../src/general_supporting_stuff.jl")
 include("../src/import_experimental_data.jl")
-include("../src/general_simulation.jl")
-include("../src/CV_simulation.jl")
-include("../src/EIS_simulation.jl")
+
+include("../src/simulations/general_simulation.jl")
+include("../src/simulations/CV_simulation.jl")
+include("../src/simulations/EIS_simulation.jl")
+include("../src/simulations/CAP_simulation.jl")
+
 include("../src/par_study.jl")
 #include("../src/interpolation_fitting.jl")
 
@@ -131,7 +143,7 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
         else
           plot_prms_string = " $(string(plot_names)) = $(plot_values)"
         end
-        SIM_sim = apply_checknodes(SIM, SIM_raw, checknodes)
+        SIM_sim = apply_checknodes(SIM, SIM_raw, SIM.checknodes)
         if pyplot > 0
             typical_plot_sim(SIM, SIM_sim, plot_prms_string)
         end  
@@ -165,9 +177,8 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
     end
 
     # here the true body continues
-    checknodes =  get_shared_checknodes(SIM)
     if use_experiment
-      SIM_exp = apply_checknodes(SIM, import_data_to_DataFrame(SIM), checknodes)
+      SIM_exp = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
       if (pyplot > 0)
         typical_plot_exp(SIM, SIM_exp)
       end
@@ -184,11 +195,23 @@ end
 
 
 # useful wrap
-function simple_run(;TC, pO2, bias=0.0, simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+function simple_run(;TC, pO2=1.0, bias=0.0, simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
                          test=false)
     simple_run(get_SIM_list_rectangle(TC, pO2, bias, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
                         test=false)
 end
+
+
+###########################################################
+###########################################################
+#### Fitness_function_interpolation #######################
+###########################################################
+###########################################################
+
+
+
+
+
 
 
 ###########################################################
@@ -306,7 +329,12 @@ end
 #             Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, bias))")
 #         end
 #     end
-#             
+#        
+#     #######################################
+#     #######################################
+#     #######################################
+#     #######################################
+#     # control panel
 #     #x0 = zeros(2)
 #     #optimize(rosenbrock, x0, LevenbergMarquardt())
 #     
@@ -318,8 +346,11 @@ end
 #     x0  = [19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,     5.35e-13,  0.85,  0.21, 0.05]
 #     #x0 = [18.673485702096716, 18.598123074869402, 17.50858588747129, 1.0, 1.0, 1.0, 0.8666319406487695, -0.8342275189659124, -0.7728570698687104, 0.5, 0.5, 0.5, 5.35e-13] 
 #     
-#     
 #     mask = [1, 1, 1,     0, 0, 0,     1,1,1,      0,0,0,   1, 1, 1, 1] # determining, which parametr should be fitted
+#     #######################################
+#     #######################################
+#     #######################################
+#     #######################################
 #     
 #     x0M = zeros(0)
 #     lowM = zeros(0)
@@ -426,6 +457,7 @@ function meta_run_par_study()
   name = "GAS_LoMA_ULTRA_level_2"
   
   prms_names = ["A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"]
+  # BE CAREFUL! data are saved to files only with TWO digits after comma!
   prms_lists = [
     collect(20.0 : 1.0 : 21.0),  
     collect(20.0 : 1.0 : 21.0),  
@@ -447,6 +479,7 @@ function meta_run_par_study()
   save_dir = "../data/par_studies/"
   #######################################################  
   # preparing bash output ###############################
+  
   # if true, no script is called! Just direclty run_par_study_script_wrap()
   direct_bool = true
   
@@ -457,8 +490,6 @@ function meta_run_par_study()
   #mode = "test_one_prms"
   #mode = "only_print"
   mode = "go"
-  
-
   
   run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
   #######################################################

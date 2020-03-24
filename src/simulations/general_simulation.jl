@@ -2,7 +2,7 @@
 
 abstract type abstract_simulation end
 
-include("../src/ysz_experiments.jl")
+include("../../src/ysz_experiments.jl")
 
 function string(SIM_list::Array{abstract_simulation})
   string_to_print = ""
@@ -21,12 +21,48 @@ function TCtoT(TC)
 end
 
 function pO2tosim(pO2)
-  return (pO2/100.0 + 1.0e-5)
+  # here we can add some regularization
+  treashold = 1.0e-5
+  if pO2 < treashold
+    treashold/100.0
+  else
+    return (pO2/100.0)
+  end
 end
 
 
 function get_experiment(SIM::abstract_simulation)
   apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
+end
+
+function get_sim_list(SIM_list)
+  SIM_list = Array{abstract_simulation}(undef,0)
+  #TODO!!
+end
+
+function get_SIM_list_rectangle(TC,pO2, bias, simulations::Array{String})
+    SIM_list = Array{abstract_simulation}(undef,0)
+    if "CV" in simulations
+      append!(SIM_list,[
+        CV_simulation(TC, pO2)...
+      ])
+    end
+    if "EIS" in simulations
+      append!(SIM_list,[
+        EIS_simulation(TC, pO2, bias)...
+      ])  
+    end
+    if "CAP" in simulations
+      append!(SIM_list,[
+        CAP_simulation(TC, pO2)...
+      ])
+    end
+    if "CAP-CV" in simulations
+      append!(SIM_list,[
+        CAP_simulation(TC, pO2, analytical=false)...
+      ])
+    end
+    return SIM_list
 end
 
 
@@ -61,12 +97,13 @@ function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, pr
 end
 
 function is_between(x, a, b)
+    eps = 0.000000001
     if (b - a) > 0
-        if (a <= x) & (x <= b)
+        if (a - eps <= x) & (x <= b + eps)
             return true
         end
     else
-        if (b <= x) & (x <= a)
+        if (b - eps <= x) & (x <= a + eps)
             return true
         end
     end

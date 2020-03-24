@@ -9,20 +9,56 @@ mutable struct par_study_struct
   prms_names::Array{Any}
   prms_lists::Array{Any}
   scripted_tuple::Tuple
-  SIMs_data::Array{Any}
-  SIMs_err::DataFrame
   #
   name::String
   save_dir::String
   #
+  #
+  SIMs_data::Array{Any}
+  SIMs_err::DataFrame
+  #
   par_study_struct() = new()
 end
 
-# function par_study()
-# end
-
-
+function shallowcopy(original::par_study_struct)
+  new = par_study_struct()
+  
+  not_copy_list = ["SIMs_data", "SIMs_err"]
+  
+  for name in fieldnames(typeof(original))
+    if !(name in [Symbol(item) for item in not_copy_list])
+      setfield!(new, name, deepcopy(getfield(original, name)))
+    end
+  end
+  return new
+end
 #############################################################
+
+function string(par_study::par_study_struct)
+  not_display_list = ["checknodes", "SIMs_data", "SIMs_err"]
+  
+  out_string = "---- Par_study_struct ----\n"
+  for name in fieldnames(typeof(par_study))
+    out_string = string(out_string, name, " = ",
+      if name in [Symbol(item) for item in not_display_list]
+        try
+          getfield(par_study, name)
+          "defined"
+        catch
+          "UNDEFINED !!!"
+        end
+      else
+        string(getfield(par_study, name))
+      end
+      ,
+      "\n")
+  end  
+  return out_string
+end
+
+function show(par_study::par_study_struct)
+  println(string(par_study))
+end
 
 
 ############## import large amount of data ##########
@@ -89,17 +125,19 @@ function par_study_import_data!(actual_par_study; verbose=false)
   prmsDIV100 = counter/100
   
   counter=0
-  println("Loading prms_lists")
-  println("|====================================================================================================|")
-
+  (verbose > 0) && begin
+    println("Loading prms_lists")
+    println("|====================================================================================================|")
+  end
   function perform_import(prms_indicies)
     
     counter += 1
-    while (circle_counter + 1)*prmsDIV100 <= counter + 0.00000001
-      circle_counter+=1
-      print("o")
-    end
-    
+    (verbose > 0) && (
+      while (circle_counter + 1)*prmsDIV100 <= counter + 0.00000001
+        circle_counter+=1
+        print("o")
+      end
+    )
     for (i, SIM) in enumerate(actual_par_study.SIM_list)
       try
         SIMs_data[i, prms_indicies...] = load_file_prms(
@@ -109,7 +147,7 @@ function par_study_import_data!(actual_par_study; verbose=false)
             prms_names=actual_par_study.prms_names, 
             scripted_tuple=actual_par_study.scripted_tuple, 
             throw_exception=true, 
-            verbose=verbose)
+            verbose=(verbose > 1 ? true : false))
         SIM_good_count[i] += 1
       catch e
         if e isa InterruptException
@@ -122,18 +160,20 @@ function par_study_import_data!(actual_par_study; verbose=false)
     end
   end
   
-  print("|")
+  (verbose > 0) && print("|")
   for_each_indicies_in_prms_lists(actual_par_study.prms_lists, perform_import)
-  println("|")
+  (verbose > 0) && println("|")
   
   actual_par_study.SIMs_data = SIMs_data
-  println(string(actual_par_study.SIM_list))
-  println("par_study_import_data: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  (verbose > 0) && begin
+    println(string(actual_par_study.SIM_list))
+    println("par_study_import_data: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  end
   return
 end
 
 
-function par_study_err_evaluation!(actual_par_study; data_already_imported=false, verbose=false)
+function par_study_err_evaluation!(actual_par_study; data_already_imported=false, verbose=1)
   save_dir_forwarded = string(actual_par_study.save_dir, actual_par_study.name, "/")
  
   # compute length of error DataFrame
@@ -166,15 +206,18 @@ function par_study_err_evaluation!(actual_par_study; data_already_imported=false
   
   counter::Int64 = 0
   circle_counter::Int64 = 0
-  println("Evaluating error")
-  println("|====================================================================================================|")
-
+  if verbose > 0
+    println("Evaluating error")
+    println("|====================================================================================================|")
+  end
   function perform_error_evaluate(prms_indicies)
     
     counter += 1
-    while (circle_counter + 1)*prmsDIV100 <= counter + 0.00000001
-      circle_counter+=1
-      print("o")
+    if verbose > 0
+      while (circle_counter + 1)*prmsDIV100 <= counter + 0.00000001
+        circle_counter+=1
+        print("o")
+      end
     end
     SIMs_err[!, SIMs_length + 1][counter] = prms_indicies
 
@@ -210,7 +253,7 @@ function par_study_err_evaluation!(actual_par_study; data_already_imported=false
             prms_names=actual_par_study.prms_names, 
             scripted_tuple=actual_par_study.scripted_tuple, 
             throw_exception=true, 
-            verbose=verbose)
+            verbose=(verbose > 1 ? true : false))
           
           # compute fitness function
           error = fitnessFunction(SIM, 
@@ -239,15 +282,20 @@ function par_study_err_evaluation!(actual_par_study; data_already_imported=false
     
   end
   
-  print("|")
+  if verbose > 0
+    print("|")
+  end
   for_each_indicies_in_prms_lists(actual_par_study.prms_lists, perform_error_evaluate)
-  println("|")
+  if verbose > 0
+    println("|")
+  end
   
   sort!(SIMs_err, SIMs_length + 2)
   
   actual_par_study.SIMs_err = SIMs_err
-  
-  println("par_study_err_evaluation: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  if verbose > 0
+    println("par_study_err_evaluation: SIM_good / all = ",SIM_good_count, " / ", SIM_good_count .+ SIM_bad_count)
+  end
   return
 end
 
@@ -328,8 +376,7 @@ function get_SIMs_err_for_show_tuple(actual_par_study, show_tuple)
     prms_indicies = Array{Array{Int16}}(undef, product_size_prms),
     error_total = Array{Float32}(undef, product_size_prms)
     )
-
-
+  
   temp_error_df.prms_indicies .= actual_par_study.SIMs_err.prms_indicies
   for i in 1:product_size_prms
     err_sum = 0
@@ -346,6 +393,46 @@ end
 
 
 ### API functions ######################################
+function par_study_get_subset_of_info(actual_par_study; prms_names=Nothing, prms_values=Nothing, TC=Nothing, pO2=Nothing, bias=Nothing, simulations=Nothing)
+  new_par_study = shallowcopy(actual_par_study)
+  prms = prms_struct(prms_names, prms_values)
+  
+  consistency_check(prms)
+  
+  show_tuple = get_show_tuple(actual_par_study; TC=TC, pO2=pO2, bias=bias, simulations=simulations)
+  new_SIM_list = Array{abstract_simulation}(undef,0)
+  for i in 1:size(show_tuple,1)
+    if Bool(show_tuple[i])
+      push!(new_SIM_list, actual_par_study.SIM_list[i])
+    end
+  end
+  new_par_study.SIM_list = new_SIM_list
+  
+  if prms_names!=Nothing
+    for (i, name) in enumerate(prms.names)
+      name_idx = findfirst(isequal(name), actual_par_study.prms_names)
+      if typeof(name_idx) == Nothing
+        println("ERROR: par_study_filter: name $(name) is not in actual_par_study.prms_names = $(actual_par_study.prms_names)!")
+        throw(Exception)
+      else
+        #@show name_idx
+        if typeof(prms.values[i]) != Colon
+          actual_intersection = intersect(actual_par_study.prms_lists[name_idx], prms.values[i])
+          if size(actual_intersection,1) < 1
+            println("ERROR: par_study_filter: no intersection of $(name): $(actual_par_study.prms_lists[name_idx]) and $(prms.values[i])")
+            throw(Exception)
+          elseif size(actual_intersection,1) < size(prms.values[i],1)
+            println("Warning: par_study_filter: some of the $(name) desired values $(prms.values[i]) are not in $(actual_par_study.prms_lists[name_idx])")
+          else
+            new_par_study.prms_lists[name_idx] = [prms.values[i]...]
+          end
+        end
+      end
+    end
+  end
+  return new_par_study
+end
+
 function par_study_plot_err_projections(actual_par_study, show_tuple; count=300)
 #   if show_tuple == Nothing
 #     show_tuple = get_show_tuple(actual_par_study)
@@ -378,6 +465,204 @@ function par_study_plot_err_projections(actual_par_study; count=300,
     count=count
     )
 end
+
+
+###################
+
+
+
+
+
+
+
+
+
+
+
+
+
+##################
+
+
+
+function findin(a::Array, item)
+  findall(x->x==item, a)
+end
+
+function remove!(a::Array, item)
+    deleteat!(a, findin(a, item))
+end
+
+function par_study_get_sim(this_par_study::par_study_struct, SIM_idx, prms_indicies::Union{Array, Tuple})
+  this_par_study.SIMs_data[SIM_idx, prms_indicies...  ]
+end
+
+function in_interval_filter(array::Array, a, b)
+  res = []
+  for item in array
+    if is_between(item, a, b)
+      append!(res, [item])
+    end
+  end
+  return res
+end
+
+function par_study_display_fitness_profile(tested_prm_name, int_a, int_b, simulations, pO2=60)
+  
+  function for_each_non_tested_indicies_in_prms_lists(this_par_study, perform_generic)
+    function recursive_call(output_set, active_idx)
+      if active_idx > size(this_par_study.prms_lists,1)
+        perform_generic(output_set)
+      else
+        if this_par_study.prms_names[active_idx]==tested_prm_name
+          recursive_call(
+            push!(
+              deepcopy(output_set), 
+              this_par_study.prms_lists[active_idx]
+            ), 
+            active_idx + 1
+          )
+        else
+          for parameter in this_par_study.prms_lists[active_idx]
+            recursive_call(push!(deepcopy(output_set), parameter), active_idx + 1)
+          end
+        end
+      end
+    end
+    recursive_call([],1)
+    return
+  end
+
+  function display_fitness_profile(output_prms)
+    println("ted")
+    test_par_study = ysz_fitting.par_study_get_subset_of_info(act_par_study, prms_names=act_par_study.prms_names, prms_values=output_prms);
+    ysz_fitting.par_study_import_data!(test_par_study, verbose=0);
+    
+    idx_array = output_prms
+    ok_bool = true
+    for (SIM_idx, SIM) in enumerate(test_par_study.SIM_list)
+      
+      idx_array .= 1
+      SIM_ref = par_study_get_sim(test_par_study, SIM_idx, idx_array)
+      if size(SIM_ref,1) == 0
+        ok_bool=false
+        println("F")
+        return
+      end
+      
+      # preparing trend_tuples
+      trend_tuples = initialize_trend_tuples(SIM, SIM_ref)
+      
+      typical_plot_sim(SIM, SIM_ref)
+      
+      for (prm_idx, value) in enumerate(test_par_study.prms_lists[tested_prm_idx])
+        idx_array[tested_prm_idx] = prm_idx
+        SIM_test = par_study_get_sim(test_par_study, SIM_idx, idx_array)
+        if size(SIM_test, 1) == 0
+          ok_bool=false
+          println("F")
+          return
+        end
+        typical_plot_sim(SIM, SIM_test)
+        legend("",frameon=false)
+        
+        trend_tuple = get_trend_tuple(SIM, SIM_ref, SIM_test)
+        #@show trend_tuple
+        push!(trend_tuples, [value, trend_tuple...])
+      end
+      
+      normalize = false
+                
+      #for i in 1:(size(trend_tuples,2)-1)
+      for i in 1:5
+        if SIM.name == "CV"
+          normalize && (trend_tuples[!, Symbol(string(i))] = trend_tuples[!, Symbol(string(i))]./(trend_tuples[!, Symbol(string(i))][end]))
+        
+          figure(8)
+          plot(trend_tuples.prm_value, trend_tuples[!, Symbol(string(i))], "x")  
+          PyPlot.title("interpolation profile CV: $(tested_prm_name)")
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("relative deviation")
+        end
+        if SIM.name == "EIS"
+          figure(9)
+          PyPlot.suptitle("interpolation profile EIS: $(tested_prm_name)")
+          
+          subplot(221)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("real relative deviation")
+          to_plot = real.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+        
+          subplot(222)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("imag relative deviation")
+          to_plot = imag.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+          
+          subplot(223)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("abs relative deviation")
+          to_plot = abs.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+          
+          subplot(224)
+          PyPlot.xlabel("$(tested_prm_name)")
+          PyPlot.ylabel("angle relative deviation")
+          to_plot = angle.(trend_tuples[!, Symbol(string(i))])
+          normalize && (to_plot = to_plot./to_plot[end])
+          plot(trend_tuples.prm_value, to_plot, "x-")
+        end
+        
+        #SIM_trend_tuples_holder[SIM_idx], trend_tuples)
+      end
+      
+    end
+  end
+  
+  my_par_study = ysz_fitting.par_study_import_info_from_metafile("GAS_LoMA_$(tested_prm_name)_test")
+    
+  tested_prm_idx = findin(my_par_study.prms_names, tested_prm_name)
+  if size(tested_prm_idx,1) < 1
+    println("ERROR: par_study_display_fitness_profile: tested_prm_name not in prms_names ($tested_prm_name in $(my_par_study.prms_names))")
+    throw(Exception)
+  elseif size(tested_prm_idx, 1) > 1
+    println("ERROR: par_study_display_fitness_profile: tested_prm_name not UNIQUE in prms_names ($tested_prm_name in $(my_par_study.prms_names))")
+    throw(Exception)
+  else
+    tested_prm_idx = tested_prm_idx[1]
+  end
+  
+  # TO DELETE !!!!
+  act_par_study = par_study_get_subset_of_info(my_par_study, 
+    simulations=simulations, pO2=pO2, 
+    prms_names=[tested_prm_name], 
+    prms_values=[in_interval_filter(my_par_study.prms_lists[tested_prm_idx], int_a, int_b)]);
+  
+  act_par_study = par_study_get_subset_of_info(act_par_study,
+    prms_names = ["A0", "K0", "DGA", "DGR", "DGO"],
+    prms_values = [20, 20, 0.0, 0.0, 0.0]
+    );
+    
+#    act_par_study = par_study_get_subset_of_info(act_par_study,
+#      prms_names = ["A0", "K0", "DGA"],
+#      prms_values = [20, 20, 0.0]
+#      );
+#   
+  
+  SIM_trend_tuples_holder = Array{Any}(undef, size(act_par_study.SIM_list, 1))
+  
+  #### TODO !!!  change all checknodes !!!!
+  
+  PyPlot.ioff()
+  for_each_non_tested_indicies_in_prms_lists(act_par_study, display_fitness_profile)
+  PyPlot.show()
+
+end
+
 
 
 
@@ -417,6 +702,7 @@ function par_study_plot_the_best(actual_par_study; from=1, till=1, plot_all_SIMs
 end
 
 
+#### RUN_PAR_STUDY ####
 
 function run_par_study(actual_par_study::par_study_struct; save_dir="../data/par_studies/", save_file_bool=false, mode="test", verbose=true)
      
@@ -543,3 +829,5 @@ function run_par_study_script_wrap(
                     save_file_bool=true,
                     mode=mode)
 end
+
+

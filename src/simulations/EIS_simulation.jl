@@ -11,8 +11,8 @@ const EIS_standard_figure_num = 6
 ######################################
 
 mutable struct EIS_simulation <: abstract_simulation
-  TC::Int64
-  pO2::Int64
+  TC::Float64
+  pO2::Float64
   bias::Float64
   #
   dx_exp::Float64
@@ -73,7 +73,7 @@ function get_shared_checknodes(SIM::EIS_simulation)
     return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()...)
 end
 
-function experiment_legend(SIM::EIS_simulation; latex=true)
+function setting_legend(SIM::EIS_simulation; latex=true)
   if latex
     return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\% \$ \$\\mathrm{bias}=$(SIM.bias)\$"
   else
@@ -86,11 +86,11 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
   if to_standard_figure
     figure(EIS_standard_figure_num, figsize=SIM.fig_size)
   end
-  my_label = "sim $(experiment_legend(SIM))$(additional_string)"
+  my_label = "sim $(setting_legend(SIM))$(additional_string)"
 
   title("Nyquist plot")
-  xlabel("Re\$(Z)\$")
-  ylabel("-Im\$(Z)\$")
+  xlabel("Re\$(Z) \\ [\\Omega]\$")
+  ylabel("-Im\$(Z) \\ [\\Omega]\$")
   
   plot(real(EIS_df.Z), -imag(EIS_df.Z), "x-", label = my_label)
   
@@ -106,11 +106,11 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
   if to_standard_figure
     figure(EIS_standard_figure_num, figsize=SIM.fig_size)
   end
-  my_label = "exp $(experiment_legend(SIM))$(additional_string)"
+  my_label = "exp $(setting_legend(SIM))$(additional_string)"
 
   title("Nyquist plot")
-  xlabel("Re\$(Z)\$")
-  ylabel("-Im\$(Z)\$")
+  xlabel("Re\$(Z) \\ [\\Omega]\$")
+  ylabel("-Im\$(Z) \\ [\\Omega]\$")
   
   plot(real(EIS_df.Z), -imag(EIS_df.Z), "x:", label = my_label)
   
@@ -123,7 +123,7 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
-  println("EIS fitness error $(experiment_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, EIS_exp, EIS_sim))
+  println("EIS fitness error $(setting_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, EIS_exp, EIS_sim))
 end
 
 
@@ -199,12 +199,16 @@ function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes
           else
             EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias)
           end
-          Nyquist_plot(EIS_exp, "exp $(experiment_legend(EIS_simulation(TC, pO2, bias=bias)))")
+          Nyquist_plot(EIS_exp, "exp $(setting_legend(EIS_simulation(TC, pO2, bias)...))")
         end
       end
     end
 end
 
+# function EIS_capacitance_test()
+#   
+# end
+  
 function EIS_get_Z_values(Q_raw, checknodes)
     Zx_values = []
     #println(Q_raw[!, 1])
@@ -276,6 +280,22 @@ function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataF
         return sqrt(err)/Float32(size(exp_EIS,1))
 end
 
+# function monotony_test_function(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataFrame)
+#         err = 0.0
+#         if  exp_EIS.f == sim_EIS.f
+#                 
+#                 for row = 1:size(exp_EIS,1)
+#                         err +=( (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))^2 
+#                                  + (imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))^2)
+#                 end
+#         else
+#                 println("ERROR: EIS_fitnesFunction: shape mismatch or different *.f values")
+#                 return Exception()
+#         end
+#         # returns average error per checknode
+#         return sqrt(err)/Float32(size(exp_EIS,1))
+# end
+
 
 function EIS_get_checknodes_short()
     # frequency nodes to compare
@@ -307,5 +327,31 @@ function EIS_get_checknodes_geometrical(start_n, end_n, n_fac)
     end    
     return w_list
 end
+
+function initialize_trend_tuples(SIM::EIS_simulation, EIS_ref::DataFrame)
+  trend_tuples = DataFrame(prm_value=[])
+  for i in 1:size(EIS_ref, 1)
+    trend_tuples[!, Symbol(string(i))] = Array{Complex}(undef, 0)
+  end
+  return trend_tuples
+end
+
+function get_trend_tuple(SIM::EIS_simulation, EIS_ref::DataFrame, EIS_test::DataFrame)
+  # plot signed deviation from referent simulation_curve
+  trend_tuple = deepcopy(EIS_test.Z - EIS_ref.Z)
+  return trend_tuple
+#   return [
+#     real(trend_tuple),
+#     imag(trend_tuple),
+#     abs(trend_tuple),
+#     angle(trend_tuple)
+#     ]
+end
+
+# function plot_trend_tuples(SIM::EIS_simulation, trend_tuples)
+#   
+# end
+
+
 
 

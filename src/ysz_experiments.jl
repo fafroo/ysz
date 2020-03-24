@@ -64,14 +64,19 @@ function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
 end
 
 function run_new(;physical_model_name="",
-                test=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
+                test=false, test_from_above=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
                 pO2=1.0, T=1073,
-                prms_names_in=["A0", "R0", "DGA", "DGR", "betaR", "SR"],
-                prms_values_in=[21.71975544711280, 20.606423236896422, 0.0905748, -0.708014, 0.6074566741435283, 0.1], 
+                prms_names_in=[],
+                prms_values_in=[],
+                #
                 EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
-                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, dlcap=false,
+                #
+                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, checknodes=[],
+                #
+                dlcap=false, dlcap_analytical=false,
+                #
                 EIS_TDS=false, tref=0
                  )
 
@@ -83,12 +88,12 @@ function run_new(;physical_model_name="",
     AreaEllyt = 0.018849556 * 0.7        # m^2 (geometrical area)*(1 - porosity)
     #width_Ellyt = 0.00045           # m     width of the half-cell
     #width_Ellyt = 0.0005           # m     width of the half-cell
-    if dlcap
-        AreaEllyt = 1.0      # m^2    
-        if print_bool
-            println("dlcap > area = 1")
-        end
-    end
+#     if dlcap
+#         AreaEllyt = 1.0      # m^2    
+#         if print_bool
+#             println("dlcap > area = 1")
+#         end
+#     end
     #
     dx_start = 10^convert(Float64,dx_exp)
     X=width*VoronoiFVM.geomspace(0.0,1.0,dx_start,1e-1)
@@ -101,18 +106,19 @@ function run_new(;physical_model_name="",
     parameters=model_symbol.YSZParameters()
     
 
-    
+    # experimental setting
     parameters.pO2 = pO2
     parameters.T = T
-    parameters.x_frac=0.13
     
-    model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
+    # 
     if dlcap
         parameters.R0 = 0
         if print_bool 
             println("dlcap > R0= ",parameters.R0)
         end
     end
+    model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
+
     
 
     
@@ -181,6 +187,23 @@ function run_new(;physical_model_name="",
 #     plot_solution(steadystate, X, 10^9)
 #     return
 ################
+
+
+
+    ############################################
+    ############################################
+    ############################################
+    ############################################
+    ############################################
+    ######### dlcap_analytical computation #####
+
+    if dlcap_analytical
+      @show parameters.phi_eq
+      phi_range = parameters.phi_eq .+ checknodes
+      cbl, cs = AreaEllyt.*model_symbol.direct_capacitance(parameters, phi_range)
+      out_df = DataFrame(U = phi_range .- parameters.phi_eq, C = cbl + cs, Cs = cs, Cb = cbl) 
+      return out_df
+    end
     
     #####################################
     #####################################
@@ -393,8 +416,11 @@ function run_new(;physical_model_name="",
         
         
         if save_files || out_df_bool
-            out_df = DataFrame(t = Float64[], U = Float64[], I = Float64[], Ib = Float64[], Is = Float64[], Ir = Float64[])
-
+          if dlcap
+            out_df = DataFrame(t = Float64[], U = Float64[], C = Float64[], Cr = Float64[], Cs = Float64[], Cb = Float64[], Cbb = Float64[])
+          else
+            out_df = DataFrame(t = Float64[], U = Float64[], I = Float64[], Ir = Float64[], Is = Float64[], Ib = Float64[], Ibb = Float64[])
+          end
         end
         
         cv_cycles = 1
@@ -437,14 +463,16 @@ function run_new(;physical_model_name="",
         
         if true
           # calculating directly steadystate ###############
-          state = "cv_is_on"
+          #state = "cv_is_on"
+          state = "relaxation"
+          relaxation_length = 2.0/sample
           istep_cv_start = 0
           phi=parameters.phi_eq
           dir=1 
           
           solve!(U0,inival,sys, control=control)
           if save_files || out_df_bool
-            push!(out_df, (0, 0, 0, 0, 0, 0))
+            push!(out_df, (0, 0, 0, 0, 0, 0, 0))
           end
         
           append!(y0_range,U0[iy,1])
@@ -490,7 +518,7 @@ function run_new(;physical_model_name="",
                     println("relaxation ... ")
                 end
             end            
-            if state=="relaxation" && relax_counter == sample*relaxation_length
+            if state=="relaxation" && relax_counter >= sample*relaxation_length
                 relax_counter += 1
                 state="cv_is_on"
                 istep_cv_start = istep
@@ -525,18 +553,26 @@ function run_new(;physical_model_name="",
             #
             I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
             
+            # reaction average
+            Ir= 0.5*(I_contributions_stdy[1] + I_contributions_stdy_0[1])
+            
             # time derivatives            
             Is  = (I_contributions_tran[1] - I_contributions_tran_0[1])/tstep                
             Ib  = (I_contributions_tran[2] - I_contributions_tran_0[2])/tstep 
             Ibb = (I_contributions_tran[3] - I_contributions_tran_0[3])/tstep 
 
-            # reaction average
-            Ir= 0.5*(I_contributions_stdy[1] + I_contributions_stdy_0[1])
+            
  
 
  
-            if debug_print_bool
-                @printf("t = %g     U = %g   state = %s  ys = %g  ys0 = &g  Ir = %g  Is = %g  Ib = %g  \n", istep*tstep, phi, state, U[iyAs,1],  Ir, - (Qs[1] - Qs0[1])/tstep, - (Qb[iphi] - Qb0[iphi])/tstep)
+            if false && !(test || test_from_above)
+                @printf("t = %.2g   U = %g   ys0 = %g  yAs = %g  yOs = %g  r=(%g, %g, %g)  I=(%g, %g, %g, %g)\n", istep*tstep, phi, U[iy,1], U[iyAs,1], U[iyOs,1], 
+                      model_symbol.exponential_oxide_adsorption(parameters, U[:,1], debug_bool=true),
+                      model_symbol.electroreaction(parameters, U[:,1], debug_bool=true),
+                      model_symbol.exponential_gas_adsorption(parameters, U[:,1], debug_bool=true),
+                      
+                      Ir, Is, Ib, Ibb
+                      )
             end
             
             # storing data
@@ -560,9 +596,14 @@ function run_new(;physical_model_name="",
             if state=="cv_is_on"
                 if save_files || out_df_bool
                     if dlcap
-                        push!(out_df,[(istep-istep_cv_start)*tstep   phi_out-phi0    (Ib+Is+Ir)/voltrate    Ib/voltrate    Is/voltrate    Ir/voltrate])
+                        push!(out_df,[(istep-istep_cv_start)*tstep, phi_out-phi0, 
+                          dir*(Ir+Is+Ib+Ibb)/voltrate, 
+                          dir*Ir/voltrate, 
+                          dir*Is/voltrate,
+                          dir*Ib/voltrate,                            
+                          dir*Ibb/voltrate])
                     else
-                        push!(out_df,[(istep-istep_cv_start)*tstep   phi_out-phi0    Ib+Is+Ir    Ib    Is    Ir])
+                        push!(out_df,[(istep-istep_cv_start)*tstep,   phi_out-phi0,   Ib+Is+Ir+Ibb,  Ir,  Is,  Ib,  Ibb])
                     end
                 end
             end
@@ -570,8 +611,6 @@ function run_new(;physical_model_name="",
             
             
             # plotting                  
-
-
             if pyplot && istep%2 == 0
 
                 num_subplots=4
@@ -693,8 +732,8 @@ function run_new(;physical_model_name="",
                 PyPlot.xlabel("nu (V)")
                 PyPlot.ylabel(L"Capacitance (F/m$^2$)")  
                 PyPlot.legend(loc="best")
-                PyPlot.xlim(-0.5, 0.5)
-                PyPlot.ylim(0, 5)
+                #PyPlot.xlim(-0.5, 0.5)
+                #PyPlot.ylim(0, 5)
                 PyPlot.grid()
                 PyPlot.show()
                 PyPlot.pause(5)
@@ -704,8 +743,8 @@ function run_new(;physical_model_name="",
                 PyPlot.xlabel("nu (V)")
                 PyPlot.ylabel(L"Capacitance (F/m$^2$)") 
                 PyPlot.legend(loc="best")
-                PyPlot.xlim(-0.5, 0.5)
-                PyPlot.ylim(0, 5)
+                #PyPlot.xlim(-0.5, 0.5)
+                #PyPlot.ylim(0, 5)
                 PyPlot.grid()
                 PyPlot.show()
                 #PyPlot.pause(10)
@@ -718,8 +757,8 @@ function run_new(;physical_model_name="",
             
             
             subplot(222)
-            if dlcap
-                cbl, cs = direct_capacitance(parameters, collect(float(low_bound):0.001:float(upp_bound)))
+            if dlcap  
+                cbl, cs = model_symbol.direct_capacitance(parameters, collect(float(low_bound):0.001:float(upp_bound)))
                 plot(collect(float(low_bound):0.001:float(upp_bound)), (cbl+cs), label="tot CG") 
                 plot(collect(float(low_bound):0.001:float(upp_bound)), (cbl), label="b CG") 
                 plot(collect(float(low_bound):0.001:float(upp_bound)), (cs), label="s CG") 
