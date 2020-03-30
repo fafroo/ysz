@@ -23,6 +23,8 @@ const bulk_species = (iphi, iy) = (1, 2)
 const surface_species = (iyAs, iyOs) = (3, 4)
 const surface_names = ("yAs", "yOs")
 
+const index_driving_species = iphi
+
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
 
     # adsorption from YSZ

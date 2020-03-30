@@ -38,7 +38,7 @@
 # ["CAP"] simulation is also implemented
 #   - overpotential = 0 is the equilibrium voltage !!!
 #   - parametr R0 is set to 0 (but it can be overwriten to non-zero by prms_values)
-#   - there are no experimental data, you must use "use_experiment=false" switch!
+#   - there are no experimental data, you must use "use_experiment=false" switch! 
 #   >>> ["CAP"] Analytical version  - using direct capacitance analytical solution for defined voltage checknodes in simulation_struct
 #
 #   >>> ["CAP-CV"]     - using voltammetry simulation with default voltrate = 0.000001
