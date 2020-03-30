@@ -176,7 +176,7 @@ function import_data_to_DataFrame(SIM::CV_simulation)
   import_CVtoDataFrame(TC=SIM.TC, pO2=SIM.pO2)
 end
 
-function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_num=20)    
+function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_num=11)    
     figure(fig_num)
     for TC in TC_list
       for pO2 in pO2_list
@@ -186,7 +186,7 @@ function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_
         else
           CV_exp = import_CVtoDataFrame(TC=TC, pO2=pO2)
         end
-        CV_plot(CV_exp, "exp $(setting_legend(CV_simulation(TC, pO2)...))")
+        typical_plot_exp(CV_simulation(TC, pO2)..., CV_exp, "", false)
       end
     end
 end

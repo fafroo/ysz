@@ -63,7 +63,6 @@ end
 
 ############## import large amount of data ##########
 function par_study_import_info_from_metafile(name; save_dir="../data/par_studies/", metafile_name="__metafile_par_study.txt")
-
   actual_par_study = par_study_struct()
   
   actual_par_study.save_dir = save_dir
@@ -103,8 +102,6 @@ end
 
 
 function par_study_import_data!(actual_par_study; verbose=false)
-  
-  
   save_dir_forwarded = string(actual_par_study.save_dir, actual_par_study.name, "/")
   
   SIMs_length = size(actual_par_study.SIM_list,1)

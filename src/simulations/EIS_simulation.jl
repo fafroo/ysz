@@ -88,6 +88,7 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
   end
   my_label = "sim $(setting_legend(SIM))$(additional_string)"
 
+  s1 = subplot(121)
   title("Nyquist plot")
   xlabel("Re\$(Z) \\ [\\Omega]\$")
   ylabel("-Im\$(Z) \\ [\\Omega]\$")
@@ -98,8 +99,20 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
       legend(loc="best")
   end
   grid(true)
-  ax = gca()
-  ax.set_aspect(1.0)
+  s1.set_aspect(1.0)
+  
+  
+  s2 = subplot(222)
+  title("Bode plot - Re")
+  #xlabel("log f \$(\$Hz\$)\$")
+  ylabel("Re\$(Z) \\ [\\Omega]\$")
+  plot(log10.(EIS_df.f), real(EIS_df.Z), "x-", label = my_label)
+    
+  s3 = subplot(224)
+  title("Bode plot - Im")
+  xlabel("log f \$(\$Hz\$)\$")
+  ylabel("-Im\$(Z) \\ [\\Omega]\$")
+  plot(log10.(EIS_df.f), -imag(EIS_df.Z), "x-", label = my_label)
 end
 
 function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
@@ -108,6 +121,7 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
   end
   my_label = "exp $(setting_legend(SIM))$(additional_string)"
 
+  s1 = subplot(121)
   title("Nyquist plot")
   xlabel("Re\$(Z) \\ [\\Omega]\$")
   ylabel("-Im\$(Z) \\ [\\Omega]\$")
@@ -118,8 +132,20 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
       legend(loc="best")
   end
   grid(true)
-  ax = gca()
-  ax.set_aspect(1.0)  
+  s1.set_aspect(1.0)
+  
+  
+  s2 = subplot(222)
+  title("Bode plot - Re")
+  #xlabel("log f \$(\$Hz\$)\$")
+  ylabel("Re\$(Z) \\ [\\Omega]\$")
+  plot(log10.(EIS_df.f), real(EIS_df.Z), "x:", label = my_label)
+    
+  s3 = subplot(224)
+  title("Bode plot - Im")
+  xlabel("log f \$(\$Hz\$)\$")
+  ylabel("-Im\$(Z) \\ [\\Omega]\$")
+  plot(log10.(EIS_df.f), -imag(EIS_df.Z), "x:", label = my_label)
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
@@ -188,7 +214,7 @@ function EIS_test_checknodes_range(omega_range=EIS_get_shared_omega_range())
 end
 
 
-function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes=false, fig_num=10)    
+function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes=false, fig_num=12)    
     figure(fig_num)
     for TC in TC_list
       for pO2 in pO2_list
@@ -199,7 +225,7 @@ function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes
           else
             EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias)
           end
-          Nyquist_plot(EIS_exp, "exp $(setting_legend(EIS_simulation(TC, pO2, bias)...))")
+          typical_plot_exp(EIS_simulation(TC, pO2, bias)..., EIS_exp, "", false)
         end
       end
     end
@@ -351,6 +377,7 @@ end
 # function plot_trend_tuples(SIM::EIS_simulation, trend_tuples)
 #   
 # end
+
 
 
 

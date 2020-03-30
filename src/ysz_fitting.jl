@@ -120,7 +120,7 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
   if test
     test_result = 0
   end
-  
+  res = DataFrame()
   for SIM in SIM_list
   
     function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
@@ -144,6 +144,11 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
           plot_prms_string = " $(string(plot_names)) = $(plot_values)"
         end
         SIM_sim = apply_checknodes(SIM, SIM_raw, SIM.checknodes)
+        
+        ## TODO !!!
+        res = SIM_sim
+        ###
+        
         if pyplot > 0
             typical_plot_sim(SIM, SIM_sim, plot_prms_string)
         end  
@@ -189,7 +194,7 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
   if test
     return test_result
   else
-    return
+    return res
   end
 end
 
@@ -209,8 +214,55 @@ end
 ###########################################################
 
 
+###########################################################
+###########################################################
+#### Working space ########################################
+###########################################################
+###########################################################
 
 
+function EIS_get_RC_parameters(EIS_df::DataFrame)
+  lowest_f = Inf
+  lowest_Re = 0
+  lowest_Im = 0
+  right = -Inf
+  left = Inf
+  for (i, Z) in enumerate(EIS_df.Z)
+    if real(Z) > right
+      right = real(Z)
+    end
+    if real(Z) < left
+      left = real(Z)
+    end
+    if imag(Z) < lowest_Im
+      #@show imag(Z)
+      #@show lowest_Im
+      lowest_f = EIS_df.f[i]
+      lowest_Re = real(Z)
+      lowest_Im = imag(Z)
+    end
+  end
+  R =  right - left
+  Rohm = left
+  omega = (2*pi)*lowest_f
+  # tau = R*C = 1/omega
+  # C = 1 / (omega * R)
+  @show omega
+  @show R
+  #@show lowest_Re
+  C = 1/(omega*R)
+  @show C
+  return R, C, Rohm
+end
+
+function EIS_get_and_plot_RC_element(R, C, Rohm=0)
+  EIS_RC = DataFrame( f = [], Z = [])
+  for f in get_shared_checknodes(EIS_simulation(800,100,0.0)...)
+    push!(EIS_RC, (f, Rohm + R/(1 + im*2*pi*f*R*C)))
+  end
+  typical_plot_sim(EIS_simulation(800,100,0.0)..., EIS_RC, "RC_elem")
+  return EIS_RC
+end
 
 
 
@@ -487,11 +539,20 @@ function meta_run_par_study()
   #bash_command = "echo"
   bash_command = "julia"
   
-  #mode = "test_one_prms"
+  mode = "test_one_prms"
   #mode = "only_print"
-  mode = "go"
+  #mode = "go"
   
-  run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
+  express3_bool = true
+
+  
+  #######################################################
+  #######################################################
+  if express3_bool
+    run_file_name = "../snehurka/run_EX3_ysz_fitting_par_study-prms-.jl"
+  else
+    run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
+  end
   #######################################################
   ####################################################### 
   #######################################################

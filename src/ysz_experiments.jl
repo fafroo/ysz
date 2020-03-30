@@ -36,6 +36,7 @@ iphi = model_symbol.iphi
 iy = model_symbol.iy
 iyAs = model_symbol.iyAs
 iyOs = model_symbol.iyOs
+index_driving_species = model_symbol.index_driving_species
 
 # --------- end of YSZ import ---------- #
 ##########################################
@@ -235,7 +236,7 @@ function run_new(;physical_model_name="",
         steadystate = unknowns(sys)
         phi_steady = parameters.phi_eq + EIS_bias
         
-        excited_spec=iphi
+        excited_spec=index_driving_species
         excited_bc=1
         excited_bcval=phi_steady
         
@@ -254,7 +255,7 @@ function run_new(;physical_model_name="",
               try
                 
                 #@show phi_ramp
-                sys.boundary_values[iphi,1] = phi_ramp
+                sys.boundary_values[excited_spec,1] = phi_ramp
                 solve!(steadystate, steadystate_old, sys, control=control)
                 steadystate_old .= steadystate
                 
@@ -543,7 +544,7 @@ function run_new(;physical_model_name="",
             
             
             # tstep to potential phi
-            sys.boundary_values[iphi,1]=phi
+            sys.boundary_values[index_driving_species,1]=phi
             solve!(U, U0, sys, control=control, tstep=tstep)
             
             # Transient part of measurement functional
