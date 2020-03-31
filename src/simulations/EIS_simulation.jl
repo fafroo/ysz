@@ -6,6 +6,7 @@ using PyPlot
 
 const EIS_standard_figure_num = 6
 
+include("../DRT.jl")
 
 
 ######################################
@@ -16,7 +17,7 @@ mutable struct EIS_simulation <: abstract_simulation
   bias::Float64
   #
   dx_exp::Float64
-  omega_range::Tuple
+  f_range::Tuple
   fig_size::Tuple 
   #
   checknodes::Any
@@ -32,7 +33,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, omega_range=EIS_get_shared_omega_range(), fig_size=(9, 6))
+function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_range(), fig_size=(9, 6))
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -44,7 +45,7 @@ function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, omega_range=EIS_get_shared
         this.bias = bias_item
         #
         this.dx_exp = dx_exp
-        this.omega_range = omega_range
+        this.f_range = f_range
         this.fig_size = fig_size
         #
         this.checknodes = get_shared_checknodes(this)
@@ -63,14 +64,14 @@ end
 #######################################
 # potentially changable stuff #########
 
-function EIS_get_shared_omega_range()
+function EIS_get_shared_f_range()
     # experimental range is 0.1 - 65000 Hz
-    # omegas = (w0, w1, w_fac)
-    return omega_range = (1.1, 51000, 1.2)
+    # fs = (w0, w1, w_fac)
+    return f_range = (1.1, 65000, 1.2)
 end
   
 function get_shared_checknodes(SIM::EIS_simulation)
-    return EIS_get_checknodes_geometrical(EIS_get_shared_omega_range()...)
+    return EIS_get_checknodes_geometrical(EIS_get_shared_f_range()...)
 end
 
 function setting_legend(SIM::EIS_simulation; latex=true)
@@ -81,6 +82,9 @@ function setting_legend(SIM::EIS_simulation; latex=true)
   end
 end
 
+# function typical_plot(SIM::EIS_simulation, EIS_df, additional_string, line_style)
+# 
+# end
 
 function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
   if to_standard_figure
@@ -88,7 +92,7 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
   end
   my_label = "sim $(setting_legend(SIM))$(additional_string)"
 
-  s1 = subplot(121)
+  s1 = subplot(221)
   title("Nyquist plot")
   xlabel("Re\$(Z) \\ [\\Omega]\$")
   ylabel("-Im\$(Z) \\ [\\Omega]\$")
@@ -101,18 +105,24 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
   grid(true)
   s1.set_aspect(1.0)
   
-  
-  s2 = subplot(222)
+  s2 = subplot(322)
   title("Bode plot - Re")
   #xlabel("log f \$(\$Hz\$)\$")
   ylabel("Re\$(Z) \\ [\\Omega]\$")
   plot(log10.(EIS_df.f), real(EIS_df.Z), "x-", label = my_label)
     
-  s3 = subplot(224)
+  s3 = subplot(324)
   title("Bode plot - Im")
   xlabel("log f \$(\$Hz\$)\$")
   ylabel("-Im\$(Z) \\ [\\Omega]\$")
   plot(log10.(EIS_df.f), -imag(EIS_df.Z), "x-", label = my_label)
+  
+    
+  s4 = subplot(313)
+  DRT_actual = get_DRT(EIS_df, 0.01)
+  plot_DRT(DRT_actual, false)
+  
+  plt.subplots_adjust(bottom=0.07, top=0.95)
 end
 
 function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
@@ -121,7 +131,7 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
   end
   my_label = "exp $(setting_legend(SIM))$(additional_string)"
 
-  s1 = subplot(121)
+  s1 = subplot(221)
   title("Nyquist plot")
   xlabel("Re\$(Z) \\ [\\Omega]\$")
   ylabel("-Im\$(Z) \\ [\\Omega]\$")
@@ -134,18 +144,23 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
   grid(true)
   s1.set_aspect(1.0)
   
-  
-  s2 = subplot(222)
+  s2 = subplot(322)
   title("Bode plot - Re")
   #xlabel("log f \$(\$Hz\$)\$")
   ylabel("Re\$(Z) \\ [\\Omega]\$")
   plot(log10.(EIS_df.f), real(EIS_df.Z), "x:", label = my_label)
     
-  s3 = subplot(224)
+  s3 = subplot(324)
   title("Bode plot - Im")
   xlabel("log f \$(\$Hz\$)\$")
   ylabel("-Im\$(Z) \\ [\\Omega]\$")
   plot(log10.(EIS_df.f), -imag(EIS_df.Z), "x:", label = my_label)
+  
+  s4 = subplot(313)
+  DRT_actual = get_DRT(EIS_df, 0.01)
+  plot_DRT(DRT_actual, false)
+  
+  plt.subplots_adjust(bottom=0.07, top=0.95)
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
@@ -197,7 +212,7 @@ end
 
 function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_in, pyplot::Int=0)
   EIS_df = ysz_experiments.run_new(
-      pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=SIM.bias, omega_range=SIM.omega_range,
+      pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, EIS_bias=SIM.bias, f_range=SIM.f_range,
       dx_exp=SIM.dx_exp,
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
       prms_names_in=prms_names_in,
@@ -209,8 +224,8 @@ function import_data_to_DataFrame(SIM::EIS_simulation)
   import_EIStoDataFrame(TC=SIM.TC, pO2=SIM.pO2, bias=SIM.bias)
 end
 
-function EIS_test_checknodes_range(omega_range=EIS_get_shared_omega_range())
-  Nyquist_plot(EIS_apply_checknodes(import_EIStoDataFrame(TC=800,pO2=100,bias=0.0),EIS_get_checknodes_geometrical(omega_range...)))
+function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
+  Nyquist_plot(apply_checknodes(EIS_simulation(), import_EIStoDataFrame(TC=800,pO2=100,bias=0.0),EIS_get_checknodes_geometrical(f_range...)))
 end
 
 
@@ -220,8 +235,9 @@ function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes
       for pO2 in pO2_list
         for bias in bias_list
           if use_checknodes
-            checknodes =  EIS_get_shared_checknodes()
-            EIS_exp = EIS_apply_checknodes(import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias), checknodes)
+            SIM = EIS_simulation()
+            checknodes =  get_shared_checknodes(SIM)
+            EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias), checknodes)
           else
             EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias)
           end

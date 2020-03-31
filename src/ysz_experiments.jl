@@ -72,7 +72,7 @@ function run_new(;physical_model_name="",
                 prms_names_in=[],
                 prms_values_in=[],
                 #
-                EIS_IS=false,  EIS_bias=0.0, omega_range=(0.9, 1.0e+5, 1.1),
+                EIS_IS=false,  EIS_bias=0.0, f_range=(0.9, 1.0e+5, 1.1),
                 #
                 voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, checknodes=[],
                 #
@@ -296,10 +296,10 @@ function run_new(;physical_model_name="",
         z_freqdomain=zeros(Complex{Float64},0)
         all_w=zeros(0)
 
-        w = omega_range[1]
+        w = 2*pi*f_range[1]
 
         # Frequency loop
-        while w < omega_range[2]
+        while w < 2*pi*f_range[2]
             print_bool && @show w
             push!(all_w,w)
             if EIS_IS
@@ -324,7 +324,7 @@ function run_new(;physical_model_name="",
             # growth factor such that there are 10 points in every order of magnitude
             # (which is consistent with "freq" list below)
             #w=w*1.25892           
-            w = w*omega_range[3]
+            w = w*f_range[3]
         end
 
 
@@ -382,7 +382,7 @@ function run_new(;physical_model_name="",
         end
         
         if out_df_bool
-            EIS_df = DataFrame(f = all_w, Z = z_freqdomain)
+            EIS_df = DataFrame(f = all_w/(2*pi), Z = z_freqdomain)
             return EIS_df
         end
     end

@@ -214,6 +214,41 @@ end
 ###########################################################
 
 
+
+
+###########################################################
+###########################################################
+####     D R T     ########################################
+###########################################################
+###########################################################
+
+function test_DRT(;lambda=0.0, TC=800, pO2=80, R=0, C=1)
+#   EIS_df = ysz_fitting.simple_run(TC=TC, pO2=pO2, simulations=["EIS"], pyplot=1, 
+#        prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"], 
+#        prms_values=[0, 0, 0,      20.0, 22, 20.0,        0.0, 0.0, 0.0,     9.05e-13], use_experiment=false)
+#  EIS_df = EIS_get_and_plot_RC_element(R, C, 10)
+  
+  SIM = EIS_simulation(TC, pO2, 0.0)[1]
+  EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
+  typical_plot_exp(SIM, EIS_df)
+  
+  DRT_actual = get_DRT(EIS_df, lambda)
+  println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
+  #println(DRT_actual)
+  plot_DRT(DRT_actual)
+  typical_plot_sim(EIS_simulation(800, 80, 0.0)..., DRT_actual.EIS_df, "DRT")
+  
+#   DRT_new = get_DRT(DRT_actual.EIS_df, lambda)
+#   println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_new.EIS_df, EIS_df))
+#   #println(DRT_new)
+#   plot_DRT(DRT_new)
+#   typical_plot_sim(EIS_simulation(800, 80, 0.0)..., DRT_new.EIS_df, "DRT new")
+  
+    
+  return DRT_actual
+end
+
+
 ###########################################################
 ###########################################################
 #### Working space ########################################
@@ -539,15 +574,12 @@ function meta_run_par_study()
   #bash_command = "echo"
   bash_command = "julia"
   
-  mode = "test_one_prms"
+  #mode = "test_one_prms"
   #mode = "only_print"
-  #mode = "go"
+  mode = "go"
   
   express3_bool = true
 
-  
-  #######################################################
-  #######################################################
   if express3_bool
     run_file_name = "../snehurka/run_EX3_ysz_fitting_par_study-prms-.jl"
   else

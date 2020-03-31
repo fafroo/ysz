@@ -126,7 +126,7 @@ function YSZParameters(this)
     this.SO= 10^0.0
     this.expO=0
     
-    this.L=1.45e-5
+    this.L=2.3560245927364395e-6
     
     # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
     this.OC = 1/4
