@@ -23,6 +23,8 @@ const bulk_species = (iphi, iy) = (1, 2)
 const surface_species = (iyAs, iyOs) = (3, 4)
 const surface_names = ("yAs", "yOs")
 
+const index_driving_species = iphi
+
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
 
     # adsorption from YSZ
@@ -124,7 +126,7 @@ function YSZParameters(this)
     this.SO= 10^0.0
     this.expO=0
     
-    this.L=1.45e-5
+    this.L=2.3560245927364395e-6
     
     # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
     this.OC = 1/4

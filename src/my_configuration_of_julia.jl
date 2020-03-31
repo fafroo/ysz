@@ -21,3 +21,6 @@ Pkg.add("PyPlot")
 Pkg.add("DataFrames")
 Pkg.add("CSV")
 Pkg.add("LeastSquaresOptim")
+
+# for NNLS
+Pkg.add("MathProgBase")

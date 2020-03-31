@@ -120,7 +120,7 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
   if test
     test_result = 0
   end
-  
+  res = DataFrame()
   for SIM in SIM_list
   
     function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
@@ -144,6 +144,11 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
           plot_prms_string = " $(string(plot_names)) = $(plot_values)"
         end
         SIM_sim = apply_checknodes(SIM, SIM_raw, SIM.checknodes)
+        
+        ## TODO !!!
+        res = SIM_sim
+        ###
+        
         if pyplot > 0
             typical_plot_sim(SIM, SIM_sim, plot_prms_string)
         end  
@@ -189,7 +194,7 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
   if test
     return test_result
   else
-    return
+    return res
   end
 end
 
@@ -211,6 +216,88 @@ end
 
 
 
+###########################################################
+###########################################################
+####     D R T     ########################################
+###########################################################
+###########################################################
+
+function test_DRT(;lambda=0.0, TC=800, pO2=80, R=0, C=1)
+#   EIS_df = ysz_fitting.simple_run(TC=TC, pO2=pO2, simulations=["EIS"], pyplot=1, 
+#        prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"], 
+#        prms_values=[0, 0, 0,      20.0, 22, 20.0,        0.0, 0.0, 0.0,     9.05e-13], use_experiment=false)
+#  EIS_df = EIS_get_and_plot_RC_element(R, C, 10)
+  
+  SIM = EIS_simulation(TC, pO2, 0.0)[1]
+  EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
+  typical_plot_exp(SIM, EIS_df)
+  
+  DRT_actual = get_DRT(EIS_df, lambda)
+  println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
+  #println(DRT_actual)
+  plot_DRT(DRT_actual)
+  typical_plot_sim(EIS_simulation(800, 80, 0.0)..., DRT_actual.EIS_df, "DRT")
+  
+#   DRT_new = get_DRT(DRT_actual.EIS_df, lambda)
+#   println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_new.EIS_df, EIS_df))
+#   #println(DRT_new)
+#   plot_DRT(DRT_new)
+#   typical_plot_sim(EIS_simulation(800, 80, 0.0)..., DRT_new.EIS_df, "DRT new")
+  
+    
+  return DRT_actual
+end
+
+
+###########################################################
+###########################################################
+#### Working space ########################################
+###########################################################
+###########################################################
+
+
+function EIS_get_RC_parameters(EIS_df::DataFrame)
+  lowest_f = Inf
+  lowest_Re = 0
+  lowest_Im = 0
+  right = -Inf
+  left = Inf
+  for (i, Z) in enumerate(EIS_df.Z)
+    if real(Z) > right
+      right = real(Z)
+    end
+    if real(Z) < left
+      left = real(Z)
+    end
+    if imag(Z) < lowest_Im
+      #@show imag(Z)
+      #@show lowest_Im
+      lowest_f = EIS_df.f[i]
+      lowest_Re = real(Z)
+      lowest_Im = imag(Z)
+    end
+  end
+  R =  right - left
+  Rohm = left
+  omega = (2*pi)*lowest_f
+  # tau = R*C = 1/omega
+  # C = 1 / (omega * R)
+  @show omega
+  @show R
+  #@show lowest_Re
+  C = 1/(omega*R)
+  @show C
+  return R, C, Rohm
+end
+
+function EIS_get_and_plot_RC_element(R, C, Rohm=0)
+  EIS_RC = DataFrame( f = [], Z = [])
+  for f in get_shared_checknodes(EIS_simulation(800,100,0.0)...)
+    push!(EIS_RC, (f, Rohm + R/(1 + im*2*pi*f*R*C)))
+  end
+  typical_plot_sim(EIS_simulation(800,100,0.0)..., EIS_RC, "RC_elem")
+  return EIS_RC
+end
 
 
 
@@ -491,7 +578,13 @@ function meta_run_par_study()
   #mode = "only_print"
   mode = "go"
   
-  run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
+  express3_bool = true
+
+  if express3_bool
+    run_file_name = "../snehurka/run_EX3_ysz_fitting_par_study-prms-.jl"
+  else
+    run_file_name = "../snehurka/run_ysz_fitting_par_study-prms-.jl"
+  end
   #######################################################
   ####################################################### 
   #######################################################
