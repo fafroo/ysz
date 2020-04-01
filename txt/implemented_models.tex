@@ -3,13 +3,14 @@
 \usepackage[usenames,dvipsnames]{xcolor} %monochrome option to ignore red, blue etc
 \usepackage{amsmath,amssymb,graphicx, cancel, supertabular, booktabs, mathtools}
 \usepackage{tikz}
-\usepackage{siunitx, mhchem, comment}
+\usepackage{siunitx, , comment}
+\usepackage[version=4]{mhchem}
 %, stmaryrd}
 \usepackage{bm}         % bold math fonts with \bm{}
 \usepackage[font=small,labelfont=bf]{caption} % Required for specifying captions to tables and figures
 \usepackage{pgfplotstable}
 \usepackage{pgfplots}
-\pgfplotsset{compat=1.9}
+\pgfplotsset{compat=1.13}
 %\usepackage{lipsum}
 %\frenchspacing
 % bibliography
@@ -58,7 +59,7 @@
 \def\Oi{\mathrm{Oi}}
 \def\Zr{\mathrm{Zr}}
 \def\Yi{\mathrm{Y }}
-\def\OO{\mathrm{O}_2}
+\newcommand{\OO}{{\ce{O2}}}
 
 \def\Mp{\mathrm{M^+}}
 \def\eM{\mathrm{e^-}}
@@ -78,6 +79,7 @@
 \def\aL{a_\mathrm{L}}
 
 \def\ys{\us y}
+\newcommand{\ysV}{\us y_{\textrm{V}}}
 \def\y0{y(0)}
 \def\yOs{\us y_\textrm{O}}
 \def\pO2{p\OO}
@@ -327,9 +329,9 @@ m_\Ox
 \section{Other variants}
 Only regarding surface:
 
-\def\surf{\mathrm{s}}
-\def\Y{\mathrm{Y}}
-\def\gas{\mathrm{g}}
+\newcommand{\surf}{\mathrm{s}}
+\newcommand{\Y}{\mathrm{Y}}
+\newcommand{\gas}{\mathrm{g}}
 \subsection{model\_ysz\_GAS\_exp\_ads}
 Model including adsorbtion of oxygen $\mathrm{O}_2(g)$ from gas to the surface. All kinetics are exponential-like. The complete reaction mechanism reads
 \begin{subequations}
@@ -349,9 +351,9 @@ Model including adsorbtion of oxygen $\mathrm{O}_2(g)$ from gas to the surface. 
 Chemical potentials reads
 \begin{subequations}
 \begin{align}
-\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{m_\Ox^2}\ln 
+\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{2 m_\Ox}\ln 
 \left( 
-	\pO2 
+    \frac{\pO2}{p^\REF} 
 \right)
 \\
 \mu_{\us \Ox} 
@@ -508,4 +510,192 @@ The equilibrium condition is
 \right).
 \end{align}
 \end{subequations}
+
+\subsection{\texttt{model\_ysz\_shared\_vac.jl}}
+Free energy density
+\begin{align}
+    \us\rho\psi = 
+              \rho\psi^\REF_\Om
+            + \rho\psi^\REF_\OO
+            + \rho\psi^\REF_\eM
+            + \frac{\kB T}{\aL}\us m(1-\us\nu) 
+            \left( 
+                \ys   \log {\ys} 
+                +\yOs  \log {\yOs}
+                +\ysV  \log {\ysV}
+            \right)
+    \label{}
+\end{align}
+where $\ysV = 1 - \ys + \yOs$.
+Chemical potentials read
+\begin{subequations}
+\begin{align}
+\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{2 m_\Ox}\ln 
+\left( 
+    \frac{p_\OO}{p^\REF} 
+\right)~,
+\\
+\us\mu_{\Om} 
+&= 
+\us \psi_{\Om}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln 
+\left(  
+	\frac{\ys}{1-\ys - \yOs}
+\right)~,
+\\
+\us\mu_{\Ox} 
+&= 
+\us \psi_{\Ox}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln 
+\left(  
+	\frac{\yOs}{1-\ys - \yOs}
+\right).
+\end{align}
+\end{subequations}
+The surface system reads
+\begin{subequations}
+\begin{align}
+ \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \ys
+&=
+m_\Ox \us A
++
+m_\Ox \us R~,
+\\
+ \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \yOs
+&=
+2 m_\Ox \us O
+-
+m_\Ox \us R,
+\end{align}
+\end{subequations}
+with
+\begin{subequations}
+\begin{align}
+&\us A
+=
+\frac{\A0}{\SA}
+\Bigg[
+	\exp
+	\left(
+		{-\betaA \SA \frac{\DGA}{\kB T}}
+	\right)
+	\left(
+		\frac{1 - \y0}{\y0}
+		\frac{\ys}{1-\ys -\yOs}
+	\right)^{-\betaA \SA}
+\\ \nonumber
+	&\quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1-\betaA) \SA \frac{\DGA}{\kB T}}
+	\right)
+	\left(
+		\frac{1 - \y0 }{\y0}
+		\frac{\ys}{1-\ys-\yOs}
+	\right)^{(1-\betaA) \SA}
+\Bigg],
+\\ \nonumber
+\\
+&\us R
+=
+\frac{\R0}{\SR}
+\Bigg[
+	\exp
+	\left(
+		{-\betaR \SR \frac{\DGR}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{1- \ys - \yOs}
+		\frac{1 -\ys -\yOs}{\yOs}
+	\right)^{-\betaR \SR}
+\\ \nonumber
+	& \quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1 - \betaR) \SR \frac{\DGR}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{1- \ys - \yOs}
+		\frac{1-\yOs - \ys}{\yOs}
+	\right)^{(1-\betaR) \SR}
+\Bigg],
+\\ \nonumber
+\\
+&\us O
+=
+\frac{\K0}{\SO}
+\Bigg[
+	\exp
+	\left(
+		{-\betaO \SO \frac{\DGO}{\kB T}}
+	\right)
+	\left(
+		\left(
+			\frac{\yOs}{1-\ys-\yOs}
+		\right)^2
+		\frac{1}{\pO2}
+	\right)^{-\betaO \SO}
+\\ \nonumber
+	&\quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1-\betaO) \SO \frac{\DGO}{\kB T}}
+	\right)
+	\left(
+		\left(
+			\frac{\yOs}{1-\ys-\yOs}
+		\right)^2
+		\frac{1}{\pO2}
+	\right)^{(1 - \betaO) \SO}
+\Bigg],
+\end{align}
+\end{subequations}
+and we define
+\begin{subequations}
+\begin{align}
+\DGA
+&=
+m_\Ox
+\left(
+	\psi_{\textrm{Om}}^\REF
+	-
+	\us \psi_{\textrm{Om}}^\REF
+\right)
+\\
+\DGR
+&= 
+m_\Ox
+\left(
+	\us \psi_{\textrm{Om}}^\REF
+	-
+	\frac{\us \psi_{\Ox}^\REF}{2}
+\right)
+-
+2 m_\textrm{e} \psi_{\textrm{e}}^\REF.
+\\
+\DGO
+&= 
+m_\Ox
+\left(
+	\us \psi_{\Ox}^\REF
+	-
+	2 \psi_{\OO}^\REF
+\right).
+\end{align}
+\end{subequations}
+The equilibrium condition is
+\begin{subequations}
+\begin{align}
+\frac{\y0^\eq}{1-\y0^\eq} = \sqrt{\pO2} \ \textrm{exp}
+\left(
+	\frac{\DGA - \DGR - \frac{\DGO}{2}}{\kB T}
+\right).
+\end{align}
+\end{subequations}
+
 \end{document}
