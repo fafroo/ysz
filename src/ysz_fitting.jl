@@ -248,6 +248,41 @@ function test_DRT(;lambda=0.0, TC=800, pO2=80, R=0, C=1)
   return DRT_actual
 end
 
+using QuadGK
+
+function get_R_C_from_DRT()
+  function R_peak(tau, tau_c, h, sigma2, alpha)
+    return h*exp.(
+      -(
+        ((tau .- tau_c).*(1 .+ alpha*sign.(tau .- tau_c))).^2.0
+      )/
+      (2*sigma2)
+    )
+  end
+  
+  function inte(x)
+    R_peak(x, 0, 10, 1, 0.1)
+  end
+  
+  tau_range = collect(-10 : 0.001 : 10)
+  
+  to_fit = inte(tau_range)
+  plot(tau_range, to_fit)
+  #quadgk(inte, -5, 5)
+
+  
+  function to_optimize(x)
+    res = sqrt(norm(to_fit - R_peak(tau_range, x...)))
+    @show res, x
+    res
+  end
+  
+  x_0 = [0., 1., 1., 0.]
+  #to_optimize(x_0)
+  a = optimize(to_optimize, x_0,  f_tol=1.0e-14, g_tol=1.0e-14, LevenbergMarquardt())
+  return a
+end
+
 
 ###########################################################
 ###########################################################

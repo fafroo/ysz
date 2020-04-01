@@ -91,7 +91,7 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
   
   if lambda != 0.0
     # assemble "regularization" part of A and b
-    A[2*N_f + 1 : end, :] .= diagm(n_cols, n_cols, [lambda for i in 1:n_cols])
+    A[2*N_f + 1 : end, :] .= Diagonal([lambda for i in 1:n_cols])
     b[2*N_f + 1 : end] .= 0
   end
   
