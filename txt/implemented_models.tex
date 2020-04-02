@@ -88,17 +88,25 @@
 \def\pO2{p\OO}
 
 \def\A0{A_0}
+\def\B0{B_0}
+\def\C0{C_0}
 \def\R0{R_0}
 \def\K0{O_0}
 \def\DGA{\Delta G_\textrm{A}  }
+\def\DGB{\Delta G_\textrm{B}  }
+\def\DGC{\Delta G_\textrm{C}  }
 \def\DGR{\Delta G_\textrm{R}  }
 \def\DGO{\Delta G_\textrm{O}  }
-\def\betaA{\beta_A}
-\def\betaR{\beta_R}
-\def\betaO{\beta_O}
-\def\SA{S_A}
-\def\SR{S_R}
-\def\SO{S_O}
+\def\betaA{\beta_\textrm{A}}
+\def\betaB{\beta_\textrm{B}}
+\def\betaC{\beta_\textrm{C}}
+\def\betaR{\beta_\textrm{R}}
+\def\betaO{\beta_\textrm{O}}
+\def\SA{S_\textrm{A}}
+\def\SB{S_\textrm{B}}
+\def\SC{S_\textrm{C}}
+\def\SR{S_\textrm{R}}
+\def\SO{S_\textrm{O}}
 
 
 \def\eq{\textrm{eq}}
@@ -336,7 +344,7 @@ Only regarding surface:
 \newcommand{\Y}{\mathrm{Y}}
 \newcommand{\gas}{\mathrm{g}}
 \subsection{model\_ysz\_GAS\_exp\_ads}
-Model including adsorbtion of oxygen $\mathrm{O}_2(g)$ from gas to the surface. All kinetics are exponential-like. The complete reaction mechanism reads
+Model including adsorption of oxygen \ce{O2(g)} from gas to the surface. All kinetics are exponential-like. The complete reaction mechanism reads
 \begin{subequations}
 \begin{align}
 \mathrm{Oxide \ anion \ adorption \ from \ YSZ} \ (A) &: \quad 
@@ -703,14 +711,17 @@ The equilibrium condition is
 
 \subsection{\texttt{model\_ysz\_shared\_vac\_twostep.jl}}
 \begin{subequations}
-\begin{align}
+ \begin{align}
 \text{Oxide anion adsorption from YSZ (\textbf{A})}  \ &: \quad 
-\ce{O^{2-}(Y) <=> O^{2-}(s)}
+\ce{O^{2-}(s) <=> O^{2-}(b)}
 \\
-\text{Electron transfer reaction (\textbf{R1})}   &: \quad 
+\text{Electron transfer reaction (\textbf{R})}   &: \quad 
+\ce{O(s) +  2e^-(s) <=> O^{2-}(s)}
+\\
+\text{Electron transfer reaction (\textbf{B})}   &: \quad 
 \ce{O(s) +  e^-(s) <=> O^{-}(s)}
 \\
-\text{Electron transfer reaction (\textbf{R2})}  &: \quad 
+\text{Electron transfer reaction (\textbf{C})}  &: \quad 
 \ce{O^-(s) +  e^-(s) <=> O^{2-}(s)}
 \\
 \text{Oxygen adsorption from gas (\textbf{O})}   &: \quad 
@@ -776,21 +787,29 @@ The surface system reads
 \begin{align}
  \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \ys
 &=
-m_\Ox \us A
-+
-m_\Ox \us R^2~,
+m_\Ox
+\left(
+    - \us A
+    +\us R
+    +\us C
+\right)~,
 \\
  \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \yOs
 &=
-2 m_\Ox \us O
--
-m_\Ox \us R^1,
+m_\Ox
+\left(
+      \us O
+     -\us R 
+     -\us B
+\right)~,
 \\
 \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \yOmin
 &=
-m_\Ox \us R^1
--
-m_\Ox \us R^2,
+m_\Ox 
+\left(
+    \us B 
+   -\us C
+\right)~,
 \end{align}
 \end{subequations}
 with
@@ -805,7 +824,7 @@ with
 		{-\betaA \SA \frac{\DGA}{\kB T}}
 	\right)
 	\left(
-		\frac{1 - \y0}{\y0}
+		\frac{\y0}{1 - \y0}
 		\frac{\ys}{\ysV}
 	\right)^{-\betaA \SA}
 \\ \nonumber
@@ -816,57 +835,81 @@ with
 		{(1-\betaA) \SA \frac{\DGA}{\kB T}}
 	\right)
 	\left(
-		\frac{1 - \y0 }{\y0}
+		\frac{\y0}{1 - \y0 }
 		\frac{\ys}{\ysV}
 	\right)^{(1-\betaA) \SA}
 \Bigg],
 \\ \nonumber
 \\
-&\us R^1
+&\us R
 =
-\frac{\R0^1}{\SR^1}
+\frac{\R0}{\SR}
 \Bigg[
 	\exp
 	\left(
-		{-\betaR^1 \SR^1 \frac{\DGR^1}{\kB T}}
+		{-\betaR \SR \frac{\DGR}{\kB T}}
 	\right)
 	\left(
-		\frac{\yOmin}{\yOs}
-	\right)^{-\betaR^1 \SR^1}
+		\frac{\ys}{\yOs}
+	\right)^{-\betaR \SR}
 \\ \nonumber
 	& \quad \quad \quad \quad	
 	-
 	\exp
 	\left(
-		{(1 - \betaR^1) \SR^1 \frac{\DGR^1}{\kB T}}
+		{(1 - \betaR) \SR \frac{\DGR}{\kB T}}
 	\right)
 	\left(
-		\frac{\yOmin}{\yOs}
-	\right)^{(1-\betaR^1) \SR^1}
+		\frac{\ys}{\yOs}
+	\right)^{(1-\betaR) \SR}
 \Bigg],
 \\ \nonumber
 \\
-&\us R^2
+&\us B
 =
-\frac{\R0^2}{\SR^2}
+\frac{\B0}{\SB}
 \Bigg[
 	\exp
 	\left(
-		{-\betaR^2 \SR^2 \frac{\DGR^2}{\kB T}}
+		{-\betaB \SB \frac{\DGB}{\kB T}}
 	\right)
 	\left(
-		\frac{\ys}{\yOmin}
-	\right)^{-\betaR^2 \SR^2}
+		\frac{\yOmin}{\yOs}
+	\right)^{-\betaB \SB}
 \\ \nonumber
 	& \quad \quad \quad \quad	
 	-
 	\exp
 	\left(
-		{(1 - \betaR^2) \SR^2 \frac{\DGR^2}{\kB T}}
+		{(1 - \betaB) \SB \frac{\DGB}{\kB T}}
+	\right)
+	\left(
+		\frac{\yOmin}{\yOs}
+	\right)^{(1-\betaB) \SB}
+\Bigg],
+\\ \nonumber
+\\
+&\us C
+=
+\frac{\C0}{\SC}
+\Bigg[
+	\exp
+	\left(
+		{-\betaC \SC \frac{\DGC}{\kB T}}
 	\right)
 	\left(
 		\frac{\ys}{\yOmin}
-	\right)^{(1-\betaR^2) \SR^2}
+	\right)^{-\betaC \SC}
+\\ \nonumber
+	& \quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1 - \betaC) \SC \frac{\DGC}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{\yOmin}
+	\right)^{(1-\betaC) \SC}
 \Bigg],
 \\ \nonumber
 \\
@@ -912,7 +955,17 @@ m_\Ox
 	\us \psi_{\textrm{Om}}^\REF
 \right)
 \\
-\DGR^1
+\DGR
+&= 
+m_\Ox
+\left(
+	\us \psi_\Om^\REF
+	-
+	\us \psi_\Ox^\REF
+\right)
+-
+2m_\eM \psi_\eM^\REF= \DGB + \DGC~,
+\\\DGB
 &= 
 m_\Ox
 \left(
@@ -921,9 +974,9 @@ m_\Ox
 	\us \psi_\Ox^\REF
 \right)
 -
-m_\eM \psi_\eM^\REF.
+m_\eM \psi_\eM^\REF~,
 \\
-\DGR^2
+\DGC
 &= 
 m_\Ox
 \left(
@@ -932,7 +985,7 @@ m_\Ox
 	\us \psi_\Omin^\REF
 \right)
 -
-m_\eM \psi_\eM^\REF.
+m_\eM \psi_\eM^\REF~,
 \\
 \DGO
 &= 
@@ -949,16 +1002,18 @@ The equilibrium condition is
 \begin{align}
     \frac{\y0^\eq}{1-\y0^\eq} = \sqrt{\frac{p_\OO}{p^\REF}} \exp
 \left(
-	\frac{\DGA - \DGR^1 - \DGR^2 - \frac{\DGO}{2}}{\kB T}
-\right).
+	\frac{-\DGA - \DGB - \DGC - \frac{\DGO}{2}}{\kB T}
+\right)~.
 \end{align}
 \end{subequations}
 
 The current formula updates to
 \begin{align}
-    \frac{I}{A} &= - e_0  z_\Om \underbrace{R^{\textrm{A}}}_{\mathclap{\mathbf{j}_\Om\nu|_S}}
+    \frac{I}{A} &= - e_0  z_\Om \underbrace{\us A}_{\mathclap{\mathbf{j}_\Om\nu|_S}}
                      - \int_S^B \frac{\dd}{\dd t} n^F
                      +\varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_B 
     \label{}
 \end{align}
+\subsection{Law of Mass Action}
+
 \end{document}
