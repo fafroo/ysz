@@ -107,7 +107,11 @@
 \def\SC{S_\textrm{C}}
 \def\SR{S_\textrm{R}}
 \def\SO{S_\textrm{O}}
-
+\newcommand{\kaA}{{\kappa_\textrm{A}}}
+\newcommand{\kaB}{{\kappa_\textrm{B}}}
+\newcommand{\kaC}{{\kappa_\textrm{C}}}
+\newcommand{\kaR}{{\kappa_\textrm{R}}}
+\newcommand{\kaO}{{\kappa_\textrm{O}}}
 
 \def\eq{\textrm{eq}}
 \def\REF{\textrm{ref}}
@@ -713,7 +717,7 @@ The equilibrium condition is
 \begin{subequations}
  \begin{align}
 \text{Oxide anion adsorption from YSZ (\textbf{A})}  \ &: \quad 
-\ce{O^{2-}(s) <=> O^{2-}(b)}
+\ce{O^{2-}(s) + (b) <=> O^{2-}(b) + (s)}
 \\
 \text{Electron transfer reaction (\textbf{R})}   &: \quad 
 \ce{O(s) +  2e^-(s) <=> O^{2-}(s)}
@@ -725,7 +729,7 @@ The equilibrium condition is
 \ce{O^-(s) +  e^-(s) <=> O^{2-}(s)}
 \\
 \text{Oxygen adsorption from gas (\textbf{O})}   &: \quad 
-\ce{O2(g) <=> 2O(s)}
+\ce{O2(g) + 2(s) <=> 2O(s)}
 \end{align}
 \end{subequations}
 Free energy density
@@ -818,6 +822,9 @@ with
 &\us A
 =
 \frac{\A0}{\SA}
+\left[
+    y(0) (1-y(0)) \ys \ysV  
+\right]^\kaA
 \Bigg[
 	\exp
 	\left(
@@ -844,6 +851,9 @@ with
 &\us R
 =
 \frac{\R0}{\SR}
+\left[
+  \ys \yOs 
+\right]^\kaR
 \Bigg[
 	\exp
 	\left(
@@ -868,6 +878,9 @@ with
 &\us B
 =
 \frac{\B0}{\SB}
+\left[
+  \yOmin \yOs 
+\right]^\kaB
 \Bigg[
 	\exp
 	\left(
@@ -892,6 +905,9 @@ with
 &\us C
 =
 \frac{\C0}{\SC}
+\left[
+  \yOmin \ys 
+\right]^\kaC
 \Bigg[
 	\exp
 	\left(
@@ -916,6 +932,9 @@ with
 &\us O
 =
 \frac{\K0}{\SO}
+\left[
+    \yOs^2 \ysV^2 \frac{p_\OO}{p^\REF}
+\right]^\kaO
 \Bigg[
 	\exp
 	\left(
@@ -1015,5 +1034,28 @@ The current formula updates to
     \label{}
 \end{align}
 \subsection{Law of Mass Action}
-
+Is it possible to express the vacancy coverage in terms of activities $a_\alpha$?
+Assume
+\begin{align}
+    \mu_\alpha = \mu_\alpha^\REF + \kB T\underbrace{
+      \ln \frac{\us y_\alpha}
+               {\underbrace{1-\sum_\beta \us y_\beta}_{=:\ysV}}
+    }_{\ln a_\alpha}
+    \label{}
+\end{align}
+then
+\begin{align}
+    \sum_\alpha a_\alpha = \frac{1-\ysV}{\ysV} \implies \ysV = \frac{1}{1 + \sum_\alpha a_\alpha}~.
+    \label{}
+\end{align}
+hence
+\begin{align}
+    \us y_\alpha = \frac{a_\alpha}{1+ \sum_\beta a_\beta}\quad\mbox{and}\quad 1-\ysV = \frac{\sum_\alpha a_\alpha}{1+ \sum_\alpha a_\alpha}
+    \label{}
+\end{align}
+Especially, for the bulk case
+\begin{align}
+    y(0) = \frac{\frac{y(0)}{1-y(0)}}{1+\frac{y(0)}{1-y(0)}} \quad\mbox{and}\quad    1-y(0) = \frac{1}{1+\frac{y(0)}{1-y(0)}}
+    \label{}
+    \end{align}
 \end{document}
