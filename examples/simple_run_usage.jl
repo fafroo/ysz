@@ -79,3 +79,9 @@ prms_values=[      21.0, 20.0, 20.5,        0.7, 0.0, 0.0,     9.05e-13
 ysz_fitting.simple_run(TC=850, pO2=[0], simulations=["CAP", "CAP-CV"], pyplot=1, 
 prms_names=["A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"], 
 prms_values=[      21.0, 0.0, 20.5,        0.7, 0.0, 0.0,     9.05e-13], use_experiment=false)
+
+# example 7 - DRT analysis of two semi-circles
+ysz_fitting.simple_run(TC=850, pO2=[80], simulations=["EIS"], pyplot=1,  
+       prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu"     ], 
+       prms_values=[1, 1, 1,       19.7, 19.8, 18.2,        0.0, -0.8, -0.0,     [90]*1.0e-14, [0.85]     ], 
+       use_experiment=false);

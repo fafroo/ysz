@@ -23,6 +23,9 @@ mutable struct EIS_simulation <: abstract_simulation
   checknodes::Any
   fitness_factor::Float64
   #
+  use_DRT::Bool
+  DRT_lambda::Float64
+  #
   name::String
   ID::Int16
   
@@ -33,7 +36,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_range(), fig_size=(9, 6))
+function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_range(), fig_size=(9, 6), use_DRT=true, DRT_lambda=0.0)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -50,6 +53,9 @@ function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_r
         #
         this.checknodes = get_shared_checknodes(this)
         this.fitness_factor = 1.0
+        #
+        this.use_DRT = use_DRT
+        this.DRT_lambda = DRT_lambda
         #
         this.name = "EIS"
         this.ID = 2
@@ -90,7 +96,12 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
   if to_standard_figure
     figure(EIS_standard_figure_num, figsize=SIM.fig_size)
   end
-  my_label = "sim $(setting_legend(SIM))$(additional_string)"
+  
+  if length(additional_string)>0 && additional_string[1]=='!'
+    my_label = additional_string[2:end]
+  else
+    my_label = "sim $(setting_legend(SIM))$(additional_string)"
+  end
 
   s1 = subplot(221)
   title("Nyquist plot")
@@ -117,10 +128,24 @@ function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_
   ylabel("-Im\$(Z) \\ [\\Omega]\$")
   plot(log10.(EIS_df.f), -imag(EIS_df.Z), "x-", label = my_label)
   
+  
+  if SIM.use_DRT
+    DRT_actual = get_DRT(EIS_df, SIM.DRT_lambda)
     
-  s4 = subplot(313)
-  DRT_actual = get_DRT(EIS_df, 0.01)
-  plot_DRT(DRT_actual, false)
+    s4 = subplot(325)
+    plot_DRT_h(DRT_actual, false)
+    
+    s5 = subplot(326)
+    plot_DRT_RC(DRT_actual, false)
+  else
+    s4 = subplot(325)
+    plot([])
+    
+    s5 = subplot(326)
+    plot([])
+  end
+  
+  
   
   plt.subplots_adjust(bottom=0.07, top=0.95)
 end
@@ -129,8 +154,14 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
   if to_standard_figure
     figure(EIS_standard_figure_num, figsize=SIM.fig_size)
   end
-  my_label = "exp $(setting_legend(SIM))$(additional_string)"
-
+  
+  if length(additional_string)>0 && additional_string[1]=='!'
+    my_label = additional_string[2:end]
+  else
+    my_label = "exp $(setting_legend(SIM))$(additional_string)"
+  end
+ 
+  
   s1 = subplot(221)
   title("Nyquist plot")
   xlabel("Re\$(Z) \\ [\\Omega]\$")
@@ -156,9 +187,21 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
   ylabel("-Im\$(Z) \\ [\\Omega]\$")
   plot(log10.(EIS_df.f), -imag(EIS_df.Z), "x:", label = my_label)
   
-  s4 = subplot(313)
-  DRT_actual = get_DRT(EIS_df, 0.01)
-  plot_DRT(DRT_actual, false)
+  if SIM.use_DRT
+    DRT_actual = get_DRT(EIS_df, SIM.DRT_lambda)
+    
+    s4 = subplot(325)
+    plot_DRT_h(DRT_actual, false)
+    
+    s5 = subplot(326)
+    plot_DRT_RC(DRT_actual, false)
+  else
+    s4 = subplot(325)
+    plot([])
+    
+    s5 = subplot(326)
+    plot([])
+  end
   
   plt.subplots_adjust(bottom=0.07, top=0.95)
 end
@@ -230,7 +273,7 @@ end
 
 
 function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes=false, fig_num=12)    
-    figure(fig_num)
+    
     for TC in TC_list
       for pO2 in pO2_list
         for bias in bias_list
@@ -241,6 +284,7 @@ function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes
           else
             EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias)
           end
+          figure(fig_num)
           typical_plot_exp(EIS_simulation(TC, pO2, bias)..., EIS_exp, "", false)
         end
       end
