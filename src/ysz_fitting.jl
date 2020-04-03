@@ -75,7 +75,10 @@ using PyPlot
 #using Plots
 using DataFrames
 using LeastSquaresOptim
+<<<<<<< HEAD
 using Optim
+=======
+>>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 
 import Base.string
 
@@ -223,6 +226,7 @@ end
 ###########################################################
 ###########################################################
 
+<<<<<<< HEAD
 
 
 function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true)
@@ -257,12 +261,42 @@ end
 
 
 
+=======
+function test_DRT(;lambda=0.0, TC=800, pO2=80, R=0, C=1)
+#   EIS_df = ysz_fitting.simple_run(TC=TC, pO2=pO2, simulations=["EIS"], pyplot=1, 
+#        prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO", "DD"], 
+#        prms_values=[0, 0, 0,      20.0, 22, 20.0,        0.0, 0.0, 0.0,     9.05e-13], use_experiment=false)
+#  EIS_df = EIS_get_and_plot_RC_element(R, C, 10)
+  
+  SIM = EIS_simulation(TC, pO2, 0.0)[1]
+  EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
+  typical_plot_exp(SIM, EIS_df)
+  
+  DRT_actual = get_DRT(EIS_df, lambda)
+  println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
+  #println(DRT_actual)
+  plot_DRT(DRT_actual)
+  typical_plot_sim(EIS_simulation(800, 80, 0.0)..., DRT_actual.EIS_df, "DRT")
+  
+#   DRT_new = get_DRT(DRT_actual.EIS_df, lambda)
+#   println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_new.EIS_df, EIS_df))
+#   #println(DRT_new)
+#   plot_DRT(DRT_new)
+#   typical_plot_sim(EIS_simulation(800, 80, 0.0)..., DRT_new.EIS_df, "DRT new")
+  
+    
+  return DRT_actual
+end
+
+
+>>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 ###########################################################
 ###########################################################
 #### Working space ########################################
 ###########################################################
 ###########################################################
 
+<<<<<<< HEAD
 # function EIS_get_and_plot_RC_element(R, C, Rohm=0)
 #   EIS_RC = DataFrame( f = [], Z = [])
 #   for f in get_shared_checknodes(EIS_simulation(800,100,0.0)...)
@@ -281,6 +315,50 @@ function EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, Rohm=0)
     )
   end
   return EIS_RC  
+=======
+
+function EIS_get_RC_parameters(EIS_df::DataFrame)
+  lowest_f = Inf
+  lowest_Re = 0
+  lowest_Im = 0
+  right = -Inf
+  left = Inf
+  for (i, Z) in enumerate(EIS_df.Z)
+    if real(Z) > right
+      right = real(Z)
+    end
+    if real(Z) < left
+      left = real(Z)
+    end
+    if imag(Z) < lowest_Im
+      #@show imag(Z)
+      #@show lowest_Im
+      lowest_f = EIS_df.f[i]
+      lowest_Re = real(Z)
+      lowest_Im = imag(Z)
+    end
+  end
+  R =  right - left
+  Rohm = left
+  omega = (2*pi)*lowest_f
+  # tau = R*C = 1/omega
+  # C = 1 / (omega * R)
+  @show omega
+  @show R
+  #@show lowest_Re
+  C = 1/(omega*R)
+  @show C
+  return R, C, Rohm
+end
+
+function EIS_get_and_plot_RC_element(R, C, Rohm=0)
+  EIS_RC = DataFrame( f = [], Z = [])
+  for f in get_shared_checknodes(EIS_simulation(800,100,0.0)...)
+    push!(EIS_RC, (f, Rohm + R/(1 + im*2*pi*f*R*C)))
+  end
+  typical_plot_sim(EIS_simulation(800,100,0.0)..., EIS_RC, "RC_elem")
+  return EIS_RC
+>>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 end
 
 

@@ -24,5 +24,8 @@ Pkg.add("LeastSquaresOptim")
 
 # for NNLS
 Pkg.add("MathProgBase")
+<<<<<<< HEAD
 # integration
 Pkg.add("QuadGK")
+=======
+>>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
