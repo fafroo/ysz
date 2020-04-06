@@ -14,11 +14,7 @@ using Random
 
 mutable struct DRT_struct
   EIS_df::DataFrame
-<<<<<<< HEAD
   tau_range::Array{Float64}
-=======
-  tau_list::Array{Float64}
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
   h::Array{Float64}
   R_ohm::Float64
   L::Float64
@@ -26,7 +22,6 @@ mutable struct DRT_struct
 end
 
 
-<<<<<<< HEAD
 function get_R_C_from_DRT(tau_range=Nothing, h_tau=Nothing)
   mcounter = 1
   
@@ -158,22 +153,13 @@ function plot_DRT_h(DRT::DRT_struct, to_standard_figure=true)
     figure(33)
   end
   
-  suptitle("DRT plot")
-  plot(log10.(DRT.tau_range), DRT.h, "-x", label="l=$(DRT.lambda)")
-=======
-function plot_DRT(DRT::DRT_struct, to_standard_figure=true)
-  if to_standard_figure
-    figure(33)
-  end
   title("DRT")
-  plot(log10.(DRT.tau_list), DRT.h, "-x", label="l=$(DRT.lambda)")
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
+  plot(log10.(DRT.tau_range), DRT.h, "-x", label="l=$(DRT.lambda)")
   xlabel("log10(\$\\tau\$ [s])")
   ylabel("\$h(\\tau)\$ [Ohm]")
   if to_standard_figure
     legend()
   end
-<<<<<<< HEAD
 end
   
 function plot_DRT_RC(DRT::DRT_struct, to_standard_figure=true, print_bool=true)
@@ -183,9 +169,9 @@ function plot_DRT_RC(DRT::DRT_struct, to_standard_figure=true, print_bool=true)
   peaks_df = get_RC_df_from_DRT(DRT.tau_range, DRT.h)
   
   #title("RC characteristics")
-  xlabel("R [Ohm]")
-  ylabel("C [F]")
-  plot(peaks_df.R, peaks_df.C, "x")
+  xlabel("C [F]")
+  ylabel("R [Ohm]")
+  plot(peaks_df.C, peaks_df.R, "x")
   grid(true)
   
   if print_bool
@@ -196,10 +182,6 @@ function plot_DRT_RC(DRT::DRT_struct, to_standard_figure=true, print_bool=true)
   end
 end
 
-=======
-  println("R_ohm = $(DRT.R_ohm)    L = $(DRT.L)")
-end
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 
 
 function get_expspace(A, B, n)
@@ -212,25 +194,14 @@ end
 
 
 function get_DRT(EIS_df::DataFrame, lambda=0.0)
-<<<<<<< HEAD
   #println(lambda)
   tau_min = 1.0/(2*pi*EIS_df.f[end]) / 0.1
   tau_max = 1.0/(2*pi*EIS_df.f[1]) * 1
-  tau_range = get_expspace(tau_min, tau_max, 5*size(EIS_df.f, 1))
+  tau_range = get_expspace(tau_min, tau_max, 2*size(EIS_df.f, 1))
   #tau_range = [0.001]
   
   N_f = size(EIS_df.f, 1)
   N_tau = size(tau_range, 1)
-=======
-  println(lambda)
-  tau_min = 1.0/(2*pi*EIS_df.f[end]) / 0.1
-  tau_max = 1.0/(2*pi*EIS_df.f[1]) * 1
-  tau_list = get_expspace(tau_min, tau_max, 5*size(EIS_df.f, 1))
-  #tau_list = [0.001]
-  
-  N_f = size(EIS_df.f, 1)
-  N_tau = size(tau_list, 1)
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
   
   # h, R_ohm, L
   n_cols = N_tau + 2  
@@ -240,11 +211,7 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
   else
     n_rows = 2*N_f + n_cols
   end
-<<<<<<< HEAD
 #   @show tau_range
-=======
-#   @show tau_list
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 #   @show EIS_df.f
   
   A = Matrix{Float64}(undef, n_rows, n_cols)
@@ -253,11 +220,7 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
   # assemble "RC" part of A and b
   for (i, f) in enumerate(EIS_df.f)
     #RC
-<<<<<<< HEAD
     for (j, tau) in enumerate(tau_range)
-=======
-    for (j, tau) in enumerate(tau_list)
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
       A[i, j]       = real(1/(1 + im*(2*pi*f)*tau))
       A[N_f + i, j] = imag(1/(1 + im*(2*pi*f)*tau))
     end
@@ -275,11 +238,7 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
   
   if lambda != 0.0
     # assemble "regularization" part of A and b
-<<<<<<< HEAD
     A[2*N_f + 1 : end, :] .= Diagonal([lambda for i in 1:n_cols])
-=======
-    A[2*N_f + 1 : end, :] .= diagm(n_cols, n_cols, [lambda for i in 1:n_cols])
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
     b[2*N_f + 1 : end] .= 0
   end
   
@@ -301,11 +260,7 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
     EIS_new.Z[i] = EIS_post[i] + im*EIS_post[N_f + i]
   end
   
-<<<<<<< HEAD
   DRT_out = DRT_struct(EIS_new, tau_range, solution[1:end - 2], solution[end-1], solution[end], lambda)
-=======
-  DRT_out = DRT_struct(EIS_new, tau_list, solution[1:end - 2], solution[end-1], solution[end], lambda)
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
   
   return DRT_out
 end
@@ -336,15 +291,9 @@ end
 # end
 
 
-<<<<<<< HEAD
 # function assemble_A(f_list, tau_range)
 #   N_f = size(f_list, 1)
 #   N_tau = size(tau_range, 1)
-=======
-# function assemble_A(f_list, tau_list)
-#   N_f = size(f_list, 1)
-#   N_tau = size(tau_list, 1)
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 #   
 #   # taus, R_ohm, L
 #   n_cols = N_tau + 2
@@ -356,11 +305,7 @@ end
 # 
 #   for (i, f) in enumerate(f_list)
 #     #RC
-<<<<<<< HEAD
 #     for (j, tau) in enumerate(tau_range)
-=======
-#     for (j, tau) in enumerate(tau_list)
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 #       A[i, j]       = real(1/(1 + im*(2*pi*f)*tau))
 #       A[N_f + i, j] = imag(1/(1 + im*(2*pi*f)*tau))
 #     end
@@ -380,11 +325,7 @@ end
 # 
 # function assemble_b(f_list, Z_list)
 #   N_f = size(f_list, 1)
-<<<<<<< HEAD
 #   N_tau = size(tau_range, 1)
-=======
-#   N_tau = size(tau_list, 1)
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 #   
 #   # taus, R_ohm, L
 #   n_cols = N_tau + 2
@@ -396,11 +337,7 @@ end
 #   
 #   for (i, f) in enumerate(EIS_df.f)
 #     #RC
-<<<<<<< HEAD
 #     for (j, tau) in enumerate(tau_range)
-=======
-#     for (j, tau) in enumerate(tau_list)
->>>>>>> d74729a66e3a4139b85187f12a406fd665a2a23a
 #       A[i, j]       = real(1/(1 + im*(2*pi*f)*tau))
 #       A[N_f + i, j] = imag(1/(1 + im*(2*pi*f)*tau))
 #     end
