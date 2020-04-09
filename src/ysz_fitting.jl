@@ -225,31 +225,38 @@ end
 
 
 
-function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true)
-  
-  
-  SIM_list = EIS_simulation(TC, pO2, bias, DRT_lambda=lambda)
-  SIM = SIM_list[1]
-  
-  if mode=="EEC"
-    EIS_df = EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, 10)
-    typical_plot_sim(SIM, EIS_df, "! EEC ($R1, $C1) ($R2, $C2, $alpha)")
-  elseif mode=="sim"
-    EIS_df = ysz_fitting.simple_run(SIM_list, pyplot=1, 
-      prms_names=prms_names, 
-      prms_values=prms_values, use_experiment=false)
-  elseif mode=="exp"
-    EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
-    typical_plot_exp(SIM, EIS_df)    
-  end
+function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, plot_option="Nyq DRT Bode RC", f_range=Nothing, data_set="MONO", tau_min_fac=10, tau_max_fac=10, tau_range_fac=2)
+  for TC_item in TC, pO2_item in pO2, bias_item in bias, lambda_item in lambda
+    
+    # to add .... , tau_min_fac=tau_min_fac, tau_max_fac=tau_max_fac, tau_range_fac=tau_range_fac
+    
+    if f_range != Nothing  
+      SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, DRT_lambda=lambda_item, plot_option=plot_option, f_range=f_range)
+    else
+      SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, DRT_lambda=lambda_item, plot_option=plot_option)
+    end
+    SIM = SIM_list[1]
+    
+    if mode=="EEC"
+      EIS_df = EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, 10)
+      typical_plot_sim(SIM, EIS_df, "! EEC ($R1, $C1) ($R2, $C2, $alpha)")
+    elseif mode=="sim"
+      EIS_df = ysz_fitting.simple_run(SIM_list, pyplot=1, 
+        prms_names=prms_names, 
+        prms_values=prms_values, use_experiment=false)
+    elseif mode=="exp"
+      #@show SIM.checknodes
+      EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM, data_set=data_set), SIM.checknodes)
+      typical_plot_exp(SIM, EIS_df)    
+    end
 
-  
-  if backward_check
-    DRT_actual = get_DRT(EIS_df, lambda)
-    println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
-    typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false)..., DRT_actual.EIS_df, "! DRT_backward_check")
+    
+    if backward_check
+      DRT_actual = get_DRT(EIS_df, lambda_item)
+      println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
+      typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false)..., DRT_actual.EIS_df, "! DRT_backward_check")
+    end
   end
-
     
   #return DRT_actual
   return

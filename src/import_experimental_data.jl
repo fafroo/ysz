@@ -51,13 +51,22 @@ function import_CVtoDataFrame(;TC,pO2)
   return import_CVtoDataFrame_path(fNAME)
 end
 
-function import_EIStoDataFrame(;TC, pO2, bias)
+function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO")
   pO2=Int64(pO2)
   if pO2==0
     pO2="00"
   end
   TC=Int64(TC)
-  fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",Float64(bias),"DC 50AC.z")
+  bias=Float64(bias)
+  if data_set=="MONO"
+    fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
+  elseif data_set=="POLY"
+    bias_mV = Int32(bias*1000)
+    if abs(bias_mV) < 10
+      bias_mV = "0_1"
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/eis_$(bias_mV).z")
+  end
   return import_EIStoDataFrame_path(fNAME)
 end
 

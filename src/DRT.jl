@@ -21,6 +21,13 @@ mutable struct DRT_struct
   lambda::Float64
 end
 
+mutable struct DRT_control_struct
+  lambda::Float32
+  tau_min_fac::Float32
+  tau_max_fac::Float32
+  tau_range_fac::Float32
+end
+
 
 function get_R_C_from_DRT(tau_range=Nothing, h_tau=Nothing)
   mcounter = 1
@@ -168,7 +175,7 @@ function plot_DRT_RC(DRT::DRT_struct, to_standard_figure=true, print_bool=true)
   end
   peaks_df = get_RC_df_from_DRT(DRT.tau_range, DRT.h)
   
-  #title("RC characteristics")
+  title("RC diagram")
   xlabel("C [F]")
   ylabel("R [Ohm]")
   plot(peaks_df.C, peaks_df.R, "x")
@@ -193,11 +200,12 @@ function get_expspace(A, B, n)
 end
 
 
-function get_DRT(EIS_df::DataFrame, lambda=0.0)
+function get_DRT(EIS_df::DataFrame, lambda=0.0; tau_min_fac=100, tau_max_fac=100, tau_range_fac=2)
   #println(lambda)
-  tau_min = 1.0/(2*pi*EIS_df.f[end]) / 0.1
-  tau_max = 1.0/(2*pi*EIS_df.f[1]) * 1
-  tau_range = get_expspace(tau_min, tau_max, 2*size(EIS_df.f, 1))
+  #@show tau_max_fac
+  tau_min = 1.0/(2*pi*EIS_df.f[end]) / tau_min_fac
+  tau_max = 1.0/(2*pi*EIS_df.f[1]) * tau_max_fac
+  tau_range = get_expspace(tau_min, tau_max, tau_range_fac*size(EIS_df.f, 1))
   #tau_range = [0.001]
   
   N_f = size(EIS_df.f, 1)
@@ -236,6 +244,13 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
     b[N_f + i] = imag(EIS_df.Z[i])
   end
   
+  
+#   @show A[N_f,:]
+#   @show b[N_f]
+#   @show 2222222
+#   @show A[2*N_f,:]
+#   @show b[2*N_f]
+  
   if lambda != 0.0
     # assemble "regularization" part of A and b
     A[2*N_f + 1 : end, :] .= Diagonal([lambda for i in 1:n_cols])
@@ -245,7 +260,7 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
   work_l = NNLSWorkspace(A, b);
   solution = solve!(work_l)  
   
-#   @show x2
+  
 #   @show solution
 #   
 #   @show A \ b
