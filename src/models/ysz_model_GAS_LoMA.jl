@@ -531,5 +531,118 @@ function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEll
     return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
 end
 
+function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
+  point_marker_size = 5
+  
+  
+  subplot(211)
+  plot((x_factor)*X[:],U[iy,:],label="y")
+  for (i, idx) in enumerate(surface_species)
+    plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
+  end
+  PyPlot.ylim(-0.5,1.1)
+  PyPlot.xlim(-0.01*plotted_length, plotted_length)
+  PyPlot.xlabel(x_label)
+  PyPlot.legend(loc="best")
+  PyPlot.grid()
+  
+  subplot(212)
+  plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
+  PyPlot.xlim(-0.01*plotted_length, plotted_length)
+  PyPlot.xlabel(x_label)
+  PyPlot.legend(loc="best")
+  PyPlot.grid()
+end
+
+function OCV_test(;steady=true,
+                test=false, 
+                verbose=false,
+                width=0.0005, dx_exp=-9,
+                pO2=1.0, T=1073,
+                prms_names_in=[],
+                prms_values_in=[],
+                 )
+
+    model_symbol = eval(Symbol("ysz_model_GAS_LoMA"))
+    
+    AreaEllyt = 0.018849556 * 0.7        # m^2 (geometrical area)*(1 - porosity)
+
+    dx_start = 10^convert(Float64,dx_exp)
+    X=width*VoronoiFVM.geomspace(0.0,1.0,dx_start,1e-1)
+    grid=VoronoiFVM.Grid(X)
+    
+    # Physical condtions and parameters setting
+    parameters=model_symbol.YSZParameters()
+    
+    # experimental setting
+    parameters.pO2 = pO2
+    parameters.T = T
+    
+    # update the "computed" values in parameters
+    model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
+    parameters = model_symbol.YSZParameters_update!(parameters)
+    #model_symbol.printfields(parameters)
+    
+    physics=VoronoiFVM.Physics(
+        data=parameters,
+        num_species=size(bulk_species,1)+size(surface_species,1),
+        storage=model_symbol.storage!,
+        flux=model_symbol.flux!,
+        reaction=model_symbol.reaction!,
+        breaction=model_symbol.breaction!,
+        bstorage=model_symbol.bstorage!
+    )
+    #model_symbol.printfields(parameters)
+
+    #sys=VoronoiFVM.SparseSystem(grid,physics)
+    sys=VoronoiFVM.DenseSystem(grid,physics)
+    for idx in bulk_species
+      enable_species!(sys, idx, [1])
+    end
+    for idx in surface_species
+      enable_boundary_species!(sys, idx, [1])
+    end
+
+    # set boundary conditions
+    model_symbol.set_typical_boundary_conditions!(sys, parameters)
+    
+    # get initial value of type unknows(sys) and initial voltage
+    inival = model_symbol.get_typical_initial_conditions(sys, parameters)
+    phi0 = parameters.phi_eq
+
+    control=VoronoiFVM.NewtonControl()
+    control.verbose=verbose
+    control.tol_linear=1.0e-4
+    control.tol_relative=1.0e-5
+    #control.tol_absolute=1.0e-4
+    control.max_iterations=300
+    control.max_lureuse=0
+    control.damp_initial=1.0e-4
+    control.damp_growth=1.3
+
+##### used for diplaying initial conditions vs steady state     
+    figure(111)
+    plot_solution(inival, X, 10^9)
+    steadystate = unknowns(sys)
+    if steady
+         solve!(steadystate, inival, sys, control=control)
+         plot_solution(steadystate, X, 10^9)
+         return
+    else
+         t=0.0
+         tstep=1e-8
+         tend=1.0e-1
+         while t<tend
+             @show t
+             solve!(steadystate, inival, sys, control=control, tstep=tstep)
+             inival=steadystate
+             t+=tstep
+             tstep=1.2*tstep
+            plot_solution(steadystate, X, 10^9)
+         end
+
+    end
+
+end
 
 end
