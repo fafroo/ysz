@@ -9,8 +9,8 @@ module ysz_shn
 # [x] equilibrium phi
 # [x] meas_tran & meas_stdy
 # [x] output species, names
-# [ ] function set_parameters
-# [ ] changed module name :)
+# [x ] function set_parameters
+# [x ] changed module name :)
 
 using Printf
 using VoronoiFVM
@@ -101,6 +101,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     kB::Float64  
     N_A::Float64 
     zA::Float64  
+    zOmin::Float64  
     mO::Float64  
     mZr::Float64 
     mY::Float64
@@ -194,6 +195,7 @@ function YSZParameters(this)
 
     this.vL=3.35e-29
     this.zA  = -2;
+    this.zOmin = -1;
 
     this.ARO_mode = false # true# 
     #this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
@@ -260,7 +262,7 @@ end
 
 # initial conditions
 function get_typical_initial_conditions(sys, parameters::YSZParameters)   
-#function get_equilibrium_state(sys, parameters::YSZParameters)   
+#@todo ?rename function get_equilibrium_approximation(sys, parameters::YSZParameters)   
     inival=unknowns(sys)
     inival.=0.0
     grid = sys.grid
@@ -314,9 +316,9 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
     found = false
     for name in fieldnames(typeof(this))
       if name==Symbol(name_in)
-        if name_in in ["rA", "rR", "rO", "SA", "SR", "SO"]
+        if name_in in ["rA", "rR", "rO", "rB", "rC", "SA", "SR", "SO", "SB", "SC"]
           setfield!(this, name, Float64(10.0^prms_values[i]))
-        elseif name_in in ["DGA", "DGR", "DGO"]
+        elseif name_in in ["DGA", "DGR", "DGO", "DGB"]
           setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
         else 
           setfield!(this, name, Float64(prms_values[i]))
@@ -396,33 +398,24 @@ function breaction!(f,u,node,this::YSZParameters)
         oxide_ads = exponential_oxide_adsorption(this, u)
         gas_ads = exponential_gas_adsorption(this, u)
         
-        #
+        # ARO mass production
         g_ARO = similar(f)
-        
         g_ARO[iy]= this.mO*oxide_ads
         g_ARO[iyAs]= - this.mO*electroR - this.mO*oxide_ads
         g_ARO[iyOs]= this.mO*electroR - this.mO*2*gas_ads
         g_ARO[iyOmins]= 0  #this.mO*(0.1 - u[iyOmins])
         g_ARO[iphi]=0
-
-        #h_template = similar(f)
-        #[@show ii,breac.value for (ii,breac) in enumerate(h_template)]
+        
+        # AROBC mass production 
         rema = this.stoichiometric_matrix
         rates = reaction_rates(u, this)
         h_template = (this.mO*rema*rates)[1:end-1]
-        #[@show ii,breac.value for (ii,breac) in enumerate(h_template)]
 
         if this.ARO_mode
             f = g_ARO
         else
-            for (ii, hh) in enumerate( h_template)
+            for (ii, hh) in enumerate(h_template)
               f[ii] = -hh
-              #@show hh.value
-            # f[1] = 0
-            # f[2] = h_template[2]#-this.mO*u[2]
-            # f[3] = h_template[3]#-this.mO*u[3]
-            # f[4] = h_template[4]#-this.mO*u[4]
-            # f[5] = h_template[5]#-this.mO*u[5]
           end
         end 
     else
@@ -596,47 +589,36 @@ function reaction_template(u,
       activities[iyOs] = u[iyOs]/(1-u[iyOs])
       if gamma[5] != 0
           ysV = 1
-      #    println("Skip")
       elseif gamma[2] == 1
           ysV = 1-u[iyAs]
-      #    @show gamma, "A"
       elseif gamma[6] == -1
           ysV = 1-u[iyOs]
-      #    @show gamma, "O"
       else
           ysV = (1-u[iyAs])*(1-u[iyOs])
           sv_count = 1
-      #    @show gamma, "R"
       end
-      #println("INFO: ARO_mode shared surface vacancy override.")
     end
     if false
         for uu in u[2:5]
           @show uu
-          if 0.0 < uu < 1.0
+          if 0.0 < uu.value < 1.0
             @show u[2:5]
             error("ypsilon out of (0,1)")
           end
         end
 
-        if 0.0 < ybV < 1.0
+        if 0.0 < ybV.value < 1.0
           @show ybV
           error("Bulk vacancies out of (0,1)")
         end
 
-        if 0.0 < ysV < 1.0
+        if 0.0 < ysV.value < 1.0
           @show ysV
           error("Surf vacancies out of (0,1)")
         end
     end
   
     reac_activities = prod(activities.^gamma)
-    #   exp(-beta*S*DG/(kB*T))
-    #           *(
-    #             (u[iy]/(1-u[iy]))
-    #             *
-    #             ((1-u[iyAs])/u[iyAs])
-    #           )^(this.betaA*this.SA)
 
     L = exp(
               -beta*S*DG/this.kB/this.T
@@ -661,19 +643,18 @@ function reaction_template(u,
                 )^(S*kappa)
     rate = r0/S*prefactor*(L - R)
 
-      a_reac = (reac_activities)^(-beta*S)
-      a_prod = (reac_activities)^((1 - beta)*S)
-      the_fac = prefactor
+    a_reac = (reac_activities)^(-beta*S)
+    a_prod = (reac_activities)^((1 - beta)*S)
+    the_fac = prefactor
 
     if debug != ""
         print("-------- $(debug) Reaction Template debug--------\n")
-        @show gamma,bv_count,sv_count
+        #@show gamma,bv_count,sv_count
         #@show S*kappa
         #@show activities
         #@show reac_activities
         print("  $(debug) > ") 
         @show the_fac.value, rate.value ,a_reac.value, a_prod.value
-        @show rate
         println("-------o----------------")
     end
     return rate
@@ -732,7 +713,6 @@ function reaction_rates(u, this::YSZParameters)
                            this.gammaC,
                            #debug="C"
         )
-    #[@show rate.value for rate in [A,R,O, B,C]]
     return [A,R,O, B, C]
 end
 
@@ -745,25 +725,71 @@ function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEll
     dphi_end = U[iphi, end] - U[iphi, end-1]
     dx_end = X[end] - X[end-1]
     dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+    QsA= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+    QsOmin= (parameters.e0/parameters.areaL)*parameters.zOmin*U[iyOmins,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+    Qs = QsA + QsOmin
     meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
     return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
 end
 
+function set_meas_and_get_tran_I_contributions_new(meas, U, sys, parameters, AreaEllyt, X)
+    Qb= - integrate(sys,reaction!,U) # \int n^F            
+    dphi_end = U[iphi, end] - U[iphi, end-1]
+    dx_end = X[end] - X[end-1]
+    dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
+    meas[1]= AreaEllyt*( -Qb[iphi]  -dphiB)
+    return ( 0, -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
+end
+
+function smagtIc(U, sys, parameters, AreaEllyt, X)
+    meas = zeros(2)
+    return set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
+end
+
+function smagtIc_new(U, sys, parameters, AreaEllyt, X)
+    meas = zeros(2)
+    return set_meas_and_get_tran_I_contributions_new(meas, U, sys, parameters, AreaEllyt, X)
+end
+  
+
 #
 # Steady part of measurement functional
 #
+
+function set_meas_and_get_stdy_I_contributions_new(meas, U, sys, parameters, AreaEllyt, X)
+    rates = reaction_rates(U[:, 1], parameters)
+    meas[1] = AreaEllyt*(parameters.zA*parameters.e0*rates[2])
+    return AreaEllyt*parameters.e0*parameters.zA*rates[2]
+end
 function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
-    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
-    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
+    rates = reaction_rates(U[:, 1], parameters)
+    #@todo consider encoding electron stoichiometry in gammas :)
+    meas[1] = AreaEllyt*parameters.e0*(-2*rates[2]-1*rates[4]-1*rates[5] )
+    return AreaEllyt*parameters.e0*(-2*rates[2]-1*rates[4]-1*rates[5] )
 end
 
-function OCV_test(;
+function smagsIc(U, sys, parameters, AreaEllyt, X)
+    meas = zeros(2)
+    return set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
+end
+
+function smagsIc_new(U, sys, parameters, AreaEllyt, X)
+    meas = zeros(2)
+    return set_meas_and_get_stdy_I_contributions_new(meas, U, sys, parameters, AreaEllyt, X)
+end
+
+function test(;
                 print_bool=false,
-                test=false, 
+                #
+                stationary_relaxtion=false,
+                evolution_relaxation=false, 
+                IVcurve=false,
+                #
                 verbose=false, 
+                #
                 width=0.0005, dx_exp=-9,
                 pO2=1.0, T=1073,
+                #
                 prms_names_in=[],
                 prms_values_in=[],
                  )
@@ -776,12 +802,10 @@ function OCV_test(;
     iy = model_symbol.iy
     iyAs = model_symbol.iyAs
     iyOs = model_symbol.iyOs
-    #iyOmins = model_symbol.iyOmins
+    iyOmins = model_symbol.iyOmins
     index_driving_species = model_symbol.index_driving_species
 
     
-    # prms_in = [ rA, rR, DGA, DGR, beta, A ]
-
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
     AreaEllyt = 0.018849556 * 0.7        # m^2 (geometrical area)*(1 - porosity)
@@ -790,7 +814,6 @@ function OCV_test(;
     #
     dx_start = 10^convert(Float64,dx_exp)
     X=width*VoronoiFVM.geomspace(0.0,1.0,dx_start,1e-1)
-    #println("X = ",X)
     #
     grid=VoronoiFVM.Grid(X)
     #
@@ -836,23 +859,9 @@ function OCV_test(;
     
     # get initial value of type unknows(sys) and initial voltage
     inival = model_symbol.get_typical_initial_conditions(sys, parameters)
-    # @show inival[:,1]
     phi0 = parameters.phi_eq
 
   
-    function breactionwrap(u)
-      return parameters.mO*(parameters.stoichiometric_matrix*reaction_rates(u, parameters))[1:end-1]
-    end
-    xx = [parameters.phi_eq,
-          parameters.y0_eq,
-          parameters.yAs_eq,
-          parameters.yOs_eq,
-          parameters.yOmins_eq,
-         ]
-    brec_jac = ForwardDiff.jacobian(breactionwrap, xx)
-    #[@show  brec_jac[ii,:] for ii=1:5]
-    # return ForwardDiff.jacobian(breactionwrap, xx)
-    #
     control=VoronoiFVM.NewtonControl()
     control.verbose=verbose
     control.tol_linear=1.0e-5
@@ -865,40 +874,72 @@ function OCV_test(;
 
 ##### used for diplaying initial conditions vs steady state    
      #figure(111)
-     plot_solution(inival, X, 10^9)
-     steadystate = unknowns(sys)
-     steadystate = model_symbol.get_typical_initial_conditions(sys, parameters)
-     if test
-         t=0.0
-         tstep=1e-4
-         tend=1.0
-         while t<tend
-             @show t
-             @show breactionwrap(inival[:,1])
-             #try 
-                 solve!(steadystate, inival, sys, control=control, tstep=tstep)
-             #catch e
-             #    println(e)
-                 #solve!(steadystate, inival, sys, control=control, tstep=tstep)
-             #end
-             # I_stdy  = set_meas_and_get_stdy_I_contributions(meas, steadystate, sys, parameters, AreaEllyt, X)
-             #a = set_meas_and_get_tran_I_contributions(meas, steadystate, sys, parameters, AreaEllyt, X)
-             #b = set_meas_and_get_tran_I_contributions(meas, inival, sys, parameters, AreaEllyt, X)
-             #I_tran = [ (a[ii]-b[ii])/tstep for ii=1:3]
-             #@show I_tran, I_stdy
-             inival=steadystate
-             tstep=1.3*tstep
-             t+=tstep
-             plot_solution(steadystate, X, 10^9)
-         end
-     else
+    steadystate = unknowns(sys)
+    if evolution_relaxation
+        t=0.0
+        tstep=1e-4
+        tend=1.0
+        while t<tend
+            @show t
+            solve!(steadystate, inival, sys, control=control, tstep=tstep)
+
+            I_stdy  = smagsIc( steadystate, sys, parameters, AreaEllyt, X)
+            I_stdy_new  = smagsIc_new( steadystate, sys, parameters, AreaEllyt, X)
+            a = smagtIc( steadystate, sys, parameters, AreaEllyt, X)
+            b = smagtIc( inival, sys, parameters, AreaEllyt, X)
+            c = smagtIc_new( steadystate, sys, parameters, AreaEllyt, X)
+            d = smagtIc_new( inival, sys, parameters, AreaEllyt, X)
+            I_tran = [ (a[ii]-b[ii])/tstep for ii=1:3]
+            I_tran_new = [ (c[ii]-d[ii])/tstep for ii=1:3]
+            @show sum(I_tran)+ I_stdy
+            @show sum(I_tran_new)+ I_stdy_new
+            inival=steadystate
+            t+=tstep
+            tstep=1.3*tstep
+            return plot_solution(steadystate, X, 10^9)
+        end
+    elseif IVcurve
+        solve!(steadystate, inival, sys, control=control)
+        inival = steadystate
+        if IVcurve
+            interstate = unknowns(sys)
+            step = 0.01
+            bound= 1.0
+            pVrange =  0.0:step:bound
+            nVrange =  step:step:bound
+            pI  = [ collect(similar(pVrange)), collect(similar(pVrange))]
+            nI  = [ collect(similar(nVrange)), collect(similar(nVrange))]
+            pI[1][1] = smagsIc( steadystate, sys, parameters, AreaEllyt, X)
+            pI[1][2] = smagsIc_new( steadystate, sys, parameters, AreaEllyt, X)
+            interstate = inival
+            for (I_array, dir) in zip([pI, nI],[1,-1])
+               for (ii, phi) in enumerate(nVrange)
+                sys.boundary_values[iphi,1]= parameters.phi_eq + dir*phi
+                solve!(steadystate, interstate, sys, control=control)
+                if I_array == pI
+                    jj = ii + 1
+                else
+                    jj = ii
+                end
+                I_array[1][jj]  =smagsIc( steadystate, sys, parameters, AreaEllyt, X)
+                I_array[2][jj]  =smagsIc_new(steadystate, sys, parameters, AreaEllyt, X)
+               end
+            end
+            I_old = vcat(reverse!(nI[1]), pI[1])
+            I_new = vcat(reverse!(nI[2]), pI[2])
+            range = vcat(-reverse(collect(nVrange)),collect(pVrange))
+            PyPlot.plot(range, I_old, label="old_current")
+            PyPlot.plot(range, I_new, label="new_current")
+            PyPlot.legend(loc="best")
+            return PyPlot.grid()
+        end
+    elseif stationary_relaxtion
          solve!(steadystate, inival, sys, control=control)
-         @show breactionwrap(inival[:,1])
-         @show breactionwrap(steadystate[:,1])
-         plot_solution(steadystate, X, 10^9)
-     end
-     return
+         plot_solution(inival, X, 10^9)
+         return plot_solution(steadystate, X, 10^9)
+    end
 ################
+    return "System assembled. Works :)"
 end 
 
 function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
