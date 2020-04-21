@@ -26,8 +26,28 @@ const surface_names = ("yAs", "yOs", "yOmins")
 
 const index_driving_species = iphi
 
+mutable struct reaction_struct
+  r::Float64
+  DG::Float64
+  beta::Float64
+  S::Float64
+  kappa::Float64
+  gamma::Float64
+end
+
+# function string(this::reaction_struct)
+#     println()
+#     for name in fieldnames(typeof(this))
+#         @printf("  %8s = ",name)
+#         println(getfield(this,name))
+#     end
+# end
+
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
 
+    # testing reaction
+    TEST::reaction_struct
+    
     # adsorption from YSZ
     rA::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
     DGA::Float64 # difference of gibbs free energy of adsorption  [ J ]
@@ -117,12 +137,12 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     ML::Float64   # averaged molar mass [kg]
     #
     ARO_mode::Bool # switches off B & C reactions, assumes simpler surface lattice sites
+    meas_new::Bool # switches on the new formula for current measure
     #
     YSZParameters()= YSZParameters( new())
 end
 
 function YSZParameters(this)
-    
     this.e0   = 1.602176565e-19  #  [C]
     this.eps0 = 8.85418781762e-12 #  [As/(Vm)]
     this.kB   = 1.3806488e-23  #  [J/K]
@@ -131,6 +151,9 @@ function YSZParameters(this)
     this.mZr = 91.22/1000/this.N_A #  [kg/#]
     this.mY  = 88.91/1000/this.N_A #  [kg/#]
 
+    # testing reaction
+    this.TEST = reaction_struct(1,2,3,4,5,6)
+    
     # oxide adsorption from YSZ
     this.rA= 10.0^21
     this.DGA= 0.0905748 * this.e0 # this.e0 = eV
@@ -198,6 +221,8 @@ function YSZParameters(this)
     this.zOmin = -1;
 
     this.ARO_mode = false # true# 
+    this.meas_new = false
+    
     #this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
     #this.yB  = -this.zL/(this.zA*this.m_par*(1-this.nu))
     #this.ML  = (1-this.x_frac)/(1+this.x_frac)*this.mZr + 2*this.x_frac/(1+this.x_frac)*this.mY + this.m_par*this.nu*this.mO
@@ -310,18 +335,66 @@ function printfields(this)
     end
 end
 
+######################### old version of setting - no struct handeling ##############################
+# function set_parameters!(this::YSZParameters, prms_values, prms_names)
+#   found = false
+#   for (i,name_in) in enumerate(prms_names)
+#     found = false
+#     for name in fieldnames(typeof(this))
+#       if name==Symbol(name_in)
+#         if name_in in ["rA", "rR", "rO", "rB", "rC", "SA", "SR", "SO", "SB", "SC"]
+#           setfield!(this, name, Float64(10.0^prms_values[i]))
+#         elseif name_in in ["DGA", "DGR", "DGO", "DGB"]
+#           setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
+#         else 
+#           setfield!(this, name, prms_values[i])
+#         end
+#         found = true
+#         break
+#       end
+#     end
+#     if !(found)
+#       println("ERROR: set_parameters: parameter name \"$(name_in)\" not found!")
+#       throw(Exception)
+#     end
+#   end
+# end
+
 function set_parameters!(this::YSZParameters, prms_values, prms_names)
   found = false
   for (i,name_in) in enumerate(prms_names)
     found = false
+    attribute_found = true
+    # supposing there is at most one '.'
+    if occursin('.', name_in)
+      (name_in, attribute_name_in) = split(name_in, '.')
+      attribute_found = false
+    end
     for name in fieldnames(typeof(this))
       if name==Symbol(name_in)
         if name_in in ["rA", "rR", "rO", "rB", "rC", "SA", "SR", "SO", "SB", "SC"]
           setfield!(this, name, Float64(10.0^prms_values[i]))
         elseif name_in in ["DGA", "DGR", "DGO", "DGB"]
           setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
-        else 
-          setfield!(this, name, Float64(prms_values[i]))
+        else
+          if !attribute_found
+            # handles structs in YSZParameters
+            actual_struct = getfield(this, name)
+            for attribute_name in fieldnames(typeof(actual_struct))
+              if attribute_name==Symbol(attribute_name_in)
+                if attribute_name_in in ["DG"]
+                  setfield!(actual_struct, attribute_name, prms_values[i]*this.e0)
+                elseif attribute_name_in in ["r"]
+                  setfield!(actual_struct, attribute_name, 10.0^prms_values[i])
+                else
+                  setfield!(actual_struct, attribute_name, prms_values[i])
+                end
+                attribute_found = true
+              end
+            end
+          else
+            setfield!(this, name, prms_values[i])
+          end
         end
         found = true
         break
@@ -329,6 +402,10 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
     end
     if !(found)
       println("ERROR: set_parameters: parameter name \"$(name_in)\" not found!")
+      throw(Exception)
+    end
+    if !(attribute_found)
+      println("ERROR: set_parameters: parameter name \"$(name_in).$(attribute_name_in)\" not found!")
       throw(Exception)
     end
   end
@@ -721,15 +798,24 @@ end
 #
 
 function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
-    Qb= - integrate(sys,reaction!,U) # \int n^F            
-    dphi_end = U[iphi, end] - U[iphi, end-1]
-    dx_end = X[end] - X[end-1]
-    dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-    QsA= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-    QsOmin= (parameters.e0/parameters.areaL)*parameters.zOmin*U[iyOmins,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
-    Qs = QsA + QsOmin
-    meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
-    return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
+    if parameters.meas_new
+      Qb= - integrate(sys,reaction!,U) # \int n^F            
+      dphi_end = U[iphi, end] - U[iphi, end-1]
+      dx_end = X[end] - X[end-1]
+      dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
+      meas[1]= AreaEllyt*( -Qb[iphi]  -dphiB)
+      return ( 0, -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)    
+    else
+      Qb= - integrate(sys,reaction!,U) # \int n^F            
+      dphi_end = U[iphi, end] - U[iphi, end-1]
+      dx_end = X[end] - X[end-1]
+      dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
+      QsA= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+      QsOmin= (parameters.e0/parameters.areaL)*parameters.zOmin*U[iyOmins,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+      Qs = QsA + QsOmin
+      meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
+      return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
+    end
 end
 
 function set_meas_and_get_tran_I_contributions_new(meas, U, sys, parameters, AreaEllyt, X)
@@ -762,10 +848,16 @@ function set_meas_and_get_stdy_I_contributions_new(meas, U, sys, parameters, Are
     return AreaEllyt*parameters.e0*parameters.zA*rates[2]
 end
 function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
-    rates = reaction_rates(U[:, 1], parameters)
-    #@todo consider encoding electron stoichiometry in gammas :)
-    meas[1] = AreaEllyt*parameters.e0*(-2*rates[2]-1*rates[4]-1*rates[5] )
-    return AreaEllyt*parameters.e0*(-2*rates[2]-1*rates[4]-1*rates[5] )
+    if parameters.meas_new
+      rates = reaction_rates(U[:, 1], parameters)
+      meas[1] = AreaEllyt*(parameters.zA*parameters.e0*rates[2])
+      return AreaEllyt*parameters.e0*parameters.zA*rates[2]    
+    else
+      rates = reaction_rates(U[:, 1], parameters)
+      #@todo consider encoding electron stoichiometry in gammas :)
+      meas[1] = AreaEllyt*parameters.e0*(-2*rates[2]-1*rates[4]-1*rates[5] )
+      return AreaEllyt*parameters.e0*(-2*rates[2]-1*rates[4]-1*rates[5] )
+    end
 end
 
 function smagsIc(U, sys, parameters, AreaEllyt, X)
