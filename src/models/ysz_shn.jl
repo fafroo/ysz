@@ -138,6 +138,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     #
     ARO_mode::Bool # switches off B & C reactions, assumes simpler surface lattice sites
     meas_new::Bool # switches on the new formula for current measure
+    separate_vacancy::Bool # assumes separate vacancies
     #
     YSZParameters()= YSZParameters( new())
 end
@@ -222,6 +223,7 @@ function YSZParameters(this)
 
     this.ARO_mode = false # true# 
     this.meas_new = false
+    this.separate_vacancy = false
     
     #this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
     #this.yB  = -this.zL/(this.zA*this.m_par*(1-this.nu))
@@ -704,20 +706,7 @@ function reaction_template(u,
                (1-beta)*S*DG/this.kB/this.T
             )*reac_activities^((1-beta)*S)
     
-    prefactor = prod(
-                     vcat(
-                         [1, 
-                          u[iy], 
-                          u[iyAs], 
-                          u[iyOs], 
-                          u[iyOmins], 
-                          this.pO2
-                         ].^abs.(gamma), 
-                         [ybV, 
-                          ysV
-                         ].^abs.([bv_count, sv_count])
-                     )
-                )^(S*kappa)
+    prefactor = prefactor_interpolation(this, u, gamma, S, kappa)
     rate = r0/S*prefactor*(L - R)
 
     a_reac = (reac_activities)^(-beta*S)
@@ -739,9 +728,56 @@ end
 
 function activity(this::YSZParameters, u)
     ybV = 1-u[iy]
+    if this.separate_vacancy
+        return [1, 
+                u[iy]/ybV, 
+                u[iyAs]/(1-u[iyAs]), 
+                u[iyOs]/(1-u[iyOs]), 
+                u[iyOmins]/(1-u[iyOmins]), 
+                this.pO2
+        ]
+    else
+        ysV = 1-sum(u[3:5])
+        #[@show x.value for x in u]
+        return [1, u[iy]/ybV, u[iyAs]/ysV, u[iyOs]/ysV, u[iyOmins]/ysV, this.pO2] 
+    end
+end
+
+function prefactor_interpolation(this::YSZParameters, u, gamma, S, kappa)
+    if this.separate_vacancy
+    return prod(
+                     vcat(
+                         [1, 
+                          u[iy]*(1-u[iy]), 
+                          u[iyAs]*(1-u[iyAs]), 
+                          u[iyOs]*(1-u[iyOs]), 
+                          u[iyOmins]*(1-u[iyOmins]), 
+                          this.pO2
+                         ].^abs.(gamma), 
+                     )
+                )^(S*kappa)
+
+    else
+    bv_count = gamma[2]
+    sv_count = sum(gamma[3:5])
+    ybV = 1-u[iy]
     ysV = 1-sum(u[3:5])
-    #[@show x.value for x in u]
-    return [1, u[iy]/ybV, u[iyAs]/ysV, u[iyOs]/ysV, u[iyOmins]/ysV, this.pO2] 
+    return prod(
+                     vcat(
+                         [1, 
+                          u[iy], 
+                          u[iyAs], 
+                          u[iyOs], 
+                          u[iyOmins], 
+                          this.pO2
+                         ].^abs.(gamma), 
+                         [ybV, 
+                          ysV
+                         ].^abs.([bv_count, sv_count])
+                     )
+                )^(S*kappa)
+    end
+
 end
 
 function reaction_rates(u, this::YSZParameters)
