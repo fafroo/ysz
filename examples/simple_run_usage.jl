@@ -85,3 +85,52 @@ ysz_fitting.simple_run(TC=850, pO2=[80], simulations=["EIS"], pyplot=1,
        prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu"     ], 
        prms_values=[1, 1, 1,       19.7, 19.8, 18.2,        0.0, -0.8, -0.0,     [90]*1.0e-14, [0.85]     ], 
        use_experiment=false);
+       
+# example 8 - DRT LoMA - two - circles .... near exp data
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, plot_option="Nyq RC"), pyplot=1,  
+              prms_names=["A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu"     ], 
+              prms_values=[  23.6, 20.8, 20.2,            0.5, -0.4, 0.15,     [90]*1.0e-14, [0.85]     ], 
+              use_experiment=true);
+              
+# "OC" influence 
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, plot_option="Nyq RC"), pyplot=1,  
+              prms_names=["A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "nus", "ms_par", "OC"     ], 
+              prms_values=[  23.6, 20.8, 20.2,    0.5, collect(-0.4 : -0.05 : -0.4), 0.15,    [90]*1.0e-14, 0.85, 0.9, collect(0.05 : -0.01 : 0.05), 1 ./collect(3 : 0.4 : 8)      ], 
+              use_experiment=true);
+
+# invariance test
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, [0.001], 0.0, plot_option="RC"), pyplot=1,  
+                     prms_names=[ "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu"     ], 
+                     prms_values=[1,1,1,  collect(19 : 1.0 : 21), collect(19 : 1.0 : 21), collect(19 : 1.0 : 21),         0.0, -0.0, 0.0,     [90]*1.0e-14, [0.85]     ], 
+                     use_experiment=false);
+
+# 3 peakyyyyyy !!! :) overvoltage model
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0), pyplot=1,  
+                     prms_names=["e_fac", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu"     ], 
+                     prms_values=[0.0,  collect(21.0 : 0.1 : 21), 19.7, 20.1,   0.8, -0.35, -0.3,    
+                      [90]*1.0e-14, [0.85]     ], 
+                     use_experiment=false);
+                     
+# 3 peaky pro ysz_shn.jl model 
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, plot_option="DRT RC"), pyplot=1,  
+                     prms_names=["kappaA", "kappaR", "kappaO", 
+                                 "rA", "rR", "rO",     "rB", "rC",     
+                                 "DGA", "DGR", "DGO",     
+                                 "DD", "nu"     ], 
+                     prms_values=(1.0, 0.0, 0.0,
+                                  collect(21.65 : 0.05 : 21.65), collect(20.0 : -0.1 : 20.0), 19.7,     0, 0,       
+                                  collect(-0.5 : 0.05 : -0.5), 0.0, 0.05,    
+                                  [90]*1.0e-14, [0.85]     ), 
+                     use_experiment=false);
+
+# 4 peaky !!!!!!! ysz_shn.jl model
+novy = 1; ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, plot_option="Nyq Rf RC"), pyplot=1,  
+                     prms_names=["kappaA", "kappaR", "kappaO", 
+                                 "rA", "rR", "rO",     "rB", "rC",     
+                                 "DGA", "DGR", "DGO",     
+                                 "DD", "nu", "sites_Om0", "sites_Om1"     ], 
+                     prms_values=(1.0, 0.0, 0.0,
+                                  collect(21.65 : 0.05 : 21.65), collect(20.0 : -0.1 : 20.0), 19.7,     collect(18 : 0.05 : 20), 10,       
+                                  collect(-0.5 : 0.05 : -0.5), 0.0, 0.05,    
+                                  [90]*1.0e-14, [0.85], 2.0, collect(0.07 : 0.01 : 0.07)     ), 
+                     use_experiment=false);
