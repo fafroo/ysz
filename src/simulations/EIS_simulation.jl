@@ -1,4 +1,4 @@
-using CSV
+  using CSV
 using DataFrames
 using PyPlot
 
@@ -24,7 +24,10 @@ mutable struct EIS_simulation <: abstract_simulation
   fitness_factor::Float64
   #
   use_DRT::Bool
-  DRT_lambda::Float64
+  DRT_control::DRT_control_struct
+  DRT_draw_semicircles::Bool
+  #
+  plot_option::String
   #
   name::String
   ID::Int16
@@ -36,7 +39,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_range(), fig_size=(9, 6), use_DRT=true, DRT_lambda=0.0)
+function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_range(), fig_size=(9, 6), use_DRT=true, DRT_control=DRT_control_struct(0.0, 1, 1, 2,0), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC")
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -51,11 +54,14 @@ function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_r
         this.f_range = f_range
         this.fig_size = fig_size
         #
-        this.checknodes = get_shared_checknodes(this)
+        this.checknodes = EIS_get_checknodes_geometrical(f_range...)
         this.fitness_factor = 1.0
         #
         this.use_DRT = use_DRT
-        this.DRT_lambda = DRT_lambda
+        this.DRT_control = DRT_control
+        this.DRT_draw_semicircles = DRT_draw_semicircles
+        #
+        this.plot_option = plot_option
         #
         this.name = "EIS"
         this.ID = 2
@@ -73,7 +79,7 @@ end
 function EIS_get_shared_f_range()
     # experimental range is 0.1 - 65000 Hz
     # fs = (w0, w1, w_fac)
-    return f_range = (1.1, 65000, 1.2)
+    return f_range = (1.1, 9500, 1.2)
 end
   
 function get_shared_checknodes(SIM::EIS_simulation)
@@ -88,122 +94,104 @@ function setting_legend(SIM::EIS_simulation; latex=true)
   end
 end
 
-# function typical_plot(SIM::EIS_simulation, EIS_df, additional_string, line_style)
-# 
-# end
-
-function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
+function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_string="", to_standard_figure=true; marker_style="x-")
   if to_standard_figure
     figure(EIS_standard_figure_num, figsize=SIM.fig_size)
   end
+
+  if occursin("Nyq", SIM.plot_option)
+    s1 = subplot(221)
+    title("Nyquist plot")
+    xlabel("Re\$(Z) \\ [\\Omega]\$")
+    ylabel("-Im\$(Z) \\ [\\Omega]\$")
+    plot(real(EIS_df.Z), -imag(EIS_df.Z), marker_style, label = my_label)
+    
+    if !(my_label == "")
+        legend(loc="best")
+    end
+    grid(true)
+    s1.set_aspect(1.0)
+  end
   
+  if occursin("Bode", SIM.plot_option)
+    s2 = subplot(322)
+    title("Bode plot: Re vs log f \$(\$Hz\$)\$")
+    ylabel("Re\$(Z) \\ [\\Omega]\$")
+    plot(log10.(EIS_df.f), real(EIS_df.Z), marker_style, label = my_label)
+      
+    s3 = subplot(324)
+    title("Bode plot: - Im vs log f \$(\$Hz\$)\$")
+    ylabel("-Im\$(Z) \\ [\\Omega]\$")
+    plot(log10.(EIS_df.f), -imag(EIS_df.Z), marker_style, label = my_label)
+  end
+  
+  if SIM.use_DRT
+    DRT_actual = get_DRT(EIS_df, SIM.DRT_control)
+    
+    if occursin("DRT", SIM.plot_option)
+      s5 = subplot(325)
+      plot_DRT_h(DRT_actual, false)
+    elseif occursin("Rtau", SIM.plot_option)
+      s5 = subplot(325)
+      plot_DRT_Rtau(DRT_actual, false)
+    elseif occursin("Rf", SIM.plot_option)
+      s5 = subplot(325)
+      plot_DRT_Rf(DRT_actual, false)
+    end
+    
+    if occursin("RC", SIM.plot_option) 
+      s4 = subplot(326)
+      plot_DRT_RC(DRT_actual, false)
+    end
+    
+    if SIM.DRT_draw_semicircles
+      R_ohm_auxilary = DRT_actual.R_ohm
+      for i in 1:size(DRT_actual.peaks_df, 1)
+        EIS_RC = EIS_get_RC_CPE_elements(DRT_actual.peaks_df.R[i], DRT_actual.peaks_df.C[i], 0, 1, 1, R_ohm_auxilary, f_range=SIM.f_range)
+        SIM_aux = deepcopy(SIM)
+        SIM_aux.use_DRT = false
+        typical_plot_general(SIM_aux, EIS_RC, "", "", true, marker_style=marker_style)
+        R_ohm_auxilary += DRT_actual.peaks_df.R[i]
+      end
+    end
+  else    
+    if occursin("DRT", SIM.plot_option)
+      s5 = subplot(325)
+      plot([])
+    elseif occursin("Rtau", SIM.plot_option)
+      s5 = subplot(325)
+      plot([])
+    elseif occursin("Rf", SIM.plot_option)
+      s5 = subplot(325)
+      plot([])
+    end
+    
+    if occursin("RC", SIM.plot_option)
+      s4 = subplot(326)
+      plot([])
+    end
+  end
+  
+
+  plt.subplots_adjust(bottom=0.07, top=0.95)  
+end
+
+function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
   if length(additional_string)>0 && additional_string[1]=='!'
     my_label = additional_string[2:end]
   else
     my_label = "sim $(setting_legend(SIM))$(additional_string)"
   end
-
-  s1 = subplot(221)
-  title("Nyquist plot")
-  xlabel("Re\$(Z) \\ [\\Omega]\$")
-  ylabel("-Im\$(Z) \\ [\\Omega]\$")
-  
-  plot(real(EIS_df.Z), -imag(EIS_df.Z), "x-", label = my_label)
-  
-  if !(my_label == "")
-      legend(loc="best")
-  end
-  grid(true)
-  s1.set_aspect(1.0)
-  
-  s2 = subplot(322)
-  title("Bode plot - Re")
-  #xlabel("log f \$(\$Hz\$)\$")
-  ylabel("Re\$(Z) \\ [\\Omega]\$")
-  plot(log10.(EIS_df.f), real(EIS_df.Z), "x-", label = my_label)
-    
-  s3 = subplot(324)
-  title("Bode plot - Im")
-  xlabel("log f \$(\$Hz\$)\$")
-  ylabel("-Im\$(Z) \\ [\\Omega]\$")
-  plot(log10.(EIS_df.f), -imag(EIS_df.Z), "x-", label = my_label)
-  
-  
-  if SIM.use_DRT
-    DRT_actual = get_DRT(EIS_df, SIM.DRT_lambda)
-    
-    s4 = subplot(325)
-    plot_DRT_h(DRT_actual, false)
-    
-    s5 = subplot(326)
-    plot_DRT_RC(DRT_actual, false)
-  else
-    s4 = subplot(325)
-    plot([])
-    
-    s5 = subplot(326)
-    plot([])
-  end
-  
-  
-  
-  plt.subplots_adjust(bottom=0.07, top=0.95)
+  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x-")
 end
 
 function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
-  if to_standard_figure
-    figure(EIS_standard_figure_num, figsize=SIM.fig_size)
-  end
-  
   if length(additional_string)>0 && additional_string[1]=='!'
     my_label = additional_string[2:end]
   else
     my_label = "exp $(setting_legend(SIM))$(additional_string)"
   end
- 
-  
-  s1 = subplot(221)
-  title("Nyquist plot")
-  xlabel("Re\$(Z) \\ [\\Omega]\$")
-  ylabel("-Im\$(Z) \\ [\\Omega]\$")
-  
-  plot(real(EIS_df.Z), -imag(EIS_df.Z), "x:", label = my_label)
-  
-  if !(my_label == "")
-      legend(loc="best")
-  end
-  grid(true)
-  s1.set_aspect(1.0)
-  
-  s2 = subplot(322)
-  title("Bode plot - Re")
-  #xlabel("log f \$(\$Hz\$)\$")
-  ylabel("Re\$(Z) \\ [\\Omega]\$")
-  plot(log10.(EIS_df.f), real(EIS_df.Z), "x:", label = my_label)
-    
-  s3 = subplot(324)
-  title("Bode plot - Im")
-  xlabel("log f \$(\$Hz\$)\$")
-  ylabel("-Im\$(Z) \\ [\\Omega]\$")
-  plot(log10.(EIS_df.f), -imag(EIS_df.Z), "x:", label = my_label)
-  
-  if SIM.use_DRT
-    DRT_actual = get_DRT(EIS_df, SIM.DRT_lambda)
-    
-    s4 = subplot(325)
-    plot_DRT_h(DRT_actual, false)
-    
-    s5 = subplot(326)
-    plot_DRT_RC(DRT_actual, false)
-  else
-    s4 = subplot(325)
-    plot([])
-    
-    s5 = subplot(326)
-    plot([])
-  end
-  
-  plt.subplots_adjust(bottom=0.07, top=0.95)
+  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x:")
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
@@ -263,8 +251,8 @@ function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_
   )
 end
 
-function import_data_to_DataFrame(SIM::EIS_simulation)
-  import_EIStoDataFrame(TC=SIM.TC, pO2=SIM.pO2, bias=SIM.bias)
+function import_data_to_DataFrame(SIM::EIS_simulation; data_set="MONO")
+  import_EIStoDataFrame(TC=SIM.TC, pO2=SIM.pO2, bias=SIM.bias, data_set=data_set)
 end
 
 function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
@@ -272,7 +260,7 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes=false, fig_num=12)    
+function EIS_view_experimental_data(TC_list, pO2_list, bias_list; data_set="MONO", use_checknodes=false, fig_num=12)    
     
     for TC in TC_list
       for pO2 in pO2_list
@@ -280,7 +268,7 @@ function EIS_view_experimental_data(TC_list, pO2_list, bias_list; use_checknodes
           if use_checknodes
             SIM = EIS_simulation()
             checknodes =  get_shared_checknodes(SIM)
-            EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias), checknodes)
+            EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias, data_set=data_set), checknodes)
           else
             EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias)
           end

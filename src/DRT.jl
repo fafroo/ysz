@@ -12,14 +12,27 @@ using LinearAlgebra
 
 using Random
 
+const DRT_standard_figure = 33
+
+mutable struct DRT_control_struct
+  lambda::Float32
+  tau_min_fac::Float32
+  tau_max_fac::Float32
+  tau_range_fac::Float32
+  peak_merge_tol::Float32
+end
+
 mutable struct DRT_struct
   EIS_df::DataFrame
   tau_range::Array{Float64}
   h::Array{Float64}
   R_ohm::Float64
   L::Float64
-  lambda::Float64
+  peaks_df::DataFrame
+  control::DRT_control_struct
 end
+
+
 
 
 function get_R_C_from_DRT(tau_range=Nothing, h_tau=Nothing)
@@ -84,8 +97,9 @@ function get_R_C_from_DRT(tau_range=Nothing, h_tau=Nothing)
 end
 
 
-function get_RC_df_from_DRT(tau_range=Nothing, h_tau=Nothing)
-  h_max = maximum(h_tau)
+function evaluate_RC_peaks_from_DRT(DRT::DRT_struct)
+  
+  h_max = maximum(DRT.h)
   threshold = h_max/50.0
   
   function peak_assesement(temp_peak_df)
@@ -106,9 +120,9 @@ function get_RC_df_from_DRT(tau_range=Nothing, h_tau=Nothing)
   
   temp_peak_df = DataFrame(tau = [], h = [])
   in_peak_bool = false
-  for (i, tau) in enumerate(tau_range)
-    if h_tau[i] > threshold
-      push!(temp_peak_df, (tau, h_tau[i]))
+  for (i, tau) in enumerate(DRT.tau_range)
+    if DRT.h[i] > threshold
+      push!(temp_peak_df, (tau, DRT.h[i]))
     else
       if size(temp_peak_df, 1) > 0
         push!(peaks, peak_assesement(temp_peak_df))
@@ -117,8 +131,9 @@ function get_RC_df_from_DRT(tau_range=Nothing, h_tau=Nothing)
       end
     end
   end
-
-  return peaks
+  
+  DRT.peaks_df = peaks
+  return
 end
 
 
@@ -130,7 +145,7 @@ end
 
 # function plot_DRT(DRT::DRT_struct, to_standard_figure=true)
 #   if to_standard_figure
-#     figure(33)
+#     figure(DRT_standard_figure)
 #   end
 #   title("DRT")
 #   plot(log10.(DRT.tau_range), DRT.h, "-x", label="l=$(DRT.lambda)")
@@ -148,40 +163,77 @@ end
 
 
 
-function plot_DRT_h(DRT::DRT_struct, to_standard_figure=true)
+function plot_DRT_h(DRT::DRT_struct, to_standard_figure=true, print_bool=false, plot_lambda=true)
   if to_standard_figure
-    figure(33)
+    figure(DRT_standard_figure)
   end
   
   title("DRT")
-  plot(log10.(DRT.tau_range), DRT.h, "-x", label="l=$(DRT.lambda)")
+  plot(log10.(DRT.tau_range), DRT.h, "-x", label="\$\\lambda\$=$(DRT.control.lambda)")
   xlabel("log10(\$\\tau\$ [s])")
   ylabel("\$h(\\tau)\$ [Ohm]")
-  if to_standard_figure
+  if (to_standard_figure || plot_lambda)
     legend()
+  end
+  if print_bool
+    println("DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)")  
   end
 end
   
 function plot_DRT_RC(DRT::DRT_struct, to_standard_figure=true, print_bool=true)
   if to_standard_figure
-    figure(33)
+    figure(DRT_standard_figure)
   end
-  peaks_df = get_RC_df_from_DRT(DRT.tau_range, DRT.h)
-  
-  #title("RC characteristics")
+  peaks_df = DRT.peaks_df
+#   
+  title("RC diagram")
   xlabel("C [F]")
   ylabel("R [Ohm]")
   plot(peaks_df.C, peaks_df.R, "x")
   grid(true)
   
   if print_bool
-    println("DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)")
+    println("DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)") 
     for i in 1:size(peaks_df,1)
-      println(">> R$i = $(peaks_df.R[i])   C$i = $(peaks_df.C[i])    ... (tau_c$i = $(peaks_df.tau_c[i]))")
+      println(">> f$i = $(1/(2*pi*peaks_df.C[i]*peaks_df.R[i]))    R$i = $(peaks_df.R[i])   C$i = $(peaks_df.C[i])   ... (tau_c$i = $(peaks_df.tau_c[i]))")
     end
   end
 end
 
+function plot_DRT_Rtau(DRT::DRT_struct, to_standard_figure=true, print_bool=false)
+  if to_standard_figure
+    figure(DRT_standard_figure)
+  end
+  peaks_df = DRT.peaks_df
+  
+  title("Rtau diagram")
+  xlabel("log10(\$\\tau\$ [s])")
+  ylabel("R [Ohm]")
+  xlim(log10.([DRT.tau_range[1], DRT.tau_range[end]])...)
+  plot(log10.(peaks_df.C.*peaks_df.R), peaks_df.R, "o")
+  grid(true)
+
+end
+
+function plot_DRT_Rf(DRT::DRT_struct, to_standard_figure=true, print_bool=false)
+  if to_standard_figure
+    figure(DRT_standard_figure)
+  end
+  peaks_df = DRT.peaks_df
+  
+  title("Rf diagram")
+  xlabel("log10(\$f\$ [Hz])")
+  ylabel("R [Ohm]")
+  xlim(log10.(1 ./(2*pi*[DRT.tau_range[end], DRT.tau_range[1]]))...)
+  plot(log10.(1 ./(2*pi*peaks_df.C.*peaks_df.R)), peaks_df.R, "o")
+  grid(true)
+  
+  if print_bool
+    for i in 1:size(peaks_df,1)
+      println(">> f$i = $(1/(2*pi*peaks_df.C[i]*peaks_df.R[i]))    R$i = $(peaks_df.R[i])    ... (C$i = $(peaks_df.C[i]))")
+    end
+  end
+end
 
 
 function get_expspace(A, B, n)
@@ -193,11 +245,12 @@ function get_expspace(A, B, n)
 end
 
 
-function get_DRT(EIS_df::DataFrame, lambda=0.0)
-  #println(lambda)
-  tau_min = 1.0/(2*pi*EIS_df.f[end]) / 0.1
-  tau_max = 1.0/(2*pi*EIS_df.f[1]) * 1
-  tau_range = get_expspace(tau_min, tau_max, 2*size(EIS_df.f, 1))
+function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=false)
+  #println(control.lambda)
+  #@show tau_max_fac
+  tau_min = 1.0/(2*pi*EIS_df.f[end]) / control.tau_min_fac
+  tau_max = 1.0/(2*pi*EIS_df.f[1]) * control.tau_max_fac
+  tau_range = get_expspace(tau_min, tau_max, control.tau_range_fac*size(EIS_df.f, 1)-2)
   #tau_range = [0.001]
   
   N_f = size(EIS_df.f, 1)
@@ -206,7 +259,7 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
   # h, R_ohm, L
   n_cols = N_tau + 2  
   # real(Z), imag(Z), regularization
-  if lambda == 0.0
+  if control.lambda == 0.0
     n_rows = 2*N_f
   else
     n_rows = 2*N_f + n_cols
@@ -236,16 +289,47 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
     b[N_f + i] = imag(EIS_df.Z[i])
   end
   
-  if lambda != 0.0
+  
+#   @show A[N_f,:]
+#   @show b[N_f]
+#   @show 2222222
+#   @show A[2*N_f,:]
+#   @show b[2*N_f]
+  
+  if control.lambda != 0.0
     # assemble "regularization" part of A and b
-    A[2*N_f + 1 : end, :] .= Diagonal([lambda for i in 1:n_cols])
+    A[2*N_f + 1 : end, :] .= Diagonal([control.lambda for i in 1:n_cols])
     b[2*N_f + 1 : end] .= 0
   end
   
   work_l = NNLSWorkspace(A, b);
   solution = solve!(work_l)  
   
-#   @show x2
+  if solution[1] > 0.000001
+    println(" !!!!!!!!!!!!!!!!!!!!!!!  Low frequency adjustment ---------------------- ")
+    R_ohm_estimate = solution[N_tau + 1] + solution[1]
+  
+    next_row = zeros(N_tau + 2)
+    next_row[N_tau + 1] = 1
+    A = [A; transpose(next_row)]
+    b = [b; R_ohm_estimate]
+    
+    work_l = NNLSWorkspace(A, b);
+    solution = solve!(work_l)     
+  end
+  
+  if size(A,1) == size(A,2)
+#     @show det(A)
+#     @show A
+#     exact_solution = A \ b
+#     @show exact_solution
+#     @show solution
+#     @show exact_solution - solution
+#     println()
+#     @show A*exact_solution - b
+#     @show A*solution - b
+  end
+  
 #   @show solution
 #   
 #   @show A \ b
@@ -253,6 +337,12 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
 #   @show norm(A*solution - b)
   
   # reconstructin EIS from DRT
+  # getting rid of the corner effects
+  if control.lambda == 0.0 && false
+    solution[end-7 : end-2] .= 0
+    solution[1 : 3] .=0
+  end
+  
   EIS_post = A*solution
   
   EIS_new = deepcopy(EIS_df)
@@ -260,7 +350,36 @@ function get_DRT(EIS_df::DataFrame, lambda=0.0)
     EIS_new.Z[i] = EIS_post[i] + im*EIS_post[N_f + i]
   end
   
-  DRT_out = DRT_struct(EIS_new, tau_range, solution[1:end - 2], solution[end-1], solution[end], lambda)
+  DRT_out = DRT_struct(EIS_new, tau_range, solution[1:end - 2], solution[end-1], solution[end], DataFrame(), control)
+  evaluate_RC_peaks_from_DRT(DRT_out)
+  
+  # the following do NOT change DRT function, only changes peaks_df
+  if control.peak_merge_tol > 0.0
+    work_to_be_done = true
+    new_loop = false
+    while work_to_be_done || new_loop
+      previous_peak_R = 0
+      previous_peak_tau = 10.0^(-20)
+      new_loop = false
+      for (i, tau) in enumerate(DRT_out.peaks_df.tau_c)
+        if abs(log10(previous_peak_tau) - log10(tau)) < control.peak_merge_tol
+          
+          #
+          DRT_out.peaks_df.tau_c[i-1] = 10^((log10(DRT_out.peaks_df.tau_c[i-1] * DRT_out.peaks_df.tau_c[i]))/2)
+          DRT_out.peaks_df.R[i-1] += DRT_out.peaks_df.R[i]
+          DRT_out.peaks_df.C[i-1] = DRT_out.peaks_df.tau_c[i-1]/DRT_out.peaks_df.R[i-1]
+          deleterows!(DRT_out.peaks_df, i)
+          #
+          
+          new_loop = true
+        else
+          previous_peak_tau = tau
+          previous_peak_R = DRT_out.peaks_df.R[i]
+        end
+      end
+      work_to_be_done = false
+    end
+  end
   
   return DRT_out
 end
@@ -359,5 +478,20 @@ end
 #   return b
 # end
 
+function EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, Rohm=0; f_range=Nothing)
+  EIS_RC = DataFrame( f = [], Z = [])
+  if f_range==Nothing
+    checknodes = get_shared_checknodes(EIS_simulation(800,100,0.0)...)
+  else
+    checknodes = EIS_get_checknodes_geometrical(f_range...)
+  end
+  for f in checknodes
+    push!(
+      EIS_RC, 
+      (f, Rohm + R1/(1 + im*2*pi*f*R1*C1) + R2/(1 + ((im*2*pi*f*R2*C2)^alpha))  )
+    ) 
+  end
+  return EIS_RC  
+end
 
 

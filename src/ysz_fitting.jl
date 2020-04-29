@@ -225,31 +225,69 @@ end
 
 
 
-function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true)
-  
-  
-  SIM_list = EIS_simulation(TC, pO2, bias, DRT_lambda=lambda)
-  SIM = SIM_list[1]
-  
-  if mode=="EEC"
-    EIS_df = EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, 10)
-    typical_plot_sim(SIM, EIS_df, "! EEC ($R1, $C1) ($R2, $C2, $alpha)")
-  elseif mode=="sim"
-    EIS_df = ysz_fitting.simple_run(SIM_list, pyplot=1, 
-      prms_names=prms_names, 
-      prms_values=prms_values, use_experiment=false)
-  elseif mode=="exp"
-    EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
-    typical_plot_exp(SIM, EIS_df)    
+function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=Nothing, data_set="MONO", 
+tau_min_fac=10, tau_max_fac=10, tau_range_fac=2,
+peak_merge_tol=0.0)
+  if data_set=="POLY_OCV_test"
+    bias=0.0
+    data_set_list = ["POLY_$idx" for idx in [1,2,3]]
+  else  
+    data_set_list = [data_set]
   end
-
   
-  if backward_check
-    DRT_actual = get_DRT(EIS_df, lambda)
-    println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
-    typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false)..., DRT_actual.EIS_df, "! DRT_backward_check")
-  end
+  for TC_item in TC, pO2_item in pO2, bias_item in bias, lambda_item in lambda, data_set_item in data_set_list
 
+      
+    
+    
+    # to add .... , tau_min_fac=tau_min_fac, tau_max_fac=tau_max_fac, tau_range_fac=tau_range_fac
+    DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol)
+    
+    if f_range != Nothing  
+      SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, DRT_draw_semicircles=draw_semicircles, 
+                  DRT_control=DRT_control, plot_option=plot_option, f_range=f_range)
+    else
+      SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, DRT_draw_semicircles=draw_semicircles, 
+                  DRT_control=DRT_control, plot_option=plot_option)
+    end
+    SIM = SIM_list[1]
+    
+    #@show SIM
+    
+    if mode=="EEC"
+      EIS_df = EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, R_ohm, f_range=f_range)
+      typical_plot_sim(SIM, EIS_df, "! EEC ($R1, $C1) ($R2, $C2, $alpha)")
+    elseif mode=="sim"
+      EIS_df = ysz_fitting.simple_run(SIM_list, pyplot=1, 
+        prms_names=prms_names, 
+        prms_values=prms_values, use_experiment=false)
+    elseif mode=="exp"
+      #@show SIM.checknodes
+      EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM, data_set=data_set_item), SIM.checknodes)
+      if length(data_set_list) > 0
+        if data_set_item[end-1:end]==".z"
+          typical_plot_exp(SIM, EIS_df, "!$(data_set_item)") 
+        else
+          typical_plot_exp(SIM, EIS_df, " $(data_set_item)") 
+        end
+      else
+        typical_plot_exp(SIM, EIS_df) 
+      end
+    end
+
+    
+    if backward_check
+      DRT_actual = get_DRT(EIS_df, DRT_control)
+      println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
+      typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false, DRT_control=DRT_control, plot_option=plot_option)..., DRT_actual.EIS_df, "! DRT_backward_check")
+      
+#       DRT_actual = get_DRT(EIS_df, lambda_item, debug_mode=true)
+#       println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
+#       
+#       plot_DRT_h(DRT_actual)
+#       typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false)..., DRT_actual.EIS_df, "! DRT_backward_check")
+    end
+  end
     
   #return DRT_actual
   return
@@ -273,18 +311,6 @@ end
 #   typical_plot_sim(EIS_simulation(800,100,0.0)..., EIS_RC, " RC_elem")
 #   return EIS_RC
 # end
-
-function EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, Rohm=0)
-  EIS_RC = DataFrame( f = [], Z = [])
-  for f in get_shared_checknodes(EIS_simulation(800,100,0.0)...)
-    push!(
-      EIS_RC, 
-      (f, Rohm + R1/(1 + im*2*pi*f*R1*C1) + R2/(1 + ((im*2*pi*f*R2*C2)^alpha))  )
-    ) 
-  end
-  return EIS_RC  
-end
-
 
 
 ###########################################################

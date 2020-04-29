@@ -79,5 +79,35 @@ ysz_model_GAS_LoMA_Vojta (tj. oba dohromady)
 ysz_model_GAS_LoMA
 
   - usty! vypada to, ze umi byt rozumne CV a zaroven trefovat zavislosti EIS na pO2 !!!
-
   
+  
+  
+########################################
+########################################
+ysz_shn.jl .....
+
+## 4 peaks -> clear process counterpart to one peak:
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, DRT_draw_semicircles=false, plot_option="Nyq Rf RC"), pyplot=1,  
+                     prms_names=["kappaA", "kappaR", "kappaO", 
+                                 "rA", "rR", "rO",     "rB", "rC",     
+                                 "DGA", "DGR", "DGO",     
+                                 "DD", "nu", "sites_Om0", "sites_Om1"     ], 
+                     prms_values=(1.0, 0.0, 0.0,
+                                  collect(21.85 : 0.3 : 21.85), 20.0, collect(19.0 : 0.1 : 20.),     collect(18 : 0.05 : 18), 18,       
+                                  collect(-0.75 : -0.05 : -0.75), 0.0, 0.05,    
+                                  [90]*1.0e-14, [0.85], 2.0, collect(0.07 : 0.01 : 0.07)     ), 
+                     use_experiment=true);
+
+## zatoceni low freq !!!!!!!!!!!!!!!!!!!
+novy = 1; ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, DRT_draw_semicircles=false, plot_option="Nyq Bode Rf RC"), pyplot=1,  
+                     prms_names=["kappaA", "kappaR", "kappaO", 
+                                 "rA", "rR", "rO",     "rB", "rC",     
+                                 "DGA", "DGR", "DGO",     
+                                 "DD", "nu", "sites_Om0", "sites_Om1"     ], 
+                     prms_values=(1.0, 0.0, 0.0,
+                                  collect(22.25 : 0.1 : 22.25), collect(19.7 : 0.05 : 19.7), collect(20.38 : 0.01 : 20.38),     collect(18 : 0.05 : 18), 24.75,       
+                                  collect(-1.05 : -0.05 : -1.05), 0.0, 0.05,    
+                                  [90]*1.0e-14, 0.85, 2.0, collect(0.08 : 0.002 : 0.08)     ), 
+                     use_experiment=false);
+
+
