@@ -23,7 +23,9 @@ using LeastSquaresOptim
 ##########################################
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
-model_label = "ysz_model_GAS_LoMA"
+#model_label = "ysz_model_GAS_LoMA"
+#model_label = "ysz_model_GAS_LoMA_overvoltage"
+model_label = "ysz_shn"
 
 include("../src/models/$(model_label).jl")
 include("../prototypes/timedomain_impedance.jl")
@@ -133,10 +135,10 @@ function run_new(;physical_model_name="",
 #         println("rest_prms = (",parameters.T,",",parameters.pO2,")")
 #     end
     
-    
     #model_symbol.printfields(parameters)
     
     
+    # assembling of the system
     physics=VoronoiFVM.Physics(
         data=parameters,
         num_species=size(bulk_species,1)+size(surface_species,1),
@@ -565,7 +567,8 @@ function run_new(;physical_model_name="",
             
  
 
- 
+            @show state
+            @show Ir+Is+Ib+Ibb
             if false && !(test || test_from_above)
                 @printf("t = %.2g   U = %g   ys0 = %g  yAs = %g  yOs = %g  r=(%g, %g, %g)  I=(%g, %g, %g, %g)\n", istep*tstep, phi, U[iy,1], U[iyAs,1], U[iyOs,1], 
                       model_symbol.exponential_oxide_adsorption(parameters, U[:,1], debug_bool=true),
