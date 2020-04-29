@@ -23,9 +23,8 @@ using LeastSquaresOptim
 ##########################################
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
-#model_label = "ysz_model_GAS_LoMA"
-#model_label = "ysz_model_GAS_LoMA_overvoltage"
-model_label = "ysz_shn"
+model_label = "ysz_model_GAS_LoMA"
+#model_label = "ysz_shn"
 
 include("../src/models/$(model_label).jl")
 include("../prototypes/timedomain_impedance.jl")

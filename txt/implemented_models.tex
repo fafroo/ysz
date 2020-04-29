@@ -3,13 +3,14 @@
 \usepackage[usenames,dvipsnames]{xcolor} %monochrome option to ignore red, blue etc
 \usepackage{amsmath,amssymb,graphicx, cancel, supertabular, booktabs, mathtools}
 \usepackage{tikz}
-\usepackage{siunitx, mhchem, comment}
+\usepackage{siunitx, , comment}
+\usepackage[version=4]{mhchem}
 %, stmaryrd}
 \usepackage{bm}         % bold math fonts with \bm{}
 \usepackage[font=small,labelfont=bf]{caption} % Required for specifying captions to tables and figures
 \usepackage{pgfplotstable}
 \usepackage{pgfplots}
-\pgfplotsset{compat=1.9}
+\pgfplotsset{compat=1.13}
 %\usepackage{lipsum}
 %\frenchspacing
 % bibliography
@@ -54,11 +55,13 @@
 \def\Ox{\mathrm{O}}
 \def\oo{{\ce{O2}}}
 \def\nn{{\ce{N2}}}
+\newcommand{\Omin}{{\ce{O-}}}
 \def\Om{\mathrm{Om}}
 \def\Oi{\mathrm{Oi}}
 \def\Zr{\mathrm{Zr}}
 \def\Yi{\mathrm{Y }}
-\def\OO{\mathrm{O}_2}
+\newcommand{\OO}{{\ce{O2}}}
+\newcommand{\dd}{{\mathrm{d}}}
 
 \def\Mp{\mathrm{M^+}}
 \def\eM{\mathrm{e^-}}
@@ -78,23 +81,37 @@
 \def\aL{a_\mathrm{L}}
 
 \def\ys{\us y}
+\newcommand{\ysV}{\us y_{\textrm{V}}}
+\newcommand{\yOmin}{\us y_{\ce{O-}}}
 \def\y0{y(0)}
 \def\yOs{\us y_\textrm{O}}
 \def\pO2{p\OO}
 
 \def\A0{A_0}
+\def\B0{B_0}
+\def\C0{C_0}
 \def\R0{R_0}
 \def\K0{O_0}
 \def\DGA{\Delta G_\textrm{A}  }
+\def\DGB{\Delta G_\textrm{B}  }
+\def\DGC{\Delta G_\textrm{C}  }
 \def\DGR{\Delta G_\textrm{R}  }
 \def\DGO{\Delta G_\textrm{O}  }
-\def\betaA{\beta_A}
-\def\betaR{\beta_R}
-\def\betaO{\beta_O}
-\def\SA{S_A}
-\def\SR{S_R}
-\def\SO{S_O}
-
+\def\betaA{\beta_\textrm{A}}
+\def\betaB{\beta_\textrm{B}}
+\def\betaC{\beta_\textrm{C}}
+\def\betaR{\beta_\textrm{R}}
+\def\betaO{\beta_\textrm{O}}
+\def\SA{S_\textrm{A}}
+\def\SB{S_\textrm{B}}
+\def\SC{S_\textrm{C}}
+\def\SR{S_\textrm{R}}
+\def\SO{S_\textrm{O}}
+\newcommand{\kaA}{{\kappa_\textrm{A}}}
+\newcommand{\kaB}{{\kappa_\textrm{B}}}
+\newcommand{\kaC}{{\kappa_\textrm{C}}}
+\newcommand{\kaR}{{\kappa_\textrm{R}}}
+\newcommand{\kaO}{{\kappa_\textrm{O}}}
 
 \def\eq{\textrm{eq}}
 \def\REF{\textrm{ref}}
@@ -327,11 +344,11 @@ m_\Ox
 \section{Other variants}
 Only regarding surface:
 
-\def\surf{\mathrm{s}}
-\def\Y{\mathrm{Y}}
-\def\gas{\mathrm{g}}
+\newcommand{\surf}{\mathrm{s}}
+\newcommand{\Y}{\mathrm{Y}}
+\newcommand{\gas}{\mathrm{g}}
 \subsection{model\_ysz\_GAS\_exp\_ads}
-Model including adsorbtion of oxygen $\mathrm{O}_2(g)$ from gas to the surface. All kinetics are exponential-like. The complete reaction mechanism reads
+Model including adsorption of oxygen \ce{O2(g)} from gas to the surface. All kinetics are exponential-like. The complete reaction mechanism reads
 \begin{subequations}
 \begin{align}
 \mathrm{Oxide \ anion \ adorption \ from \ YSZ} \ (A) &: \quad 
@@ -349,9 +366,9 @@ Model including adsorbtion of oxygen $\mathrm{O}_2(g)$ from gas to the surface. 
 Chemical potentials reads
 \begin{subequations}
 \begin{align}
-\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{m_\Ox^2}\ln 
+\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{2 m_\Ox}\ln 
 \left( 
-	\pO2 
+    \frac{\pO2}{p^\REF} 
 \right)
 \\
 \mu_{\us \Ox} 
@@ -508,4 +525,537 @@ The equilibrium condition is
 \right).
 \end{align}
 \end{subequations}
+
+\subsection{\texttt{model\_ysz\_shared\_vac.jl}}
+Free energy density
+\begin{align}
+    \us\rho\psi = 
+              \rho\psi^\REF_\Om
+            + \rho\psi^\REF_\OO
+            + \rho\psi^\REF_\eM
+            + \frac{\kB T}{\aL}\us m(1-\us\nu) 
+            \left( 
+                \ys   \log {\ys} 
+                +\yOs  \log {\yOs}
+                +\ysV  \log {\ysV}
+            \right)
+    \label{}
+\end{align}
+where $\ysV = 1 - \ys - \yOs$.
+Chemical potentials read
+\begin{subequations}
+\begin{align}
+\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{2 m_\Ox}\ln 
+\left( 
+    \frac{p_\OO}{p^\REF} 
+\right)~,
+\\
+\us\mu_{\Om} 
+&= 
+\us \psi_{\Om}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln 
+\left(  
+	\frac{\ys}{1-\ys - \yOs}
+\right)~,
+\\
+\us\mu_{\Ox} 
+&= 
+\us \psi_{\Ox}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln 
+\left(  
+	\frac{\yOs}{1-\ys - \yOs}
+\right).
+\end{align}
+\end{subequations}
+The surface system reads
+\begin{subequations}
+\begin{align}
+ \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \ys
+&=
+m_\Ox \us A
++
+m_\Ox \us R~,
+\\
+ \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \yOs
+&=
+2 m_\Ox \us O
+-
+m_\Ox \us R,
+\end{align}
+\end{subequations}
+with
+\begin{subequations}
+\begin{align}
+&\us A
+=
+\frac{\A0}{\SA}
+\Bigg[
+	\exp
+	\left(
+		{-\betaA \SA \frac{\DGA}{\kB T}}
+	\right)
+	\left(
+		\frac{1 - \y0}{\y0}
+		\frac{\ys}{1-\ys -\yOs}
+	\right)^{-\betaA \SA}
+\\ \nonumber
+	&\quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1-\betaA) \SA \frac{\DGA}{\kB T}}
+	\right)
+	\left(
+		\frac{1 - \y0 }{\y0}
+		\frac{\ys}{1-\ys-\yOs}
+	\right)^{(1-\betaA) \SA}
+\Bigg],
+\\ \nonumber
+\\
+&\us R
+=
+\frac{\R0}{\SR}
+\Bigg[
+	\exp
+	\left(
+		{-\betaR \SR \frac{\DGR}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{1- \ys - \yOs}
+		\frac{1 -\ys -\yOs}{\yOs}
+	\right)^{-\betaR \SR}
+\\ \nonumber
+	& \quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1 - \betaR) \SR \frac{\DGR}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{1- \ys - \yOs}
+		\frac{1-\yOs - \ys}{\yOs}
+	\right)^{(1-\betaR) \SR}
+\Bigg],
+\\ \nonumber
+\\
+&\us O
+=
+\frac{\K0}{\SO}
+\Bigg[
+	\exp
+	\left(
+		{-\betaO \SO \frac{\DGO}{\kB T}}
+	\right)
+	\left(
+		\left(
+			\frac{\yOs}{1-\ys-\yOs}
+		\right)^2
+		\frac{1}{\pO2}
+	\right)^{-\betaO \SO}
+\\ \nonumber
+	&\quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1-\betaO) \SO \frac{\DGO}{\kB T}}
+	\right)
+	\left(
+		\left(
+			\frac{\yOs}{1-\ys-\yOs}
+		\right)^2
+		\frac{1}{\pO2}
+	\right)^{(1 - \betaO) \SO}
+\Bigg],
+\end{align}
+\end{subequations}
+and we define
+\begin{subequations}
+\begin{align}
+\DGA
+&=
+m_\Ox
+\left(
+	\psi_{\textrm{Om}}^\REF
+	-
+	\us \psi_{\textrm{Om}}^\REF
+\right)
+\\
+\DGR
+&= 
+m_\Ox
+\left(
+	\us \psi_{\textrm{Om}}^\REF
+	-
+	\frac{\us \psi_{\Ox}^\REF}{2}
+\right)
+-
+2 m_\textrm{e} \psi_{\textrm{e}}^\REF.
+\\
+\DGO
+&= 
+m_\Ox
+\left(
+	\us \psi_{\Ox}^\REF
+	-
+	2 \psi_{\OO}^\REF
+\right).
+\end{align}
+\end{subequations}
+The equilibrium condition is
+\begin{subequations}
+\begin{align}
+\frac{\y0^\eq}{1-\y0^\eq} = \sqrt{\pO2} \ \textrm{exp}
+\left(
+	\frac{\DGA - \DGR - \frac{\DGO}{2}}{\kB T}
+\right).
+\end{align}
+\end{subequations}
+
+\subsection{\texttt{model\_ysz\_shared\_vac\_twostep.jl}}
+\begin{subequations}
+ \begin{align}
+\text{Oxide anion adsorption from YSZ (\textbf{A})}  \ &: \quad 
+\ce{O^{2-}(s) + (b) <=> O^{2-}(b) + (s)}
+\\
+\text{Electron transfer reaction (\textbf{R})}   &: \quad 
+\ce{O(s) +  2e^-(s) <=> O^{2-}(s)}
+\\
+\text{Electron transfer reaction (\textbf{B})}   &: \quad 
+\ce{O(s) +  e^-(s) <=> O^{-}(s)}
+\\
+\text{Electron transfer reaction (\textbf{C})}  &: \quad 
+\ce{O^-(s) +  e^-(s) <=> O^{2-}(s)}
+\\
+\text{Oxygen adsorption from gas (\textbf{O})}   &: \quad 
+\ce{O2(g) + 2(s) <=> 2O(s)}
+\end{align}
+\end{subequations}
+Free energy density
+\begin{align}
+    \us\rho\psi &= 
+              \rho\psi^\REF_\Om
+            + \rho\psi^\REF_\Omin
+            + \rho\psi^\REF_\OO
+            + \rho\psi^\REF_\eM\nonumber
+            \\
+            &+ \frac{\kB T}{\aL}\us m(1-\us\nu) 
+            \left( 
+                \ys   \log {\ys} 
+                +\yOs  \log {\yOs}
+                +\yOmin  \log {\yOmin}
+                +\ysV  \log {\ysV}
+            \right)
+    \label{}
+\end{align}
+where $\ysV = 1 - \ys - \yOs - \yOmin$.
+Chemical potentials read
+\begin{subequations}
+\begin{align}
+\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{2 m_\Ox}\ln 
+\left( 
+    \frac{p_\OO}{p^\REF} 
+\right)~,
+\\
+\us\mu_{\Om} 
+&= 
+\us \psi_{\Om}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln 
+\left(  
+	\frac{\ys}{1-\ys - \yOs- \yOmin}
+\right)~,
+\\
+\us\mu_{\Omin} 
+&= 
+\us \psi_{\Omin}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln 
+\left(  
+	\frac{\yOmin}{1-\ys - \yOs - \yOmin}
+\right)~,
+\\
+\us\mu_{\Ox} 
+&= 
+\us \psi_{\Ox}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln 
+\left(  
+	\frac{\yOs}{1-\ys - \yOs- \yOmin}
+\right).
+\end{align}
+\end{subequations}
+The surface system reads
+\begin{subequations}
+\begin{align}
+ \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \ys
+&=
+m_\Ox
+\left(
+    - \us A
+    +\us R
+    +\us C
+\right)~,
+\\
+ \frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \yOs
+&=
+m_\Ox
+\left(
+      \us O
+     -\us R 
+     -\us B
+\right)~,
+\\
+\frac{m_\Ox \us m (1- \us \nu)}{\aL}\partial_t \yOmin
+&=
+m_\Ox 
+\left(
+    \us B 
+   -\us C
+\right)~,
+\end{align}
+\end{subequations}
+with
+\begin{subequations}
+\begin{align}
+&\us A
+=
+\frac{\A0}{\SA}
+\left[
+    y(0) (1-y(0)) \ys \ysV  
+\right]^\kaA
+\Bigg[
+	\exp
+	\left(
+		{-\betaA \SA \frac{\DGA}{\kB T}}
+	\right)
+	\left(
+		\frac{\y0}{1 - \y0}
+		\frac{\ys}{\ysV}
+	\right)^{-\betaA \SA}
+\\ \nonumber
+	&\quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1-\betaA) \SA \frac{\DGA}{\kB T}}
+	\right)
+	\left(
+		\frac{\y0}{1 - \y0 }
+		\frac{\ys}{\ysV}
+	\right)^{(1-\betaA) \SA}
+\Bigg],
+\\ \nonumber
+\\
+&\us R
+=
+\frac{\R0}{\SR}
+\left[
+  \ys \yOs 
+\right]^\kaR
+\Bigg[
+	\exp
+	\left(
+		{-\betaR \SR \frac{\DGR}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{\yOs}
+	\right)^{-\betaR \SR}
+\\ \nonumber
+	& \quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1 - \betaR) \SR \frac{\DGR}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{\yOs}
+	\right)^{(1-\betaR) \SR}
+\Bigg],
+\\ \nonumber
+\\
+&\us B
+=
+\frac{\B0}{\SB}
+\left[
+  \yOmin \yOs 
+\right]^\kaB
+\Bigg[
+	\exp
+	\left(
+		{-\betaB \SB \frac{\DGB}{\kB T}}
+	\right)
+	\left(
+		\frac{\yOmin}{\yOs}
+	\right)^{-\betaB \SB}
+\\ \nonumber
+	& \quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1 - \betaB) \SB \frac{\DGB}{\kB T}}
+	\right)
+	\left(
+		\frac{\yOmin}{\yOs}
+	\right)^{(1-\betaB) \SB}
+\Bigg],
+\\ \nonumber
+\\
+&\us C
+=
+\frac{\C0}{\SC}
+\left[
+  \yOmin \ys 
+\right]^\kaC
+\Bigg[
+	\exp
+	\left(
+		{-\betaC \SC \frac{\DGC}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{\yOmin}
+	\right)^{-\betaC \SC}
+\\ \nonumber
+	& \quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1 - \betaC) \SC \frac{\DGC}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{\yOmin}
+	\right)^{(1-\betaC) \SC}
+\Bigg],
+\\ \nonumber
+\\
+&\us O
+=
+\frac{\K0}{\SO}
+\left[
+    \yOs^2 \ysV^2 \frac{p_\OO}{p^\REF}
+\right]^\kaO
+\Bigg[
+	\exp
+	\left(
+		{-\betaO \SO \frac{\DGO}{\kB T}}
+	\right)
+	\left(
+		\left(
+			\frac{\yOs}{\ysV}
+		\right)^2
+   \frac{p^\REF}{p_\OO}
+	\right)^{-\betaO \SO}
+\\ \nonumber
+	&\quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1-\betaO) \SO \frac{\DGO}{\kB T}}
+	\right)
+	\left(
+		\left(
+			\frac{\yOs}{\ysV}
+		\right)^2
+    \frac{p^\REF}{p_\OO}
+	\right)^{(1 - \betaO) \SO}
+\Bigg],
+\end{align}
+\end{subequations}
+and we define
+\begin{subequations}
+\begin{align}
+\DGA
+&=
+m_\Ox
+\left(
+	\psi_{\textrm{Om}}^\REF
+	-
+	\us \psi_{\textrm{Om}}^\REF
+\right)
+\\
+\DGR
+&= 
+m_\Ox
+\left(
+	\us \psi_\Om^\REF
+	-
+	\us \psi_\Ox^\REF
+\right)
+-
+2m_\eM \psi_\eM^\REF= \DGB + \DGC~,
+\\\DGB
+&= 
+m_\Ox
+\left(
+	\us \psi_\Omin^\REF
+	-
+	\us \psi_\Ox^\REF
+\right)
+-
+m_\eM \psi_\eM^\REF~,
+\\
+\DGC
+&= 
+m_\Ox
+\left(
+	\us \psi_\Om^\REF
+	-
+	\us \psi_\Omin^\REF
+\right)
+-
+m_\eM \psi_\eM^\REF~,
+\\
+\DGO
+&= 
+m_\Ox
+\left(
+	\us \psi_{\Ox}^\REF
+	-
+	2 \psi_{\OO}^\REF
+\right).
+\end{align}
+\end{subequations}
+The equilibrium condition is
+\begin{subequations}
+\begin{align}
+    \frac{\y0^\eq}{1-\y0^\eq} = \sqrt{\frac{p_\OO}{p^\REF}} \exp
+\left(
+	\frac{-\DGA - \DGB - \DGC - \frac{\DGO}{2}}{\kB T}
+\right)~.
+\end{align}
+\end{subequations}
+
+The current formula updates to
+\begin{align}
+    \frac{I}{A} &= - e_0  z_\Om \underbrace{\us A}_{\mathclap{\mathbf{j}_\Om\nu|_S}}
+                     - \int_S^B \frac{\dd}{\dd t} n^F
+                     +\varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_B 
+    \label{}
+\end{align}
+\subsection{Law of Mass Action}
+Is it possible to express the vacancy coverage in terms of activities $a_\alpha$?
+Assume
+\begin{align}
+    \mu_\alpha = \mu_\alpha^\REF + \kB T\underbrace{
+      \ln \frac{\us y_\alpha}
+               {\underbrace{1-\sum_\beta \us y_\beta}_{=:\ysV}}
+    }_{\ln a_\alpha}
+    \label{}
+\end{align}
+then
+\begin{align}
+    \sum_\alpha a_\alpha = \frac{1-\ysV}{\ysV} \implies \ysV = \frac{1}{1 + \sum_\alpha a_\alpha}~.
+    \label{}
+\end{align}
+hence
+\begin{align}
+    \us y_\alpha = \frac{a_\alpha}{1+ \sum_\beta a_\beta}\quad\mbox{and}\quad 1-\ysV = \frac{\sum_\alpha a_\alpha}{1+ \sum_\alpha a_\alpha}
+    \label{}
+\end{align}
+Especially, for the bulk case
+\begin{align}
+    y(0) = \frac{\frac{y(0)}{1-y(0)}}{1+\frac{y(0)}{1-y(0)}} \quad\mbox{and}\quad    1-y(0) = \frac{1}{1+\frac{y(0)}{1-y(0)}}
+    \label{}
+    \end{align}
 \end{document}
