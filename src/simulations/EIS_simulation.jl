@@ -1,4 +1,4 @@
-  using CSV
+using CSV
 using DataFrames
 using PyPlot
 
@@ -18,7 +18,8 @@ mutable struct EIS_simulation <: abstract_simulation
   #
   dx_exp::Float64
   f_range::Tuple
-  fig_size::Tuple 
+  fig_size::Tuple
+  fig_num::Int16
   #
   checknodes::Any
   fitness_factor::Float64
@@ -39,7 +40,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_range(), fig_size=(9, 6), use_DRT=true, DRT_control=DRT_control_struct(0.0, 1, 1, 2,0), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC")
+function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_range(), fig_size=(9, 6), fig_num=-1, use_DRT=true, DRT_control=DRT_control_struct(0.0, 1, 1, 2,0), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC")
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -53,6 +54,7 @@ function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_r
         this.dx_exp = dx_exp
         this.f_range = f_range
         this.fig_size = fig_size
+        this.fig_num = (fig_num >= 0 ? fig_num : EIS_standard_figure_num)
         #
         this.checknodes = EIS_get_checknodes_geometrical(f_range...)
         this.fitness_factor = 1.0
@@ -96,7 +98,7 @@ end
 
 function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_string="", to_standard_figure=true; marker_style="x-")
   if to_standard_figure
-    figure(EIS_standard_figure_num, figsize=SIM.fig_size)
+    figure(SIM.fig_num, figsize=SIM.fig_size)
   end
 
   if occursin("Nyq", SIM.plot_option)

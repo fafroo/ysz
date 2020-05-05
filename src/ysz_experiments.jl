@@ -19,6 +19,7 @@ using PyPlot
 using DataFrames
 using CSV
 using LeastSquaresOptim
+using LinearAlgebra
 
 ##########################################
 # internal import of YSZ repo ############
@@ -172,7 +173,7 @@ function run_new(;physical_model_name="",
 
     #
     control=VoronoiFVM.NewtonControl()
-    control.verbose=verbose
+    control.verbose=false
     control.tol_linear=1.0e-4
     control.tol_relative=1.0e-5
     #control.tol_absolute=1.0e-4
@@ -398,6 +399,23 @@ function run_new(;physical_model_name="",
     #########################################
     #########################################
     
+    # code for performing STEP
+    
+    
+    
+    
+    
+    
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    
+    
     # code for performing CV
     if voltammetry
  
@@ -547,7 +565,13 @@ function run_new(;physical_model_name="",
             
             # tstep to potential phi
             sys.boundary_values[index_driving_species,1]=phi
-            solve!(U, U0, sys, control=control, tstep=tstep)
+            
+            control.Δt = tstep
+            evolve!(U, U0, sys, [0, tstep], control=control)
+            
+            
+#             solve!(U, U0, sys, control=control, tstep=tstep)
+            
             
             # Transient part of measurement functional
             I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
@@ -567,8 +591,8 @@ function run_new(;physical_model_name="",
             
  
 
-            @show state
-            @show Ir+Is+Ib+Ibb
+            #@show state
+            #@show Ir+Is+Ib+Ibb
             if false && !(test || test_from_above)
                 @printf("t = %.2g   U = %g   ys0 = %g  yAs = %g  yOs = %g  r=(%g, %g, %g)  I=(%g, %g, %g, %g)\n", istep*tstep, phi, U[iy,1], U[iyAs,1], U[iyOs,1], 
                       model_symbol.exponential_oxide_adsorption(parameters, U[:,1], debug_bool=true),

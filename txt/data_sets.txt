@@ -1,0 +1,29 @@
+# ------------ data_sets -------------- #
+
+Monocrystaline - <date>
+  Key words
+    - "MONO"
+  Data ranges:
+    - TC \in 700 : 50 : 850
+    - pO2 \in 0 : 20 : 100
+    - bias \in 0.0
+      Note: irelevant biases are also for -1.0 : 0.5 : 1.0
+  
+  
+Polycrystaline - <date>
+  Key words:
+    - "POLY"
+    - "POLY_$i" for OCV try i \in {1, 2, 3} (using automatically bias=0.0)
+    - "POLY_OCV_test" for displaying all OCV cases for i in {1, 2, 3}
+  Data ranges:
+    - TC \in 700 : 50 : 850
+    - pO2 \in [20, 100]
+    - bias \in -1.0 : 0.05 : 1.0
+
+HebbWagner - <date>
+  Key word:
+    - HebbWagner
+  Data ranges:
+    - TC \in 600 : 20 : 720
+    (- pO2 \in very few)
+    - bias \in 0.3

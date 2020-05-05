@@ -225,9 +225,11 @@ end
 
 
 
-function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=Nothing, data_set="MONO", 
+function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="MONO", 
 tau_min_fac=10, tau_max_fac=10, tau_range_fac=2,
-peak_merge_tol=0.0)
+peak_merge_tol=0.0, show_legend=true, fig_num=EIS_standard_figure_num)
+  
+
   if data_set=="POLY_OCV_test"
     bias=0.0
     data_set_list = ["POLY_$idx" for idx in [1,2,3]]
@@ -243,13 +245,8 @@ peak_merge_tol=0.0)
     # to add .... , tau_min_fac=tau_min_fac, tau_max_fac=tau_max_fac, tau_range_fac=tau_range_fac
     DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol)
     
-    if f_range != Nothing  
-      SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, DRT_draw_semicircles=draw_semicircles, 
-                  DRT_control=DRT_control, plot_option=plot_option, f_range=f_range)
-    else
-      SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, DRT_draw_semicircles=draw_semicircles, 
-                  DRT_control=DRT_control, plot_option=plot_option)
-    end
+    SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, DRT_draw_semicircles=draw_semicircles, 
+                DRT_control=DRT_control, plot_option=plot_option, fig_num=fig_num, f_range=f_range)
     SIM = SIM_list[1]
     
     #@show SIM
