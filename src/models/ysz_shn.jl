@@ -90,11 +90,12 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
  
     stoichiometric_matrix::Array{Int32,2}
 
-    # inductance
-    L::Float64  
+    
+    L::Float64  # inductance
     
     # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
-    OC::Float64
+    sites_Om0::Float64  # atomic O sites ratio
+    sites_Om1::Float64  # oxide O-1 sites ratio 
     
     
     
@@ -138,6 +139,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     #
     ARO_mode::Bool # switches off B & C reactions, assumes simpler surface lattice sites
     meas_new::Bool # switches on the new formula for current measure
+    separate_vacancy::Bool # assumes separate vacancies
     #
     YSZParameters()= YSZParameters( new())
 end
@@ -164,7 +166,7 @@ function YSZParameters(this)
 
     # electron-transfer reaction
     this.rR= 10.0^22
-    this.DGR= -0.008014 * this.e0
+    this.DGR= -0.708014 * this.e0
     this.betaR= 0.5
     this.SR= 10^0.0
     this.kappaR = 0.0
@@ -199,7 +201,8 @@ function YSZParameters(this)
     this.L=2.3560245927364395e-6
     
     # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
-    this.OC = 1/4
+    this.sites_Om0 = 1/4
+    this.sites_Om1 = 1/2
     
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
@@ -222,6 +225,8 @@ function YSZParameters(this)
 
     this.ARO_mode = false # true# 
     this.meas_new = false
+    this.separate_vacancy = true
+    #@show this.separate_vacancy
     
     #this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
     #this.yB  = -this.zL/(this.zA*this.m_par*(1-this.nu))
@@ -294,7 +299,7 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
     #
     treshold_for_linear_function = 0.6*10^(-9)
     for inode=1:size(inival,2)
-        x = nodecoord(grid, inode)[1]
+        x = coordinates(grid)[inode]
         if x < treshold_for_linear_function
           inival[iphi, inode] = (((treshold_for_linear_function - x)*parameters.phi_eq)/
                                   treshold_for_linear_function)                                  
@@ -455,13 +460,13 @@ end
 
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
-    if this.ARO_mode
-        f[iyAs]=this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
-        f[iyOs]=this.mO*this.OC*u[iyOs]/this.areaL
-        f[iyOmins]=this.mO*this.ms_par*(1.0-this.nus)*u[iyOmins]/this.areaL
+    if this.ARO_mode || this.separate_vacancy
+        f[iyAs]     =this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
+        f[iyOs]     =this.mO*this.sites_Om0*u[iyOs]/this.areaL
+        f[iyOmins]  =this.mO*this.sites_Om1*u[iyOmins]/this.areaL
     else
-        f[iyAs]=this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
-        f[iyOs]=this.mO*this.ms_par*(1.0-this.nus)*u[iyOs]/this.areaL
+        f[iyAs]   =this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
+        f[iyOs]   =this.mO*this.ms_par*(1.0-this.nus)*u[iyOs]/this.areaL
         f[iyOmins]=this.mO*this.ms_par*(1.0-this.nus)*u[iyOmins]/this.areaL
     end
 end
@@ -526,7 +531,7 @@ function exponential_oxide_adsorption(this::YSZParameters, u; debug_bool=false)
                 (u[iy]*(1-u[iy]))
                 *
                 (u[iyAs]*(1-u[iyAs]))               
-              )^(this.SA*this.kappaA)
+              )^(this.SA*this.kappaA/2)
         else  
           the_fac = 1.0
         end
@@ -579,7 +584,7 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
                (u[iyOs]*(1-u[iyOs]))
                *
                (u[iyAs]*(1-u[iyAs]))               
-            )^(this.SR*kappa.R)
+            )^(this.SR*kappaR/2)
         else  
           the_fac = 1
         end
@@ -615,7 +620,7 @@ function exponential_gas_adsorption(this::YSZParameters, u; debug_bool=false)
                (this.pO2)
                *
                (u[iyOs]*(1-u[iyOs]))^2                                            
-            )^(this.SO*this.kappaO)
+            )^(this.SO*this.kappaO/2)
         else  
           the_fac = 1.0
         end
@@ -704,20 +709,7 @@ function reaction_template(u,
                (1-beta)*S*DG/this.kB/this.T
             )*reac_activities^((1-beta)*S)
     
-    prefactor = prod(
-                     vcat(
-                         [1, 
-                          u[iy], 
-                          u[iyAs], 
-                          u[iyOs], 
-                          u[iyOmins], 
-                          this.pO2
-                         ].^abs.(gamma), 
-                         [ybV, 
-                          ysV
-                         ].^abs.([bv_count, sv_count])
-                     )
-                )^(S*kappa)
+    prefactor = prefactor_interpolation(this, u, gamma, S, kappa)
     rate = r0/S*prefactor*(L - R)
 
     a_reac = (reac_activities)^(-beta*S)
@@ -739,9 +731,56 @@ end
 
 function activity(this::YSZParameters, u)
     ybV = 1-u[iy]
-    ysV = 1-sum(u[3:5])
-    #[@show x.value for x in u]
-    return [1, u[iy]/ybV, u[iyAs]/ysV, u[iyOs]/ysV, u[iyOmins]/ysV, this.pO2] 
+    if this.separate_vacancy
+        return [1, 
+                u[iy]/ybV, 
+                u[iyAs]/(1-u[iyAs]), 
+                u[iyOs]/(1-u[iyOs]), 
+                u[iyOmins]/(1-u[iyOmins]), 
+                this.pO2
+        ]
+    else
+        ysV = 1-sum(u[3:5])
+        #[@show x.value for x in u]
+        return [1, u[iy]/ybV, u[iyAs]/ysV, u[iyOs]/ysV, u[iyOmins]/ysV, this.pO2] 
+    end
+end
+
+function prefactor_interpolation(this::YSZParameters, u, gamma, S, kappa)
+    if this.separate_vacancy
+      return prod(
+                      vcat(
+                          [1, 
+                            u[iy]*(1-u[iy]), 
+                            u[iyAs]*(1-u[iyAs]), 
+                            u[iyOs]*(1-u[iyOs]), 
+                            u[iyOmins]*(1-u[iyOmins]), 
+                            this.pO2
+                          ].^abs.(gamma), 
+                      )
+                  )^(S*kappa/2)
+
+    else
+      bv_count = gamma[2]
+      sv_count = sum(gamma[3:5])
+      ybV = 1-u[iy]
+      ysV = 1-sum(u[3:5])
+      return prod(
+                      vcat(
+                          [1, 
+                            u[iy], 
+                            u[iyAs], 
+                            u[iyOs], 
+                            u[iyOmins], 
+                            this.pO2
+                          ].^abs.(gamma), 
+                          [ybV, 
+                            ysV
+                          ].^abs.([bv_count, sv_count])
+                      )
+                  )^(S*kappa/2)
+    end
+
 end
 
 function reaction_rates(u, this::YSZParameters)
