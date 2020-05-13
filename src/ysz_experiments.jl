@@ -75,13 +75,15 @@ function run_new(;physical_model_name="",
                 prms_names_in=[],
                 prms_values_in=[],
                 #
-                EIS_IS=false,  EIS_bias=0.0, f_range=(0.9, 1.0e+5, 1.1),
+                EIS_IS=false,  bias=0.0, f_range=(0.9, 1.0e+5, 1.1),
                 #
                 voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, checknodes=[],
                 #
                 dlcap=false, dlcap_analytical=false,
                 #
-                EIS_TDS=false, tref=0
+                EIS_TDS=false, tref=0,
+                #
+                STEP=false, dt_fac=1.5, dt_start=1.0e-5, t_end=0.01
                  )
 
     
@@ -237,7 +239,7 @@ function run_new(;physical_model_name="",
 
         # Calculate steady state solution
         steadystate = unknowns(sys)
-        phi_steady = parameters.phi_eq + EIS_bias
+        phi_steady = parameters.phi_eq + bias
         
         excited_spec=index_driving_species
         excited_bc=1
@@ -401,7 +403,54 @@ function run_new(;physical_model_name="",
     
     # code for performing STEP
     
-    
+    if STEP
+      phi = parameters.phi_eq + bias
+      U = unknowns(sys)
+      U0 = unknowns(sys)
+      only_formal_meas = [0.0,0.1,0.1,0.1,0.1]
+      
+      # solving stationary state
+      sys.boundary_values[index_driving_species,1]=phi
+      solve!(U0,inival,sys, control=control)
+
+      I_contributions_tran_0 = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
+      I_contributions_stdy_0 = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
+      #plot_solution(U0, X)
+      #pause(2)
+      
+      # relaxation
+      total_charge = 0
+      
+      t = 0
+      dt = dt_start
+      phi = parameters.phi_eq
+      sys.boundary_values[index_driving_species,1]=phi
+      while t < t_end
+        t += dt
+        control.Δt = dt
+        evolve!(U, U0, sys, [0, dt], control=control)
+
+        #@show t
+        #plot_solution(U, X)
+        
+        I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+        I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+        I = (
+          sum((I_contributions_stdy .+ I_contributions_stdy_0)./2)
+          +
+          sum((I_contributions_tran .- I_contributions_tran_0)./dt)
+        )
+        
+        total_charge += I*dt
+        @show I*dt
+        
+        I_contributions_tran_0 = I_contributions_tran
+        I_contributions_stdy_0 = I_contributions_stdy
+        U0 .= U
+        dt *= dt_fac
+      end
+      return total_charge
+    end
     
     
     
@@ -583,10 +632,10 @@ function run_new(;physical_model_name="",
             # reaction average
             Ir= 0.5*(I_contributions_stdy[1] + I_contributions_stdy_0[1])
             
-            # time derivatives            
+            # time derivatives           
             Is  = (I_contributions_tran[1] - I_contributions_tran_0[1])/tstep                
             Ib  = (I_contributions_tran[2] - I_contributions_tran_0[2])/tstep 
-            Ibb = (I_contributions_tran[3] - I_contributions_tran_0[3])/tstep 
+            Ibb = (I_contributions_tran[3] - I_contributions_tran_0[3])/tstep
 
             
  

@@ -43,6 +43,8 @@ module ysz_fitting
 # [ ] prms_names a prms_values dat do jedne tridy
 # ---[ ] vlastne jakoby nevim, jestli je to dobry napad?
 # [ ] automaticke vybirani vhodne scripted_tuple
+# [ ] f_range pouzivat jako Array frekvenci, nikoliv jako trojici cisel
+# [ ] zobrazovani jmena data_setu i v simple_run 
 #
 # ##### interpolace ######
 # [o] vizualizace trendu chyby mezi interpolanty
@@ -98,6 +100,7 @@ include("../src/simulations/CAP_simulation.jl")
 
 include("../src/par_study.jl")
 #include("../src/interpolation_fitting.jl")
+include("../src/EEC_module.jl")
 
 
 
