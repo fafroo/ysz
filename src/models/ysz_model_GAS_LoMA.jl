@@ -332,7 +332,7 @@ function exponential_oxide_adsorption(this::YSZParameters, u; debug_bool=false)
         # O-2(y) + V(s) => O-2(s) + V(y)
         if Bool(this.expA)
           the_fac = 1
-        else  
+        else
           # LoMA
           the_fac = (
                 (u[iy]*(1-u[iy]))

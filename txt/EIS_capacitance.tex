@@ -1,0 +1,172 @@
+%        File: EIS_capacitance.tex
+%     Created: Fri Mar 13 10:00 am 2020 C
+% Last Change: Fri Mar 13 10:00 am 2020 C
+%
+\documentclass[a4 paper]{article}
+%\usepackage[]{amsmath}
+%\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage[version=4]{mhchem}
+\usepackage[]{SIunits}
+\usepackage[]{hyperref}
+
+\newcommand\F{\textrm{F}}
+\newcommand\e{\textrm{e}}
+\newcommand\Ref{\mathit{ref}}
+
+\newcommand\kB{k_\mathrm{B}}
+
+\newcommand\Ox{\mathrm{O}}
+\newcommand\oo{{\ce{O2}}}
+\newcommand\nn{{\ce{N2}}}
+\newcommand\Om{\mathrm{Om}}
+%\newcommand\Ox{\mathrm{Ox}}
+\newcommand\Oi{\mathrm{Oi}}
+\newcommand\Zr{\mathrm{Zr}}
+\newcommand\Yi{\mathrm{Y }}
+
+\newcommand\Mp{\mathrm{M^+}}
+\newcommand\eM{\mathrm{e^-}}
+
+
+\newcommand\MLC{M_\mathrm{C}^\#}
+\newcommand\MLA{M_\mathrm{A}^\#}
+\newcommand\nLA{n_\mathrm{A}^\#}
+\newcommand\nLC{n_\mathrm{C}^\#}
+\newcommand\nC{n_\mathrm{C}}
+\newcommand\nG{n^\mathrm{g}}
+\newcommand\nL{n^\#}
+\newcommand\zL{z^\#}
+\newcommand\zC{z^\mathrm{C}}
+\newcommand\zA{z^\#}
+\newcommand\mL{m^\#}
+\newcommand\vL{v^\#}
+\newcommand\nuL{\nu^\#}
+\newcommand\aL{a^\#}
+\newcommand\DpR{\Delta \psi_\textrm{R}}
+\newcommand\pD{\tilde{D}}
+\newcommand\PF{P}
+\newcommand\DGR{\Delta G_R}
+\newcommand\DGA{\Delta G_A}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\us}[1]{\underset{\textrm{s}}{#1}{}}
+\DeclareMathOperator{\sign}{sign}
+\begin{document}
+
+\section{Measurement}
+A voltage protocol $U(t)$ is applied and a current response $I(t)$ is measured.
+\section{Capacitance}
+% For a certain voltage range $[-R,R]$ the following voltage protocol is given
+% \begin{align}
+%     U(t) = \text{linear triangular wave}
+% \end{align}
+% 
+The capacitance $C$ is the change of the charge w.r.t.\ voltage.
+For a sufficiently slow change of voltage U(t) we can write
+\begin{align}
+    I(t) = \frac{\dd Q}{\dd t} = \frac{\dd Q}{\dd U} \frac{\dd U}{\dd t} \approx C(U) v_{\text{rate}}~.
+    \label{CAP01}
+\end{align}
+Capacitance can be reliably defined only for a blocking electrode, since any current that does decay in a stationary state blows it up.
+\section{Impedance spectroscopy}
+For a certain frequency $\omega$ and voltage amplitude $A$ the protocol
+\begin{align}
+    U(t) = A \sin \left( \omega t \right) 
+\end{align}
+is applied. The measured current response is assumed to take form of
+an amplified and shifted harmonic wave
+\begin{align}
+    I(t) = B \sin \left( \omega t  + \omega_0 \right) ~.
+\end{align}
+
+\section{Current functional}
+Assume the surface balances in the following form, i.e. adsorption is treated as a reaction,
+\begin{align}
+    \frac{\dd}{\dd t}\us n_\alpha = \sum_r \gamma^r_\alpha R^r 
+    \label{}
+\end{align}
+\begin{align}
+    \varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_S 
+    %
+    &= \varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_B - \frac{\dd}{\dd t}\int_S^B \varepsilon \Delta \varphi\\
+    &= \varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_B - \int_S^B \frac{\dd}{\dd t} n^F\\
+    &= \varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_B + e_0 z_\Om\left[\mathbf{j}_\Om\nu\right]_S^B
+    \label{}
+\end{align}
+The current functional can be then re-written as
+\begin{align}
+    \frac{I(t)}{A} &=  - e_0\frac{\dd}{\dd t}\left( 
+                                                  \sum_{\alpha\neq\eM} z_\alpha\us n_\alpha
+                                              \right) 
+                       - e_0 z_{\eM}\sum_r \gamma^r_{\eM}R^r 
+                      + \varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_S\\
+                      %
+                   &= - e_0\sum_r R^r \underbrace{\sum_\alpha z_\alpha \gamma^r_\alpha}_{=0} 
+                      +\varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_B 
+                      + e_0 z_\Om\left[\mathbf{j}_\Om\nu\right]_S^B\\
+                   %
+                   &= \varepsilon\frac{\dd}{\dd t}\nabla\varphi\nu|_B 
+                   +e_0 z_\Om\left(%
+                       - \underbrace{\mathbf{j}_\Om\nu|_S}_{\mathclap{\text{adsorption}}}
+                       + \underbrace{\mathbf{j}_\Om\nu|_B}_{\mathclap{\text{bulk flux}}}
+                   \right)
+    \label{}
+\end{align}
+Hence the current depends on the adsorption flux, bulk flux and the time derivative of electric field.
+Concretely, 
+\begin{align}
+    \frac{I}{A} = \frac{\widetilde{I}}{A}\left(
+                      y|_S,\
+                      \us y,\
+                      y|_B,\
+                      \nabla y\cdot \nu|_B,
+                      \nabla \varphi\cdot \nu|_B,
+                      \frac{\dd}{\dd t}\nabla \varphi\cdot \nu|_B
+                  \right)
+    \label{}
+\end{align}
+\subsection{Current model}
+Let define the adsorption reaction as 
+\begin{align}
+    \ce{O^2-(b) -> O^2-(s)}~.
+    \label{}
+\end{align}
+\begin{align}
+    \mathbf{j}_\Om|_S\cdot\nu &= \us A_0 \left(K_A y|_S (1-\us y) -K_A^{-1} (1-y|_S)\us y  \right), \\
+    \mathbf{j}_\Om|_B\cdot\nu &= - D \frac{(1 - \nuL)m}{\vL}
+                        \left( 1 +m_\Om\frac{(1 - \nuL)m}{\mL} y \right)^2 
+                    \Bigg[
+                      \frac{\nabla y}{(1- y)}
+                      +y \frac{z_{\Om} e_0}{\kB T} \nabla \varphi
+                    \Bigg]\cdot\nu\Bigg|_B,
+    \label{}
+\end{align}
+where $K_A = e^\frac{\Delta G_A}{2\kB T}$ 
+\subsubsection{Linear-sweep voltammetry scaling}
+\subsubsection{EIS scaling}
+
+\section{Vojtas opinion about the capacitance fitting}
+
+\subsection{Differential capacitance vs RC element capacitance}
+Differential capacitance is defined as 
+\begin{align}
+C_\text{Diff}(U) = \frac{\dd Q}{\dd U}
+\end{align}
+which should be independent on the time sweep. This approach is widely used in the field of batteries where there is a bounded capacity for applied voltage. In the case of solide oxide fuel cell, it is very hard to make a perfectly blocking electrode in order to measure the differential capacitance. The experimental guys from UTC tried hard and were not able to obtain pure capacitance behavior (as in the case of bateries). They can only somehow decrease the through-going electric current by decreasing the oxygen partial pressure atmosphere around. 
+
+In fact, the same was done by Henny. As written in the article
+\footnote{"Results and discussion: Due to pressure build-up of oxygen gas at the gold/YSZ interface at high (positive) potential, no differential capacity
+measurements were performed at bias potentials Q b over z50 mV. In the low potential regime, measurements were performed down to bias potentials at which the data could no longer be interpreted in terms of a circuit consisting of a
+resistance and a CPE with power nw0.85 in parallel. Depending on composition and temperature, this lower limit was between –50 mV and –250 mV."}, he fitted Nyquist diagram with CPE and resistor. From my point of view, he obtained the value for capacitor parameter from the equivalent circuit, but this is a different thing then the differential capacitance defined above. If he would apply some voltage, he would obtain infinity capacitance, because the current would still flow though (he had maybe small electric current due to the physical conditions, but there had to be some nonzero current in order to obtain a semicircle or "CPE circle" in Nyquist).
+
+\subsection{Future suggestions}
+Regarding the previous subsection, I think that setting $R0 = 0$ in our model to stop the electron-transfer reaction in order to fit the data from Henny is not a good approach. I suggest these:
+\begin{enumerate}
+\item Using the same approach as Henny: We we can perform EIS simulation for low partial pressure as well and apply RC (or CPE) element fitting in the same manner and compare the obtained values of capacitance parameter. Or possibly we can ask the experimental guys to make new experiments with a very low oxygen parial pressure around the cell and measure Nyquist diagram  $\rightarrow$ hopefully only one semicircle. Fit it with RC (or CPE) element and extract the value of capacitance parameter.
+
+\item Using the DRT (Distribution of relaxation times) analysis to extract the information about the capacitances of several ongoing processes. The idea is the same as Hanny had, but it is generalized to multiple dominating processes. One can extract peaks in the relaxation time function and estimate the appropriate capacitances. It has nothing to do with differential capacitance but it can serve for the estimation of the "non-kinetic" parameters, which is the goal at the end. Then we can perform the DRT analysis to simulated Nyquist diagram, extract the capacitances and compare them to the experimental ones. My claim (not verified yet) is that the capacitances should be (to some extend) independend of the kinetic parameters (as the analogy to the case of one RC element). We can use the DRT approach on already measured EIS data.
+\end{enumerate}
+
+\end{document}
+
+
