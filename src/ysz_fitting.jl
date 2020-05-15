@@ -77,7 +77,7 @@ using PyPlot
 #using Plots
 using DataFrames
 using LeastSquaresOptim
-using Optim
+#using Optim
 
 import Base.string
 

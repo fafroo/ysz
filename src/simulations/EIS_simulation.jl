@@ -96,7 +96,7 @@ function setting_legend(SIM::EIS_simulation; latex=true)
   end
 end
 
-function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_string="", to_standard_figure=true; marker_style="x-")
+function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_string="", to_standard_figure=true; marker_style="x-", plot_legend=true)
   if to_standard_figure
     figure(SIM.fig_num, figsize=SIM.fig_size)
   end
@@ -107,8 +107,7 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     xlabel("Re\$(Z) \\ [\\Omega]\$")
     ylabel("-Im\$(Z) \\ [\\Omega]\$")
     plot(real(EIS_df.Z), -imag(EIS_df.Z), marker_style, label = my_label)
-    
-    if !(my_label == "")
+    if !(my_label == "") && plot_legend
         legend(loc="best")
     end
     grid(true)
@@ -178,22 +177,22 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
   plt.subplots_adjust(bottom=0.07, top=0.95)  
 end
 
-function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
+function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true; plot_legend=true)
   if length(additional_string)>0 && additional_string[1]=='!'
     my_label = additional_string[2:end]
   else
     my_label = "sim $(setting_legend(SIM))$(additional_string)"
   end
-  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x-")
+  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x-", plot_legend=plot_legend)
 end
 
-function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
+function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true; plot_legend=true)
   if length(additional_string)>0 && additional_string[1]=='!'
     my_label = additional_string[2:end]
   else
     my_label = "exp $(setting_legend(SIM))$(additional_string)"
   end
-  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x:")
+  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x:", plot_legend=plot_legend)
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
