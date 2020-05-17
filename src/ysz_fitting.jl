@@ -46,11 +46,15 @@ module ysz_fitting
 # [ ] f_range pouzivat jako Array frekvenci, nikoliv jako trojici cisel
 # [ ] zobrazovani jmena data_setu i v simple_run 
 #
+# ##### stacionarni krivky
+# [ ] zatim to modeluji jako CV s nizkym voltratem
+#
 # ##### interpolace ######
 # [o] vizualizace trendu chyby mezi interpolanty
 # ---[x] zobrazovat soucty odchylek
 # ------[x] obrazky po normalizaci vypadaji ruznorode
 # ---[o] zkusit vykoukat trend z nenormalizovanych dat
+#
 #
 # #### od Affra ####
 # [ ] fitness funkce s maximovou metrikou

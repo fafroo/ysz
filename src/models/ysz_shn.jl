@@ -181,7 +181,7 @@ function YSZParameters(this)
     this.gammaO= [0, 0, 0, 2, 0, -1]
 
     # (B) electron-transfer reaction
-    this.rB= 10.0^20
+    this.rB= 10.0^1
     this.DGB= 0.001 * this.e0
     this.betaB= 0.5
     this.SB= 10^0.0
@@ -189,7 +189,7 @@ function YSZParameters(this)
     this.gammaB= [0, 0, 0, -1, 1, 0]
 
     # (C) electron-transfer reaction
-    this.rC= 10.0^21
+    this.rC= 10.0^1
     this.DGC= (this.DGR - this.DGB)
     this.betaC= 0.5
     this.SC= 10^0.0

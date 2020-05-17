@@ -41,15 +41,52 @@ function import_EIStoDataFrame_path(f_name)
     return df
 end
 
-function import_CVtoDataFrame(;TC,pO2)
+function get_U_I_from_IVpoint(f_name)
+    line_is_valid=false
+    last_line = []
+    open(f_name) do file
+        for ln in eachline(file)
+            if line_is_valid
+                last_line = [parse(Float32,el) for el in split(ln)]
+            else
+                if ln=="End Comments"
+                    line_is_valid=true
+                end
+            end
+        end
+    end
+    return (last_line[1], last_line[2])
+end
+
+function import_IVtoDataFrame_folder(;TC, pO2, bias_array, folder)
+  df = DataFrame(U = Float32[], I = Float32[], t = Float32[])
+  for bias in bias_array
+    if bias == 0
+      push!(df, (0,0,0)) 
+    else
+      push!(df,(get_U_I_from_IVpoint(folder*"/pol$(Int(bias*1000)).cor")..., 0) ) 
+    end
+  end
+  return df
+end
+
+function import_CVtoDataFrame(;TC,pO2, data_set="MONO")
   pO2=Int64(pO2)
   if pO2==0
     pO2="00"
   end
   TC=Int64(TC)
-  fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/CV.cor")
+ if data_set=="MONO"
+   fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/CV.cor")
+  elseif data_set=="POLY_I-V"
+    # this needs to be added to separate simulation !!! ... IV_simulation
+    return import_IVtoDataFrame_folder(TC=TC, pO2=pO2, bias_array=vcat(collect(0 : 0.1 : 1), collect(0.9 : -0.1 : -0.9), collect(-1 : 0.1 : 0)), 
+          folder="../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/")
+ end
   return import_CVtoDataFrame_path(fNAME)
 end
+
+
 
 function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO")
   pO2=Int64(pO2)

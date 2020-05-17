@@ -83,6 +83,12 @@ ysz_model_GAS_LoMA
   
   
 ########################################
+### NEW ###
+ - experiment ukazuje zavislost R_ohm na biasu. Model to nedela vubec!
+ 
+
+  
+########################################
 ########################################
 ysz_shn.jl .....
 
@@ -110,4 +116,14 @@ novy = 1; ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, DRT_dr
                                   [90]*1.0e-14, 0.85, 2.0, collect(0.08 : 0.002 : 0.08)     ), 
                      use_experiment=false);
 
-
+# relatively good agreement with experiment -> 3 peaks
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0), pyplot=1,  
+                            prms_names=["kappaA", "kappaR", "kappaO", 
+                                        "rA", "rR", "rO",         "rB", "rC",     
+                                        "DGA", "DGR", "DGO",     
+                                        "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"  ], 
+                            prms_values=(0.0, 0.0, 0.0,
+                                         19.5, 19.9, 19.7,        1, collect(21 : -0.5 : 21),       
+                                         -0.1, -0.4, collect(-0.0 : 0.01 : 0.0),     
+                                         [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    ), 
+                            use_experiment=true);

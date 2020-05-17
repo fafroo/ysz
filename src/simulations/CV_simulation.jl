@@ -14,11 +14,14 @@ const  CV_standard_figure_num = 5
 mutable struct CV_simulation <: abstract_simulation
   TC::Float32
   pO2::Float32
+  data_set::String
   #
   upp_bound::Float32
   low_bound::Float32
   dx_exp::Float64
   sample::Int64
+  voltrate::Float32
+  #
   fig_size::Tuple
   #
   checknodes::Any
@@ -34,7 +37,7 @@ function string(SIM::CV_simulation)
   return "CV_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CV_simulation(TC, pO2; upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, fig_size=(9, 6), fitness_factor=10.0)
+function CV_simulation(TC, pO2; data_set="MONO", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=10.0)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -42,11 +45,14 @@ function CV_simulation(TC, pO2; upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample
       
       this.TC = TC_item
       this.pO2 = pO2_item 
+      this.data_set = data_set
       #
       this.upp_bound = upp_bound
       this.low_bound = low_bound
       this.dx_exp = dx_exp
       this.sample = sample
+      this.voltrate = voltrate
+      #
       this.fig_size = fig_size
       #
       this.checknodes = get_shared_checknodes(this)
@@ -61,8 +67,8 @@ function CV_simulation(TC, pO2; upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample
   return output
 end
 
-function CV_simulation(TC, pO2, bias; upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, fig_size=(9, 6), fitness_factor=10.0)
-    CV_simulation(TC, pO2; dx_exp=dx_exp, sample=sample, fig_size=fig_size)
+function CV_simulation(TC, pO2, bias; data_set="MONO", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=10.0)
+    CV_simulation(TC, pO2; data_set=data_set, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size)
 end
 
 
@@ -79,9 +85,9 @@ end
 
 function setting_legend(SIM::CV_simulation; latex=true)
   if latex
-    return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\%\$"
+    return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\%\$ $(SIM.data_set)"
   else
-    return "TC=$(SIM.TC)°C pO2=$(SIM.pO2)%"
+    return "TC=$(SIM.TC)°C pO2=$(SIM.pO2)% $(SIM.data_set)"
   end
 end
 
@@ -165,7 +171,7 @@ end
 function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_in, pyplot::Int=0) 
   ysz_experiments.run_new(
       out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false), 
-      dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound,
+      dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound, voltrate=SIM.voltrate,
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in,
@@ -173,7 +179,8 @@ function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_i
 end
 
 function import_data_to_DataFrame(SIM::CV_simulation)
-  import_CVtoDataFrame(TC=SIM.TC, pO2=SIM.pO2)
+  @show SIM.data_set
+  import_CVtoDataFrame(TC=SIM.TC, pO2=SIM.pO2, data_set=SIM.data_set)
 end
 
 function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_num=11)    

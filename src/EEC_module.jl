@@ -32,8 +32,6 @@ using LsqFit
 #   TODO !!!
 #
 #
-# [ ] zadavani nejakych parametru, ktere se nebudou fitovat?
-# [ ] 
 
 L_units = 1.0e-6 # inductance is in micro-Henry
 
@@ -548,6 +546,7 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
   ####  [ ] Format zapisu do souboru -> nemel by to spis byt *.csv soubor s cisly oddelenymi carkami ci tabulatory?
   ####  [ ] da se orezat Nyquist pro nizke frekvence, at nejde do zapornych cisel. Chceme?
   ####  [ ] teoreticky by se plotovani obrazku mohlo vzdy vypnout, kdyz by clovek chtel ukladat do souboru. Ale myslim, ze to neni nutne
+  ####  [ ] nechcete udelat treba animace nebo dalsi obrazky? (vyhledove)
   
   function succesful_fit(EIS_EEC, EIS_exp)
     if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp) > succes_fit_threshold
