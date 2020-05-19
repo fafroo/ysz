@@ -321,6 +321,8 @@ end
 
 
 function YSZParameters_update!(this::YSZParameters)
+    this.DGC = this.DGR - this.DGB
+    
     this.areaL=(this.vL)^0.6666
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)   
@@ -380,7 +382,9 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
         if name_in in ["rA", "rR", "rO", "rB", "rC", "SA", "SR", "SO", "SB", "SC"]
           setfield!(this, name, Float64(10.0^prms_values[i]))
         elseif name_in in ["DGA", "DGR", "DGO", "DGB"]
-          setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
+          setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DG*] = eV
+          # DGC cannot be directly set because it holds DGC = DGR - DGB
+          # and this is updated via YSZParameters_update() function
         else
           if !attribute_found
             # handles structs in YSZParameters
@@ -414,6 +418,8 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
       throw(Exception)
     end
   end
+  YSZParameters_update!(this)
+  return
 end
 
 

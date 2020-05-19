@@ -63,7 +63,7 @@ function get_prms_from_indicies(prms_lists, tuple)
 end
 
 function check_equal_size(list_1, list_2)
-  if size(list_1,1) == size(list_2,1)
+  if length(list_1) == length(list_2)
     return true
   else
     println("ERROR: check_equal_size: shape mismatch $(list_1) and $(list_2)")

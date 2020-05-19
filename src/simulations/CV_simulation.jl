@@ -133,7 +133,7 @@ function save_file_prms(sim::CV_simulation, df_out, save_dir, prms, prms_names, 
     return
 end
 
-function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_standard_figure=true)
+function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_standard_figure=true; plot_legend=true)
   if to_standard_figure
     figure(CV_standard_figure_num, figsize=SIM.fig_size)
   end
@@ -145,7 +145,7 @@ function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_st
   
   PyPlot.plot(CV_df.U, CV_df.I, label=my_label)
   PyPlot.grid(true)
-  if !(my_label == "")
+  if !(my_label == "") && plot_legend
       legend(loc="best")
   end
 end

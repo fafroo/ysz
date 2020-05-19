@@ -559,8 +559,16 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
   if save_file_bool
     run(`mkdir -p $(save_to_folder)`)
   end
+
+  TC_holder = []
+  sigma_holder = []
+  bias_holder = []
   
+  cycle_number = 0
   for TC_item in TC, pO2_item in pO2, bias_item in bias
+    cycle_number += 1
+
+  
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
                   use_DRT=false, plot_option="Bode Nyq DRT RC")
     SIM = SIM_list[1]    
@@ -585,7 +593,7 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
     #   EIS_exp = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     #
     
-    if init_values == Nothing
+    if init_values == Nothing || cycle_number > 1
       init_values = get_init_values(EIS_exp)
     end
     
@@ -601,7 +609,7 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
         end
         
         EIS_EEC_pre = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC initial guess", plot_legend=plot_legend)
+        #plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC initial guess", plot_legend=plot_legend)
         
         EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors)
         
@@ -631,9 +639,33 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
         plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fitted", plot_legend=plot_legend)
         
+        append!(TC_holder, TC_item)
+        append!(sigma_holder, 1/EEC_actual.prms_values[1])
+        append!(bias_holder, bias_item)
         
       end
     end
   end
+  
+  T_holder = TC_holder .+ 273.15
+  
+  if bias_holder[1] == bias_holder[2]
+    figure(42)
+    title("sigma VS bias")
+    plot(1000 ./ (T_holder), log.(sigma_holder .* T_holder), label="bias "*string(bias_holder[1]))
+    legend(loc="best")
+    xlabel("1000/T")
+    ylabel("log T sigma")
+  else
+    figure(44)
+    title("sigma VS \"TC\"")
+    plot(bias_holder, sigma_holder, label="TC "*string(TC_holder[1]))
+    legend(loc="best")
+    xlabel("bias")
+    ylabel("sigma")
+  end
+  
+  #function 
+  
 end
 
