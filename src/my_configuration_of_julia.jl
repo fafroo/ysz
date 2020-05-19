@@ -27,3 +27,6 @@ Pkg.add("Optim")
 Pkg.add("MathProgBase")
 # integration
 Pkg.add("QuadGK")
+
+# NEW
+Pkg.add("BlackBoxOptim")

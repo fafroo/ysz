@@ -181,7 +181,7 @@ function YSZParameters(this)
     this.gammaO= [0, 0, 0, 2, 0, -1]
 
     # (B) electron-transfer reaction
-    this.rB= 10.0^20
+    this.rB= 10.0^1
     this.DGB= 0.001 * this.e0
     this.betaB= 0.5
     this.SB= 10^0.0
@@ -189,7 +189,7 @@ function YSZParameters(this)
     this.gammaB= [0, 0, 0, -1, 1, 0]
 
     # (C) electron-transfer reaction
-    this.rC= 10.0^21
+    this.rC= 10.0^1
     this.DGC= (this.DGR - this.DGB)
     this.betaC= 0.5
     this.SC= 10^0.0
@@ -321,6 +321,8 @@ end
 
 
 function YSZParameters_update!(this::YSZParameters)
+    this.DGC = this.DGR - this.DGB
+    
     this.areaL=(this.vL)^0.6666
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)   
@@ -380,7 +382,9 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
         if name_in in ["rA", "rR", "rO", "rB", "rC", "SA", "SR", "SO", "SB", "SC"]
           setfield!(this, name, Float64(10.0^prms_values[i]))
         elseif name_in in ["DGA", "DGR", "DGO", "DGB"]
-          setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
+          setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DG*] = eV
+          # DGC cannot be directly set because it holds DGC = DGR - DGB
+          # and this is updated via YSZParameters_update() function
         else
           if !attribute_found
             # handles structs in YSZParameters
@@ -414,6 +418,8 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
       throw(Exception)
     end
   end
+  YSZParameters_update!(this)
+  return
 end
 
 
@@ -433,8 +439,9 @@ function flux!(f,u, edge, this::YSZParameters)
     f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])    
     
     bp,bm=fbernoulli_pm(
-        (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu))
-        *(log(1-ul[iy]) - log(1-uk[iy]))
+        (
+          1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy])
+        )*(log(1-ul[iy]) - log(1-uk[iy]))
         -
         this.zA*this.e0/this.T/this.kB*(
             1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy])

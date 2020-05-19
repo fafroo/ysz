@@ -46,18 +46,22 @@ module ysz_fitting
 # [ ] f_range pouzivat jako Array frekvenci, nikoliv jako trojici cisel
 # [ ] zobrazovani jmena data_setu i v simple_run 
 #
+# ##### stacionarni krivky
+# [ ] zatim to modeluji jako CV s nizkym voltratem
+#
 # ##### interpolace ######
 # [o] vizualizace trendu chyby mezi interpolanty
 # ---[x] zobrazovat soucty odchylek
 # ------[x] obrazky po normalizaci vypadaji ruznorode
 # ---[o] zkusit vykoukat trend z nenormalizovanych dat
 #
+#
 # #### od Affra ####
 # [ ] fitness funkce s maximovou metrikou
 #
 # 
 # #### Fitting process
-# [!] prozkoumat experimentalni data (a udelat prislusne procedury)
+# [x] prozkoumat experimentalni data (a udelat prislusne procedury)
 # [o] non-gas-ads-model
 # ---[ ] find best add_prms (from cap. fitting)
 # ---[ ] find best prms for both EIS and CV
@@ -69,6 +73,9 @@ module ysz_fitting
 # [ ] gas-LoMA-model
 # ---[ ] try to fit CV and EIS at once!
 # ------[ ] compute a lots of EIS, compute some CVs and interpolate
+# 
+# [!] fitting with one dominating SIM.fitness_factor, but also see the others with lower factor
+# [ ] get Fminbox() to work ! ... or do it by my own withing the to_optimize() function 
 #######################
 
 
@@ -77,7 +84,9 @@ using PyPlot
 #using Plots
 using DataFrames
 using LeastSquaresOptim
-using Optim
+#using Optim
+using BlackBoxOptim
+using LinearAlgebra
 
 import Base.string
 
@@ -320,156 +329,272 @@ end
 ###########################################################
 
 
-# function LM_optimize(;EIS_opt_bool=false, CV_opt_bool=false, pyplot=false)
-#     function prepare_prms(mask, x0, x)
-#         prms = zeros(0)
-#         xi = 1
-#         for i in collect(1 : 1 :length(mask))
-#             if convert(Bool,mask[i])
-#                 append!(prms, x[xi])
-#                 xi += 1
-#             else
-#                 append!(prms, x0[i])
-#             end
-#         end
-#         return prms
-#     end
-# 
-#    function to_optimize(x) 
-#         #err = run_new(print_bool=false, fitting=true, voltametry=true, pyplot=false, voltrate=0.005, sample=8, bound=0.41, 
-#         #    prms_in=x)
-#         prms = prepare_prms(mask, x0, x)
-#         print(" >> mask = ",mask)
-#         print(" || prms = ",prms)
-#         
-#         prms_names_in=[]
-#         prms_values_in=[]
-#         
-#         append!(prms_names_in, prms_names)
-#         append!(prms_values_in, prms)
-#       
-#        
-#         err = 0.0
-#         err_string = ""
-#         if CV_opt_bool
-#             CV_sim = ysz_experiments.run_new(
-#                         physical_model_name=physical_model_name,
-#                         out_df_bool=true, voltammetry=true, sample=8, pyplot=false,
-#                         T=TCtoT(TC), pO2=pO2tosim(pO2),
-#                         prms_names_in=prms_names_in,
-#                         prms_values_in=prms_values_in,
-#             )
-#             if pyplot
-#                 figure(1)
-#                 CV_plot(CV_sim)
-#             end
-#             
-#             err +=CV_penalty_factor * CV_fitnessFunction(
-#                 CV_apply_checknodes(CV_sim, CV_get_shared_checknodes()), 
-#                 CV_exp
-#             )
-#             err_string = string(err_string," CV ")
-#         end
-#         if EIS_opt_bool
-#             EIS_sim = ysz_experiments.run_new( 
-#                     physical_model_name=physical_model_name,
-#                     pyplot=false, EIS_IS=true, out_df_bool=true, bias=bias, omega_range=EIS_get_shared_omega_range(),
-#                     dx_exp=-9,
-#                     T=TCtoT(TC), pO2=pO2tosim(pO2),
-#                     prms_names_in=prms_names_in,
-#                     prms_values_in=prms_values_in,
-#             )
-# 
-#             
-#             if pyplot
-#                 figure(2)
-#                 Nyquist_plot(EIS_sim)
-#             end
-#             
-#             err += EIS_fitnessFunction(EIS_sim, EIS_exp)
-#             err_string = string(err_string," EIS ")
-#         end
-#         println(" || ",err_string,": err =", err)
-#         return [err]
-#     end
-#     
-# 
-#     
-#     TC=800
-#     pO2 = 100
-#     bias=0.0
-#     physical_model_name="necum"
-#     CV_penalty_factor = 10  # for fitnessFunction = factor*CV + EIS 
-#     
-#     
-#     if pyplot
-#         PyPlot.close()
-#     end
-#     
-#     if CV_opt_bool
-#         CV_exp = CV_apply_checknodes(
-#             import_CVtoDataFrame(TC=TC, pO2=pO2),
-#             CV_get_shared_checknodes()
-#         )
-#         if pyplot
-#             figure(1)
-#             CV_plot(CV_exp, "exp $(CV_experiment_legend(TC, pO2))")
-#         end
-#     end
-#     
-#     if EIS_opt_bool
-#         EIS_exp = EIS_apply_checknodes(
-#             import_EIStoDataFrame(TC=TC,pO2=pO2,bias=bias),
-#             EIS_get_shared_checknodes()
-#         )
-# 
-#         if pyplot
-#             figure(2)
-#             Nyquist_plot(EIS_exp, "exp $(EIS_experiment_legend(TC, pO2, bias))")
-#         end
-#     end
-#        
-#     #######################################
-#     #######################################
-#     #######################################
-#     #######################################
-#     # control panel
-#     #x0 = zeros(2)
-#     #optimize(rosenbrock, x0, LevenbergMarquardt())
-#     
-#     prms_names=["A0", "R0", "K0", "SA", "SR", "SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD", "nu", "nus", "ms_par"]
-#     
-#     lower_bounds      = [17, 17, 17,     -5, -5, -5,     -0.9, -0.9, -0.9,    0.0, 0.0, 0.0,     0.1e-13, 0.1, 0.1, 0.01 ]
-#     upper_bounds      = [23, 23, 23,      1,  1,  1,      0.9,  0.9,  0.9,    1.0, 1.0, 1.0,     9.0e-13, 0.9, 0.9, 1.5 ]
-#     
-#     x0  = [19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,     5.35e-13,  0.85,  0.21, 0.05]
-#     #x0 = [18.673485702096716, 18.598123074869402, 17.50858588747129, 1.0, 1.0, 1.0, 0.8666319406487695, -0.8342275189659124, -0.7728570698687104, 0.5, 0.5, 0.5, 5.35e-13] 
-#     
-#     mask = [1, 1, 1,     0, 0, 0,     1,1,1,      0,0,0,   1, 1, 1, 1] # determining, which parametr should be fitted
-#     #######################################
-#     #######################################
-#     #######################################
-#     #######################################
-#     
-#     x0M = zeros(0)
-#     lowM = zeros(0)
-#     uppM = zeros(0)
-#     for i in collect(1 : 1 : length(mask))
-#         if convert(Bool,mask[i])
-#             append!(x0M, x0[i])
-#             append!(lowM, lower_bounds[i])
-#             append!(uppM, upper_bounds[i])
-#         end
-#     end
-#     
-#    
-#     
-#     #to_optimize(x0M)
-#     println(optimize(to_optimize, x0M, lower=lowM, upper=uppM, Δ=1000000, f_tol=1.0e-14, g_tol=1.0e-14, LevenbergMarquardt()))
-#     
-#     ####optimize(to_optimize, x0M, Dogleg())
-#     return
-# end
+
+function LM_optimize(;SIM_list=EIS_simulation(850, 100, 0.0), 
+                      pyplot=false,  plot_each_x_th=20,
+                      BBO_bool=false
+                      )
+  function plot_error_projection(prms_values, prms_names, error)
+    fig_num = 333
+    prms_length = length(prms_names)
+    plot_edge = ceil(sqrt(prms_length))
+    
+    if projection_plot_maximum < 0 && error < 20
+      projection_plot_maximum = error
+    end
+    
+    if error < projection_plot_minimum
+      projection_plot_minimum = error
+    end
+    
+    figure(fig_num)
+    for i in 1:prms_length
+      subplot(plot_edge, plot_edge, i)
+      xlabel(prms_names[i])
+      ylabel("err")
+      ylim(projection_plot_minimum, projection_plot_maximum)
+      plot(prms_values[i], error, "o")
+    end
+    
+    return
+  end
+  
+  function prepare_prms(mask, x0, x)
+      prms = []
+      xi = 1
+      for i in collect(1 : 1 :length(mask))
+          if convert(Bool,mask[i])
+              append!(prms, x[xi])
+              xi += 1
+          else
+              append!(prms, x0[i])
+          end
+      end
+      return Tuple(prms)
+  end
+  
+  function check_x_in(x, low, upp)
+    for (i, item) in enumerate(x)
+      if item < low[i] || upp[i] < item
+        return false
+      end
+    end
+    return true
+  end
+  
+  function to_optimize(x)
+      if !(check_x_in(x, lowM, uppM))
+        println("    OUT OF THE BOUNDS   ")
+        return 10000
+      end
+      iteration_counter += 1
+      
+      prms_values = prepare_prms(mask, x0, x)
+#       print(" >> mask = ",mask)
+#       print(" || prms = ",prms_values)
+
+      println("> prms=$(prms_values)")  
+      err = 0.0
+      SIM_err = 0.0
+      err_string = ""
+
+      
+      for (i, SIM) in enumerate(SIM_list)        
+        try
+          if check_equal_size(prms_names, prms_values)  
+            SIM_sim = apply_checknodes(SIM, 
+                      typical_run_simulation(SIM, prms_names, prms_values, pyplot ? 1 : 0),
+                      SIM.checknodes)
+          end    
+                
+          if pyplot && mod(iteration_counter, plot_each_x_th) == 1
+            typical_plot_sim(SIM, SIM_sim, plot_legend=false)
+          end
+          
+          SIM_err = SIM.fitness_factor * fitnessFunction(SIM, SIM_exp[i], SIM_sim)
+          err += SIM_err
+        catch e
+          if e isa InterruptException
+            rethrow(e)
+          else
+            print(e)
+            err += 1000*norm(x0M.-x) 
+          end
+        end 
+        
+        err_string = " "*string(SIM)
+        print("$(err_string)=$(SIM_err) || ")
+      end
+      println("err=$(err)")
+      println()
+      
+      if pyplot
+        plot_error_projection(
+          take_only_masked(mask, prms_values), 
+          take_only_masked(mask, prms_names), 
+          err)
+      end
+      
+#       println(" || ",err_string,": err =", err)
+
+      return err
+  end
+
+  function take_only_masked(mask, array)
+    output = []
+    for (i, item) in enumerate(mask)
+      if item == 1
+        append!(output, [array[i]])
+      end
+    end
+    return output
+  end
+  
+
+  
+  physical_model_name="necum"
+  iteration_counter = 0
+  
+  if pyplot
+      PyPlot.close()
+  end
+  
+  SIM_exp = Array{DataFrame}(undef, length(SIM_list))
+  for (i, SIM) in enumerate(SIM_list)
+    SIM_exp[i] = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
+    if (pyplot > 0)
+      typical_plot_exp(SIM, SIM_exp[i])
+    end
+  end
+
+      
+  #######################################
+  #######################################
+  #######################################
+  #######################################
+  # control panel
+  #x0 = zeros(2)
+  #optimize(rosenbrock, x0, LevenbergMarquardt())
+  
+  prms_names=["kappaA", "kappaR", "kappaO", 
+              "rA", "rR", "rO",         "rB", "rC",     
+              "DGA", "DGR", "DGO",     
+              "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"  ]
+  
+  mask          =(0, 0, 0,
+              1, 1, 1,        0, 0,
+              1, 1, 1,
+              0, 0,     0,        0, 0    )
+  ######################################            
+  x0          =(0.0, 0.0, 0.0,
+              19.5, 19.9, 19.7,        21 , 21,       
+              -0.1, -0.4, 0.0,
+              [90]*1.0e-14, 0.85, true,       1/4, 1/2    )
+  
+  # fitted things for 850, 100, 0, MONO
+  #x0 = (0.0, 0.0, 0.0, 20.01931310942335, 19.13133370088284, 20.30899006042895, 1, 21, -0.10582329539200844, -0.5612452246493124, -0.004425970436021694, 9.0e-13, 0.85, true, 0.25, 0.5)
+  x0 = (0.0, 0.0, 0.0, 20.009046378779413, 19.133842639499733, 20.243362989853896, 1, 21, -0.13315570684220343, -0.5493240083421153, -0.01362036864906086, 9.0e-13, 0.85, true, 0.25, 0.5)
+  #x0 =  (0.0, 0.0, 0.0, 20.304854396292857, 19.100695998282248, 20.203452081086848, 29.786448291451634, 22.50852142987179, -0.09991041679025696, -0.47107633036111757, -0.01598123040079823, 9.0e-13, 0.85, true, 0.25, 0.5)
+  #x0 =  (0.0, 0.0, 0.0, 20.304854396292857, 19.100695998282248, 20.303452081086848, 25.786448291451634, 22.50852142987179, -0.09991041679025696, -0.47107633036111757, -0.01598123040079823, 9.0e-13, 0.85, true, 0.25, 0.5)
+  
+  x0 = (0.0, 0.0, 0.0, 19.85559447494341, 20.057302906172676, 19.30709527857658, 5.129458479008138, 25.342869613876285, -0.45254880302146255, -0.6377067007673729, -0.940802850242693, 9.0e-13, 0.85, true, 0.25, 0.5) # Optim ||  EIS: err =0.00442703203277445 (850, 100, 0.0)
+  
+  #x0 = (0.0, 0.0, 0.0, 19.907580949649912, 20.028132917464422, 19.403302626940977, 6.0097725379445714, 25.284531020122714, -0.46362112792111193, -0.6359175506862039, -0.9403837928159715, 9.0e-13, 0.85, true, 0.25, 0.5) # Optim ||  EIS: err =0.00442703203277445 (850, 100, 0.0)
+  
+  #x0 = (0.0, 0.0, 0.0, 19.7936, 20.2862, 18.7722, 5.0, 25.0, -0.508173, -0.648986, -0.795695, 9.0e-13, 0.85, true, 0.25, 0.5)
+  
+  x0 = (1.0, 0.0, 1.0, 20.85559447494341, 20.057302906172676, 20.30709527857658, 20.129458479008138, 20.342869613876285, -0.25254880302146255, -0.1377067007673729, -0.140802850242693, 9.0e-13, 0.85, true, 0.25, 0.5) # Optim ||  EIS: err =0.00442703203277445 (850, 100, 0.0)
+  
+  x0 = (1.0, 0.0, 1.0, 24.68638793247588, 16.929296123207436, 22.170921800982974, 18.553478252136934, 19.897488751668668, -0.5769408452228384, 0.12810885586649326, -0.33908733417798587, 9.0e-13, 0.85, true, 0.25, 0.5) # err = 0.03701 .. cosi pro (850, [60, 80, 100], 0.0) MONO
+  
+  
+  x0 = (1.0, 0.0, 1.0, 23.9595, 23.4001, 21.1791, 5.0, 25.0, -0.78899, -0.522923, 0.591665, 9.0e-13, 0.85, true, 0.25, 0.5) # err =  0.025134653 .. cosi pro (850, [60, 80, 100], 0.0) MONO
+  
+  x0 = (1.0, 0.0, 1.0, 26.429724575986242, 21.599841316855407, 21.084721296249796, -6.663086428479204, 23.342499176410396, -2.123456036083893, -0.6371129649203712, 0.6658969910747834, 9.0e-13, 0.85, true, 0.25, 0.5) # err =  0.013466 .. cosi pro (850, [60, 80, 100], 0.0) MONO
+  
+  x0 = (1.0, 0.0, 1.0, 20.93358829626075, 21.402618660603686, 21.136328351766778, 5.47009852248677, 23.37319636187158, -0.4140996223040165, -0.6454107557668001, 0.6964208008004982, 9.0e-13, 0.85, true, 0.25, 0.5) # intermediate ... to delete !
+  
+  x0 = (1.0, 0.0, 1.0, 20.93358829626075, 20.402618660603686, 20.136328351766778, 20.47009852248677, 20.37319636187158, -0.4140996223040165, -0.6454107557668001, 0.6964208008004982, 9.0e-13, 0.85, true, 0.25, 0.5) # intermediate ... to delete !
+  #######################################
+  #######################################
+  #######################################
+  lower_bounds=(0.0, 0.0, 0.0,
+              15.5, 15.9, 15.7,        5, 5,       
+              -0.8, -0.8, -0.8,     
+              [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    )
+  upper_bounds=(0.0, 0.0, 0.0,
+              25.5, 25.9, 25.7,        25, 25,        
+              0.8, 0.8, 0.8,     
+              [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    )
+  #######################################
+  #######################################
+  #######################################
+  #######################################
+  
+  projection_plot_maximum = -1
+  projection_plot_minimum = Inf
+  
+  x0M = zeros(0)
+  lowM = zeros(0)
+  uppM = zeros(0)
+  for i in collect(1 : 1 : length(mask))
+      if convert(Bool,mask[i])
+          append!(x0M, x0[i])
+          append!(lowM, lower_bounds[i])
+          append!(uppM, upper_bounds[i])
+      end
+  end
+  
+  function get_SearchRange(lowM, uppM)
+    output = Array{Tuple{Float64, Float64}}(undef, 0)
+    for i in 1:length(lowM)
+      append!(output, [(lowM[i], uppM[i])])
+    end
+    return output
+  end
+  
+  function rosenbrock2d(x)
+    return (1.0 - x[1])^2 + 100.0 * (x[2] - x[1]^2)^2
+  end
+
+  #bboptimize(rosenbrock2d, SearchRange = [(-5.0, 5.0), (-2.0, 2.0)])
+  
+  # for BlackBoxOptim
+  SearchRange = get_SearchRange(lowM, uppM)
+  @show SearchRange
+  
+  if BBO_bool
+    fit= bboptimize(to_optimize, SearchRange = SearchRange)
+  else
+#     fit = optimize(
+#       to_optimize,
+#       x0M,
+#       #rosenbrock2d,
+#       #[0., 0.],
+#       #NelderMead(),
+#       ParticleSwarm(lower=lowM, upper=uppM, n_particles = 10) 
+#       )
+      
+    fit = optimize(to_optimize, x0M, NelderMead(),
+                     Optim.Options(
+                      iterations = 3000,
+                      
+                      )
+                     )
+     
+#    fit = optimize(to_optimize, lowM, uppM, x0M, Fminbox(NelderMead()), 
+#                     Optim.Options(
+#                      iterations = 10,
+#                      
+#                       )
+#                     )
+  end
+  
+  #println(optimize(to_optimize, x0M, lower=lowM, upper=uppM, Δ=1000000, f_tol=1.0e-14, g_tol=1.0e-14, LevenbergMarquardt()))
+  
+  ####optimize(to_optimize, x0M, Dogleg())
+  return fit  
+end
 
 
 ###########################################################
