@@ -5,7 +5,7 @@ module ysz_experiments
 # 
 # TODO !!!
 # [x] ramp for EIS steady state
-# [ ] better initial conditions
+# [x] better initial conditions
 ###################################################
 
 
@@ -83,14 +83,14 @@ function run_new(;physical_model_name="",
                 EIS_TDS=false, tref=0,
                 #
                 STEP=false, dt_fac=1.5, dt_start=1.0e-5, t_end=0.01
-                 )
+                )
 
     
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
-    AreaEllyt = 0.018849556 * 0.7        # m^2 (geometrical area)*(1 - porosity)
+    AreaEllyt = 0.00011309724 * 0.7        # m^2 (geometrical area)*(1 - porosity)
     #width_Ellyt = 0.00045           # m     width of the half-cell
     #width_Ellyt = 0.0005           # m     width of the half-cell
 #     if dlcap

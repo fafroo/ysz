@@ -196,9 +196,9 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     EEC_actual.prms_values = prepare_prms(mask, x0, x)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 10)...))
-    SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq")[1]
+    SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq", plot_legend=false)[1]
 #     if check_dramatic_change(x)
-#       typical_plot_sim(SIM, EIS_EEC_plot, plot_legend=false)
+#       typical_plot_sim(SIM, EIS_EEC_plot)
 #     end
     err = fitnessFunction(SIM, EIS_EEC, EIS_exp)
 #    println("~~~~~ LM e = $(err)\nx = $(x)")
@@ -208,8 +208,8 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   function model(gf, x)    
     EEC_actual.prms_values = prepare_prms(mask, x0, x)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-    SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq")[1]
-    #typical_plot_sim(SIM, EIS_EEC, plot_legend=false)
+    SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq", plot_legend=false)[1]
+    #typical_plot_sim(SIM, EIS_EEC)
     #println("e = $(fitnessFunction(SIM, EIS_EEC, EIS_exp))\nx = $(x)")
     return get_EIS_value_from_gf(EIS_EEC, gf)
   end  
@@ -462,7 +462,7 @@ function view_EEC(;
           println(get_string_EEC_prms(EEC, plot_errors=false))
         end
         if pyplot > 0
-            ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0)[1], EIS_EEC, "!EEC"*plot_prms_string, plot_legend=plot_legend) 
+            ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, plot_legend=plot_legend)[1], EIS_EEC, "!EEC"*plot_prms_string) 
         end 
         
         
@@ -503,9 +503,6 @@ function get_string_EEC_prms(EEC::EEC_data_struct; plot_errors=true)
   return output
 end
 
-function crop_EIS_to_f_interval(EIS_exp, f_interval)
-  return filter(row -> (f_interval[1] < row.f) && (row.f < f_interval[2]), EIS_exp)
-end
 
 
 
@@ -521,10 +518,12 @@ end
 
 
 
-function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO"; 
+
+
+function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
                         f_interval=Nothing, succes_fit_threshold = 0.002,
                         init_values=Nothing, alpha_low=0, alpha_upp=1, fitting_mask=Nothing,
-                        plot_bool=false, plot_legend=true,
+                        plot_bool=false, plot_legend=true, plot_initial_guess=false,
                         with_errors=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
   ####
@@ -547,6 +546,7 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
   ####  [ ] da se orezat Nyquist pro nizke frekvence, at nejde do zapornych cisel. Chceme?
   ####  [ ] teoreticky by se plotovani obrazku mohlo vzdy vypnout, kdyz by clovek chtel ukladat do souboru. Ale myslim, ze to neni nutne
   ####  [ ] nechcete udelat treba animace nebo dalsi obrazky? (vyhledove)
+  ####  [ ] nazor na to, ze pocitam prumer systemu jako 1.2 cm, pricemz to je jne prumer elektrody, ale ellyt ma 2.5 cm v prumeru
   
   function succesful_fit(EIS_EEC, EIS_exp)
     if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp) > succes_fit_threshold
@@ -570,12 +570,12 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
 
   
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
-                  use_DRT=false, plot_option="Bode Nyq DRT RC")
+                  use_DRT=false, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend)
     SIM = SIM_list[1]    
     EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM, data_set=data_set)
     
     if f_interval!=Nothing
-      EIS_exp = crop_EIS_to_f_interval(EIS_exp, f_interval)
+      EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
     end
     
     EEC_actual = get_EEC("R-L-RCPE-RCPE")
@@ -599,7 +599,7 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
     
     begin
       begin
-        plot_bool && ysz_fitting.typical_plot_exp(SIM, EIS_exp, plot_legend=plot_legend)
+        plot_bool && ysz_fitting.typical_plot_exp(SIM, EIS_exp)
         
         EEC_actual.prms_values = init_values        
         
@@ -609,7 +609,9 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
         end
         
         EIS_EEC_pre = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        #plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC initial guess", plot_legend=plot_legend)
+        if plot_initial_guess
+          plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC initial guess")
+        end
         
         EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors)
         
@@ -637,7 +639,7 @@ function run_EEC_fitting(TC=800, pO2=80, bias=0.0, data_set="MONO";
         end
         
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fitted", plot_legend=plot_legend)
+        plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fitted")
         
         append!(TC_holder, TC_item)
         append!(sigma_holder, 1/EEC_actual.prms_values[1])

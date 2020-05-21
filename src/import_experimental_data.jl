@@ -76,13 +76,13 @@ function import_CVtoDataFrame(;TC,pO2, data_set="MONO")
     pO2="00"
   end
   TC=Int64(TC)
- if data_set=="MONO"
+  if data_set=="MONO"
    fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/CV.cor")
   elseif data_set=="POLY_I-V"
     # this needs to be added to separate simulation !!! ... IV_simulation
     return import_IVtoDataFrame_folder(TC=TC, pO2=pO2, bias_array=vcat(collect(0 : 0.1 : 1), collect(0.9 : -0.1 : -0.9), collect(-1 : 0.1 : 0)), 
           folder="../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/")
- end
+  end
   return import_CVtoDataFrame_path(fNAME)
 end
 
@@ -93,25 +93,25 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO")
   if pO2==0
     pO2="00"
   end
+  #
   TC=Int64(TC)
+  #
   bias=Float64(bias)
-  if data_set=="MONO"
-    fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
-  elseif data_set=="POLY"
     bias_mV = Int32(bias*1000)
-    if abs(bias_mV) < 10
-      bias_mV = "0_1"
-    end
-    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/eis_$(bias_mV).z")
-  elseif data_set=="POLY_1"
+  if abs(bias_mV) < 10
     bias_mV = "0_1"
-    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/eis_$(bias_mV).z")
-  elseif data_set=="POLY_2"
-    bias_mV = "0_2"
-    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/eis_$(bias_mV).z")  
-  elseif data_set=="POLY_3"
-    bias_mV = "0_3"
-    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/eis_$(bias_mV).z")  
+  end
+  #
+  if data_set[end-3 : end-1] == "OCV"
+    bias_mv = "0_"*data_set[end]
+  end
+  #
+  if data_set=="MONO"    if pO2==0
+      pO2="00"
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
+  elseif data_set[1:4]=="POLY"
+    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/eis_$(bias_mV).z") 
   elseif data_set=="Zahner"
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/TEST DRT - Zahner - dummy cell.z")
   elseif data_set=="Solartron"
@@ -119,6 +119,8 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO")
   elseif data_set=="HebbWagner"
     # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
     fNAME=string("../snehurka/experimental_data_PSS/HebbWagner/$(TC) C/$(TC)_EIS $(bias)V v ref 50mV amplituda.z")
+  elseif data_set[1:8]=="MONO_NEW"
+    fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2)/eis_$(bias_mV).z")
   else
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/$(data_set)")
   end

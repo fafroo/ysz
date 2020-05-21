@@ -179,7 +179,6 @@ function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_i
 end
 
 function import_data_to_DataFrame(SIM::CV_simulation)
-  @show SIM.data_set
   import_CVtoDataFrame(TC=SIM.TC, pO2=SIM.pO2, data_set=SIM.data_set)
 end
 
