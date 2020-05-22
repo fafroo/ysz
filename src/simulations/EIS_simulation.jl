@@ -15,9 +15,11 @@ mutable struct EIS_simulation <: abstract_simulation
   TC::Float64
   pO2::Float64
   bias::Float64
+  data_set::String
   #
   dx_exp::Float64
   f_range::Tuple
+  f_interval::Tuple
   fig_size::Tuple
   fig_num::Int16
   #
@@ -29,6 +31,7 @@ mutable struct EIS_simulation <: abstract_simulation
   DRT_draw_semicircles::Bool
   #
   plot_option::String
+  plot_legend::Bool
   #
   name::String
   ID::Int16
@@ -40,7 +43,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_range(), fig_size=(9, 6), fig_num=-1, use_DRT=true, DRT_control=DRT_control_struct(0.0, 1, 1, 2,0), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC")
+function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO", dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_DRT=true, DRT_control=DRT_control_struct(0.0, 1, 1, 2,0), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC", plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -50,20 +53,23 @@ function EIS_simulation(TC, pO2, bias=0.0; dx_exp=-9, f_range=EIS_get_shared_f_r
         this.TC = TC_item
         this.pO2 = pO2_item
         this.bias = bias_item
+        this.data_set = data_set
         #
         this.dx_exp = dx_exp
         this.f_range = f_range
+        this.f_interval = f_interval
         this.fig_size = fig_size
         this.fig_num = (fig_num >= 0 ? fig_num : EIS_standard_figure_num)
         #
         this.checknodes = EIS_get_checknodes_geometrical(f_range...)
-        this.fitness_factor = 1.0
+        this.fitness_factor = fitness_factor
         #
         this.use_DRT = use_DRT
         this.DRT_control = DRT_control
         this.DRT_draw_semicircles = DRT_draw_semicircles
         #
         this.plot_option = plot_option
+        this.plot_legend = plot_legend
         #
         this.name = "EIS"
         this.ID = 2
@@ -90,13 +96,13 @@ end
 
 function setting_legend(SIM::EIS_simulation; latex=true)
   if latex
-    return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\% \$ \$\\mathrm{bias}=$(SIM.bias)\$"
+    return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\% \$ \$\\mathrm{bias}=$(SIM.bias)\$ $(SIM.data_set)"
   else
-    return "TC=$(SIM.TC)°C pO2=$(SIM.pO2)% bias=$(SIM.bias)V"
+    return "TC=$(SIM.TC)°C pO2=$(SIM.pO2)% bias=$(SIM.bias)V $(SIM.data_set)"
   end
 end
 
-function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_string="", to_standard_figure=true; marker_style="x-", plot_legend=true)
+function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_string="", to_standard_figure=true; marker_style="x-")
   if to_standard_figure
     figure(SIM.fig_num, figsize=SIM.fig_size)
   end
@@ -107,13 +113,13 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     xlabel("Re\$(Z) \\ [\\Omega]\$")
     ylabel("-Im\$(Z) \\ [\\Omega]\$")
     plot(real(EIS_df.Z), -imag(EIS_df.Z), marker_style, label = my_label)
-    if !(my_label == "") && plot_legend
+    if !(my_label == "") && SIM.plot_legend
         legend(loc="best")
     end
     grid(true)
     s1.set_aspect(1.0)
   end
-  
+
   if occursin("Bode", SIM.plot_option)
     s2 = subplot(322)
     title("Bode plot: Re vs log f \$(\$Hz\$)\$")
@@ -177,22 +183,22 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
   plt.subplots_adjust(bottom=0.07, top=0.95)  
 end
 
-function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true; plot_legend=true)
+function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
   if length(additional_string)>0 && additional_string[1]=='!'
     my_label = additional_string[2:end]
   else
     my_label = "sim $(setting_legend(SIM))$(additional_string)"
   end
-  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x-", plot_legend=plot_legend)
+  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x-")
 end
 
-function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true; plot_legend=true)
+function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
   if length(additional_string)>0 && additional_string[1]=='!'
     my_label = additional_string[2:end]
   else
     my_label = "exp $(setting_legend(SIM))$(additional_string)"
   end
-  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x:", plot_legend=plot_legend)
+  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x:")
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
@@ -252,8 +258,8 @@ function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_
   )
 end
 
-function import_data_to_DataFrame(SIM::EIS_simulation; data_set="MONO")
-  import_EIStoDataFrame(TC=SIM.TC, pO2=SIM.pO2, bias=SIM.bias, data_set=data_set)
+function import_data_to_DataFrame(SIM::EIS_simulation)
+  import_EIStoDataFrame(TC=SIM.TC, pO2=SIM.pO2, bias=SIM.bias, data_set=SIM.data_set)
 end
 
 function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
@@ -261,20 +267,20 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(TC_list, pO2_list, bias_list; data_set="MONO", use_checknodes=false, fig_num=12)    
+function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO", use_checknodes=false, plot_legend=true, fig_num=12)    
     
-    for TC in TC_list
-      for pO2 in pO2_list
-        for bias in bias_list
+    for TC_item in TC
+      for pO2_item in pO2
+        for bias_item in bias, data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
           if use_checknodes
             SIM = EIS_simulation()
             checknodes =  get_shared_checknodes(SIM)
-            EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias, data_set=data_set), checknodes)
+            EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item), checknodes)
           else
-            EIS_exp = import_EIStoDataFrame(TC=TC, pO2=pO2, bias=bias)
+            EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
           end
           figure(fig_num)
-          typical_plot_exp(EIS_simulation(TC, pO2, bias)..., EIS_exp, "", false)
+          typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, plot_legend=plot_legend)..., EIS_exp, "", false)
         end
       end
     end
@@ -401,6 +407,10 @@ function EIS_get_checknodes_geometrical(start_n, end_n, n_fac)
         w *= n_fac
     end    
     return w_list
+end
+
+function EIS_crop_to_f_interval(EIS_exp, f_interval)
+  return filter(row -> (f_interval[1] < row.f) && (row.f < f_interval[2]), EIS_exp)
 end
 
 function initialize_trend_tuples(SIM::EIS_simulation, EIS_ref::DataFrame)
