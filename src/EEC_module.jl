@@ -29,7 +29,7 @@ using LsqFit
 # perform fit!(alpha_range, list_of_initial_guesses)
 #   use of LM .. .probably
 # export_results
-#   TODO !!!
+# 
 #
 #
 
@@ -421,18 +421,10 @@ function view_EEC(;
       EEC_structure="RL-R-L-RCPE-RCPE", 
       prms_values=[1, 0.001,      1.7, 0,        1. , 0.001, 1.0,    1.0, 0.01, 0.8], 
       f_range=(0.01, 10000, 1.2),
-      print_bool=false, pyplot=1, plot_legend=true
+      print_bool=false, pyplot=1, plot_legend=true, use_DRT=true
       )
   
   EEC = get_EEC(EEC_structure)
-  
-  function perform_view_EEC(init_values)
-    EEC.prms_values = init_values
-    @show EEC.prms_names
-    @show EEC.prms_values
-    EIS_EEC = get_EIS_from_EEC(EEC, f_range=EIS_get_checknodes_geometrical(f_range...))
-    ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0)[1], EIS_EEC) 
-  end
   
   function recursive_view_EEC_call(output_prms, plot_names, plot_values, active_idx)
       if active_idx > size(prms_names,1)
@@ -462,7 +454,7 @@ function view_EEC(;
           println(get_string_EEC_prms(EEC, plot_errors=false))
         end
         if pyplot > 0
-            ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, plot_legend=plot_legend)[1], EIS_EEC, "!EEC"*plot_prms_string) 
+            ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, plot_legend=plot_legend, use_DRT=use_DRT)[1], EIS_EEC, "!EEC"*plot_prms_string) 
         end 
         
         
@@ -523,8 +515,9 @@ end
 function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
                         f_interval=Nothing, succes_fit_threshold = 0.002,
                         init_values=Nothing, alpha_low=0, alpha_upp=1, fitting_mask=Nothing,
-                        plot_bool=false, plot_legend=true, plot_initial_guess=false,
+                        plot_bool=false, plot_legend=true, plot_initial_guess=false, plot_fit=true,
                         with_errors=false,
+                        use_DRT=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
   ####
   ####  TODO:
@@ -547,6 +540,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
   ####  [ ] teoreticky by se plotovani obrazku mohlo vzdy vypnout, kdyz by clovek chtel ukladat do souboru. Ale myslim, ze to neni nutne
   ####  [ ] nechcete udelat treba animace nebo dalsi obrazky? (vyhledove)
   ####  [ ] nazor na to, ze pocitam prumer systemu jako 1.2 cm, pricemz to je jne prumer elektrody, ale ellyt ma 2.5 cm v prumeru
+  ####  [ ] da se udelat nejake moudre orezani, ktere nedovoli vice hodnotam jit doprava oproti pruseciku s realnou osou
   
   function succesful_fit(EIS_EEC, EIS_exp)
     if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp) > succes_fit_threshold
@@ -570,9 +564,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
 
   
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
-                  use_DRT=false, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend)
+                  use_DRT=use_DRT, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set)
     SIM = SIM_list[1]    
-    EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM, data_set=data_set)
+    EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)
     
     if f_interval!=Nothing
       EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
@@ -639,7 +633,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
         end
         
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fitted")
+        if plot_fit
+          plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fit")
+        end
         
         append!(TC_holder, TC_item)
         append!(sigma_holder, 1/EEC_actual.prms_values[1])
@@ -651,23 +647,24 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
   
   T_holder = TC_holder .+ 273.15
   
-  if bias_holder[1] == bias_holder[2]
-    figure(42)
-    title("sigma VS bias")
-    plot(1000 ./ (T_holder), log.(sigma_holder .* T_holder), label="bias "*string(bias_holder[1]))
-    legend(loc="best")
-    xlabel("1000/T")
-    ylabel("log T sigma")
-  else
-    figure(44)
-    title("sigma VS \"TC\"")
-    plot(bias_holder, sigma_holder, label="TC "*string(TC_holder[1]))
-    legend(loc="best")
-    xlabel("bias")
-    ylabel("sigma")
+  if length(bias_holder) > 1 || length(T_holder) > 1
+    if bias_holder[1] == bias_holder[2]
+      figure(42)
+      title("sigma VS bias")
+      plot(1000 ./ (T_holder), log.(sigma_holder .* T_holder), label="bias "*string(bias_holder[1]))
+      legend(loc="best")
+      xlabel("1000/T")
+      ylabel("log T sigma")
+    else
+      figure(44)
+      title("sigma VS \"TC\"")
+      plot(bias_holder, sigma_holder, label="TC "*string(TC_holder[1]))
+      legend(loc="best")
+      xlabel("bias")
+      ylabel("sigma")
+    end
   end
   
-  #function 
   
 end
 

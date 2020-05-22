@@ -96,9 +96,9 @@ end
 
 function setting_legend(SIM::EIS_simulation; latex=true)
   if latex
-    return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\% \$ \$\\mathrm{bias}=$(SIM.bias)\$"
+    return "\$\\theta=$(SIM.TC)\$°C \$\\mathrm{O}_2=$(SIM.pO2)\\% \$ \$\\mathrm{bias}=$(SIM.bias)\$ $(SIM.data_set)"
   else
-    return "TC=$(SIM.TC)°C pO2=$(SIM.pO2)% bias=$(SIM.bias)V"
+    return "TC=$(SIM.TC)°C pO2=$(SIM.pO2)% bias=$(SIM.bias)V $(SIM.data_set)"
   end
 end
 
@@ -258,8 +258,8 @@ function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_
   )
 end
 
-function import_data_to_DataFrame(SIM::EIS_simulation; data_set="MONO")
-  import_EIStoDataFrame(TC=SIM.TC, pO2=SIM.pO2, bias=SIM.bias, data_set=data_set)
+function import_data_to_DataFrame(SIM::EIS_simulation)
+  import_EIStoDataFrame(TC=SIM.TC, pO2=SIM.pO2, bias=SIM.bias, data_set=SIM.data_set)
 end
 
 function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())

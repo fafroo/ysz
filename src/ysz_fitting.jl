@@ -36,7 +36,6 @@ module ysz_fitting
 # ------[x] zacina se ze steady_statu, ktery se pocita rychle
 # [ ] simple_run by mohl vracet par_study
 # ---[ ] par study by pak mohla mit funcki "uloz me"
-# [ ] par_study_struct by mohla nest velikosti poli
 # [ ] promyslet velikost Floatu pri importu velkeho mnozstvi dat
 # [x] funkci pro par_study, aby umela zmenit sve info (redukovat pO2_list a tak) -> funkce par_study_filter()
 # [ ] par_study_plot_the_best() by mela vyhodit jeden figure s dvema subploty... asi ... 
@@ -44,10 +43,15 @@ module ysz_fitting
 # ---[ ] vlastne jakoby nevim, jestli je to dobry napad?
 # [ ] automaticke vybirani vhodne scripted_tuple
 # [ ] f_range pouzivat jako Array frekvenci, nikoliv jako trojici cisel
-# [ ] zobrazovani jmena data_setu i v simple_run 
-# [ ] obecne zavest data_set jako soucast definice experimentu v SIM
+# [x] zobrazovani jmena data_setu i v simple_run 
+# [x] obecne zavest data_set jako soucast definice experimentu v SIM
 # [ ] konzistentne pridat "f_interval" do vsech EIS
-# [ ] plot_legend universalne pridat vsude
+# [x] plot_legend universalne pridat vsude
+# [ ] add data_set and other features to CAP
+# [ ] make I-V simulation
+# [ ] zaradit jednoduchy vztah teplotni zavislosti na odporu
+# [ ] dodelat v CV simulaci vse potrebne, co je v EIS. I importovani novych souboru.
+# [ ] plot_legend nechat jako volitelny parameter typical_plot ... asi
 #
 # ##### stacionarni krivky
 # [ ] zatim to modeluji jako CV s nizkym voltratem
@@ -216,9 +220,9 @@ end
 
 
 # useful wrap
-function simple_run(;TC, pO2=1.0, bias=0.0, simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+function simple_run(;TC, pO2=1.0, bias=0.0, data_set="MONO", simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
                          test=false)
-    simple_run(get_SIM_list_rectangle(TC, pO2, bias, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
+    simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
                         test=false)
 end
 
@@ -260,7 +264,7 @@ peak_merge_tol=0.0, show_legend=true, fig_num=EIS_standard_figure_num)
     # to add .... , tau_min_fac=tau_min_fac, tau_max_fac=tau_max_fac, tau_range_fac=tau_range_fac
     DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol)
     
-    SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, DRT_draw_semicircles=draw_semicircles, 
+    SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, data_set=data_set_item, DRT_draw_semicircles=draw_semicircles, 
                 DRT_control=DRT_control, plot_option=plot_option, fig_num=fig_num, f_range=f_range)
     SIM = SIM_list[1]
     
@@ -275,13 +279,9 @@ peak_merge_tol=0.0, show_legend=true, fig_num=EIS_standard_figure_num)
         prms_values=prms_values, use_experiment=false)
     elseif mode=="exp"
       #@show SIM.checknodes
-      EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM, data_set=data_set_item), SIM.checknodes)
-      if length(data_set_list) > 0
-        if data_set_item[end-1:end]==".z"
-          typical_plot_exp(SIM, EIS_df, "!$(data_set_item)") 
-        else
-          typical_plot_exp(SIM, EIS_df, " $(data_set_item)") 
-        end
+      EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
+      if data_set_item[end-1:end]==".z"
+        typical_plot_exp(SIM, EIS_df, "!$(data_set_item)") 
       else
         typical_plot_exp(SIM, EIS_df) 
       end
@@ -364,8 +364,8 @@ mutable struct SIM_fitting_struct
   TC
   pO2
   bias
-  simulations
   data_set
+  simulations
   #
   SIM_list
   #
@@ -390,8 +390,8 @@ function run_SIM_fitting_script_wrap(;
                     TC_string="850", 
                     pO2_string="100", 
                     bias_string="0.0", 
-                    simulations_stirng="[\"EIS\"]", 
-                    data_set="MONO", 
+                    data_set="MONO",
+                    simulations_stirng="[\"EIS\"]",
                     #
                     x0_string = string(get_fitting_initial_condition()),
                     prms_names_string=string(["kappaA", "kappaR", "kappaO", 
@@ -435,7 +435,7 @@ function run_SIM_fitting_script_wrap(;
   SIM_fitting.bias = bias
   SIM_fitting.simulations = simulations
   #
-  SIM_fitting.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, simulations)
+  SIM_fitting.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations)
   #
   SIM_fitting.x0 = eval(Meta.parse(x0_string))
   SIM_fitting.prms_names = eval(Meta.parse(prms_names_string))
@@ -455,7 +455,7 @@ function run_SIM_fitting_script_wrap(;
   return
 end
 
-function build_SIM_fitting(;TC=850, pO2=100, bias=0.0, simulations=["EIS"], data_set="MONO", 
+function build_SIM_fitting(;TC=850, pO2=100, bias=0.0, data_set="MONO", simulations=["EIS"],  
                       #
                       x0 = get_fitting_initial_condition(),
                       prms_names=["kappaA", "kappaR", "kappaO", 
@@ -484,8 +484,9 @@ function build_SIM_fitting(;TC=850, pO2=100, bias=0.0, simulations=["EIS"], data
   SIM_fitting.TC = TC
   SIM_fitting.pO2 = pO2
   SIM_fitting.bias = bias
-  SIM_fitting.simulations = simulations
   SIM_fitting.data_set = data_set
+  SIM_fitting.simulations = simulations
+
   #
   SIM_fitting.prms_names = prms_names
   @show typeof(x0)
@@ -693,7 +694,7 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
   SIM_exp = Array{DataFrame}(undef, length(SIM_fitting.SIM_list))
   for (i, SIM) in enumerate(SIM_fitting.SIM_list)
     SIM.plot_legend=false
-    SIM_exp[i] = apply_checknodes(SIM, import_data_to_DataFrame(SIM, data_set=SIM_fitting.data_set), SIM.checknodes)
+    SIM_exp[i] = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
     if (pyplot > 0)
       typical_plot_exp(SIM, SIM_exp[i])
     end
