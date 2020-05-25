@@ -503,6 +503,17 @@ end
 
 
 
+mutable struct EEC_data_holder_struct
+  TC
+  pO2
+  bias
+  data_set
+  
+  prms_names
+  
+  # indexing: [TC, pO2, bias, data_set, prms_values]
+  data::Array{Any}
+end
 
 
 
