@@ -534,12 +534,12 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
   
   
   ########## Questions
-  ####  [ ] Jak se mam zachovat, kdyz fit neni dobry? Mam proste preskocit, nic nezapisovat do souboru a jet dal? Nebo zapsat a warning?
-  ####  [ ] Format zapisu do souboru -> nemel by to spis byt *.csv soubor s cisly oddelenymi carkami ci tabulatory?
+  ####  [x] Jak se mam zachovat, kdyz fit neni dobry? Mam proste preskocit, nic nezapisovat do souboru a jet dal? Nebo zapsat a warning?
+  ####  [x] Format zapisu do souboru -> nemel by to spis byt *.csv soubor s cisly oddelenymi carkami ci tabulatory?
   ####  [ ] da se orezat Nyquist pro nizke frekvence, at nejde do zapornych cisel. Chceme?
-  ####  [ ] teoreticky by se plotovani obrazku mohlo vzdy vypnout, kdyz by clovek chtel ukladat do souboru. Ale myslim, ze to neni nutne
+  ####  [x] teoreticky by se plotovani obrazku mohlo vzdy vypnout, kdyz by clovek chtel ukladat do souboru. Ale myslim, ze to neni nutne
   ####  [ ] nechcete udelat treba animace nebo dalsi obrazky? (vyhledove)
-  ####  [ ] nazor na to, ze pocitam prumer systemu jako 1.2 cm, pricemz to je jne prumer elektrody, ale ellyt ma 2.5 cm v prumeru
+  ####  [x] nazor na to, ze pocitam prumer systemu jako 1.2 cm, pricemz to je jne prumer elektrody, ale ellyt ma 2.5 cm v prumeru
   ####  [ ] da se udelat nejake moudre orezani, ktere nedovoli vice hodnotam jit doprava oproti pruseciku s realnou osou
   
   function succesful_fit(EIS_EEC, EIS_exp)

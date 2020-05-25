@@ -246,7 +246,8 @@ end
 
 function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="MONO", 
 tau_min_fac=10, tau_max_fac=10, tau_range_fac=2,
-peak_merge_tol=0.0, show_legend=true, fig_num=EIS_standard_figure_num)
+peak_merge_tol=0.0, plot_legend=true, fig_num=EIS_standard_figure_num, plot_bool=true,
+CAP_comparison=false, CAP_bottleneck_prm="rR")
   
 
   if data_set=="POLY_OCV_test"
@@ -254,6 +255,14 @@ peak_merge_tol=0.0, show_legend=true, fig_num=EIS_standard_figure_num)
     data_set_list = ["POLY_$idx" for idx in [1,2,3]]
   else  
     data_set_list = [data_set]
+  end
+  
+  if CAP_comparison
+    prms_names_CAP = (prms_names..., CAP_bottleneck_prm)
+    prms_values_CAP = (prms_values..., 1)
+    ysz_fitting.simple_run(CAP_simulation(TC, pO2, analytical=false, voltrate=1.0e-5, upp_bound=maximum(bias), low_bound=minimum(bias)), 
+                          pyplot=1, prms_names=prms_names_CAP, prms_values=prms_values_CAP, use_experiment=false)
+    CAP_plot_num = gcf().number
   end
   
   for TC_item in TC, pO2_item in pO2, bias_item in bias, lambda_item in lambda, data_set_item in data_set_list
@@ -272,26 +281,35 @@ peak_merge_tol=0.0, show_legend=true, fig_num=EIS_standard_figure_num)
     
     if mode=="EEC"
       EIS_df = EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, R_ohm, f_range=f_range)
-      typical_plot_sim(SIM, EIS_df, "! EEC ($R1, $C1) ($R2, $C2, $alpha)")
+      plot_bool && typical_plot_sim(SIM, EIS_df, "! EEC ($R1, $C1) ($R2, $C2, $alpha)")
     elseif mode=="sim"
-      EIS_df = ysz_fitting.simple_run(SIM_list, pyplot=1, 
+      EIS_df = ysz_fitting.simple_run(SIM_list, pyplot=(plot_bool ? 1 : 0), 
         prms_names=prms_names, 
         prms_values=prms_values, use_experiment=false)
     elseif mode=="exp"
       #@show SIM.checknodes
       EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
       if data_set_item[end-1:end]==".z"
-        typical_plot_exp(SIM, EIS_df, "!$(data_set_item)") 
+        plot_bool && typical_plot_exp(SIM, EIS_df, "!$(data_set_item)") 
       else
-        typical_plot_exp(SIM, EIS_df) 
+        plot_bool && typical_plot_exp(SIM, EIS_df) 
       end
     end
 
+    if CAP_comparison
+      DRT_actual = get_DRT(EIS_df, DRT_control)
+      
+      figure(CAP_plot_num)
+      for C in DRT_actual.peaks_df.C
+        plot(bias_item, C, "o")
+      end
+    end
+    
     
     if backward_check
       DRT_actual = get_DRT(EIS_df, DRT_control)
-      println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
-      typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false, DRT_control=DRT_control, plot_option=plot_option)..., DRT_actual.EIS_df, "! DRT_backward_check")
+      plot_bool && println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
+      plot_bool && typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false, DRT_control=DRT_control, plot_option=plot_option)..., DRT_actual.EIS_df, "! DRT_backward_check")
       
 #       DRT_actual = get_DRT(EIS_df, lambda_item, debug_mode=true)
 #       println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))

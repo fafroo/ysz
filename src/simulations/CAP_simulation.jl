@@ -19,6 +19,7 @@ mutable struct CAP_simulation <: abstract_simulation
   low_bound::Float32
   dx_exp::Float64
   sample::Int64
+  voltrate::Float32
   fig_size::Tuple
   #
   analytical::Bool
@@ -35,7 +36,7 @@ function string(SIM::CAP_simulation)
   return "CAP_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CAP_simulation(TC, pO2; analytical=true, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=40, fig_size=(9, 6), fitness_factor=10.0)
+function CAP_simulation(TC, pO2; analytical=true, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=40, voltrate=0.00001, fig_size=(9, 6), fitness_factor=10.0)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -48,13 +49,14 @@ function CAP_simulation(TC, pO2; analytical=true, upp_bound=1.0, low_bound=-1.0,
       this.low_bound = low_bound
       this.dx_exp = dx_exp
       this.sample = sample
+      this.voltrate = voltrate
       this.fig_size = fig_size
       #
       this.analytical = analytical
-      this.checknodes = get_shared_checknodes(this)
+      this.checknodes = Nothing
       this.fitness_factor = fitness_factor
       #
-      this.name = "CAP(a)"
+      this.name = analytical ? "CAP(a)" : "CAP(CV)"
       this.ID = 3
       
       push!(output, this)
@@ -63,8 +65,8 @@ function CAP_simulation(TC, pO2; analytical=true, upp_bound=1.0, low_bound=-1.0,
   return output
 end
 
-function CAP_simulation(TC, pO2, bias; analytical=true, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=40, fig_size=(9, 6), fitness_factor=10.0)
-    CAP_simulation(TC, pO2; analytical=analytical, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, fig_size=fig_size, fitness_factor=fitness_factor)
+function CAP_simulation(TC, pO2, bias; analytical=true, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=40, voltrate=0.00001, fig_size=(9, 6), fitness_factor=10.0)
+    CAP_simulation(TC, pO2; analytical=analytical, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size, fitness_factor=fitness_factor)
 end
 
 
@@ -84,7 +86,7 @@ function typical_run_simulation(SIM::CAP_simulation, prms_names_in, prms_values_
     ysz_experiments.run_new(
         out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false),
         dlcap=true,
-        dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound, voltrate=0.000001,
+        dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound, voltrate=SIM.voltrate,
         T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
         prms_names_in=prms_names_in,
         prms_values_in=prms_values_in,
@@ -156,7 +158,11 @@ function CAP_get_C_values(CAP_raw, checknodes)
 end
 
 function apply_checknodes(sim::CAP_simulation, CAP_in, checknodes)
-    DataFrame( U = checknodes[:,1], C = CAP_get_C_values(CAP_in, checknodes))
+    if checknodes == Nothing
+      return CAP_in
+    else
+      return DataFrame( U = checknodes[:,1], C = CAP_get_C_values(CAP_in, checknodes))
+    end
 end
 
 
