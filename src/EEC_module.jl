@@ -193,6 +193,10 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   end
   
   function to_optimize(x)
+    if !(check_x_in(x, lowM, uppM))
+      #println("    OUT OF THE BOUNDS   \n")
+      return 10000
+    end
     EEC_actual.prms_values = prepare_prms(mask, x0, x)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 10)...))
@@ -246,8 +250,8 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   #######################################
   #######################################
   x0M, lowM, uppM = prepare_masked_stuff(mask, x0, lower_bounds, upper_bounds)
-  #@show lowM
-  #@show uppM
+  @show lowM
+  @show uppM
  
   x_previous = x0M
  
@@ -330,13 +334,19 @@ function get_init_values(EIS_exp)
   # resistors
   smaller_circle_ratio = 0.3  # with respect to full width
   left, right, width = get_left_right_width_of_EIS(EIS_exp)
-  #@show left, right, width
+  
   
   # R_ohm
   output[1] = left
   
   # L
-  output[2] = imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units)
+  output[2] = 1.54
+#   if imag(EIS_exp.Z[end]) > 0
+#     @show  imag(EIS_exp.Z[end])
+#     output[2] = imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units)
+#   else
+#     output[2] = 1.0
+#   end
   
   # R3, R4
   output[3] = width*smaller_circle_ratio
@@ -350,6 +360,9 @@ function get_init_values(EIS_exp)
   output[4] = 0.005
   output[7] = 0.0005
   
+  @show imag(EIS_exp.Z[end]) 
+  @show left, right, width
+  @show output
   return output
   #return [2.0, 6.2, 0.5 , 0.001, 1.0,    0.6, 0.01, 0.8]
 end
@@ -402,7 +415,7 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
 end
 
 function HF_LF_correction(EEC)
-  if EEC.prms_values[3]*EEC.prms_values[4] > EEC.prms_values[6]*EEC.prms_values[7]
+  if EEC.prms_values[3]*EEC.prms_values[4] < EEC.prms_values[6]*EEC.prms_values[7]
     aux = EEC.prms_values[6]
     EEC.prms_values[6] = EEC.prms_values[3]
     EEC.prms_values[3] = aux
@@ -510,16 +523,32 @@ mutable struct EEC_data_holder_struct
   data_set
   
   prms_names
-  
-  # indexing: [TC, pO2, bias, data_set, prms_values]
+  # indexing of data: [TC, pO2, bias, data_set, prms_values]
   data::Array{Any}
+  
+  EEC_data_holder_struct() = new()
+end
+
+function EEC_data_holder_struct(TC, pO2, bias, data_set, prms_names)
+  this = EEC_data_holder_struct()
+  this.TC = TC
+  this.pO2 = pO2
+  this.bias = bias
+  this.data_set = data_set
+  this.prms_names = prms_names
+  
+  this.data = Array{Any}(undef, (length(TC), length(pO2), length(bias), length(data_set), length(prms_names)))
+  return this
 end
 
 
-
-
-
-
+function make_array_from_string(input)
+  if typeof(input) == String
+    return [input]
+  else
+    return input
+  end
+end
 
 
 
@@ -562,28 +591,35 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
   end
 
   if save_file_bool
-    run(`mkdir -p $(save_to_folder)`)
+    mkpath(save_to_folder)
   end
-
-  TC_holder = []
-  sigma_holder = []
-  bias_holder = []
+  
+  EEC_actual = get_EEC("R-L-RCPE-RCPE")
+      
+  data_set = make_array_from_string(data_set)  
+  EEC_data_holder = EEC_data_holder_struct(TC, pO2, bias, data_set, EEC_actual.prms_names)
   
   cycle_number = 0
-  for TC_item in TC, pO2_item in pO2, bias_item in bias
+  for   (TC_idx, TC_item) in enumerate(TC), 
+        (pO2_idx, pO2_item) in enumerate(pO2), 
+        (bias_idx, bias_item) in enumerate(bias), 
+        (data_set_idx, data_set_item) in enumerate(data_set)
     cycle_number += 1
 
   
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
-                  use_DRT=use_DRT, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set)
+                  use_DRT=use_DRT, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set_item)
     SIM = SIM_list[1]    
     EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)
     
     if f_interval!=Nothing
-      EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
+      if f_interval == "auto"
+        #TODO !!!
+      else
+        EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
+      end
     end
     
-    EEC_actual = get_EEC("R-L-RCPE-RCPE")
     if fitting_mask == Nothing
       mask = Array{Int16}(undef, length(EEC_actual.prms_names))
       mask .= 1
@@ -627,12 +663,12 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
         HF_LF_correction(EEC_actual)
         if !(succesful_fit(EIS_EEC, EIS_exp))
-          println("WARNING: (TC, pO2, bias, data_set) = ($(TC_item), $(pO2_item), $bias_item, $data_set) maybe NOT CONVERGED !!! ////// error $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)) > defined threshold $(succes_fit_threshold) ///////")
+          println("WARNING: (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! ////// error $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)) > defined threshold $(succes_fit_threshold) ///////")
           # TODO ... optionally save picture of the result for humanous check
           # or this reports can go to another error_log_file.txt
         end
         
-        output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set = $data_set) =========="
+        output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) =========="
         output_string *= "\n$(get_string_EEC_prms(EEC_actual))"
         if save_file_bool
           open(save_to_folder*file_name, "a") do f
@@ -648,34 +684,122 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
           plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fit")
         end
         
-        append!(TC_holder, TC_item)
-        append!(sigma_holder, 1/EEC_actual.prms_values[1])
-        append!(bias_holder, bias_item)
+        EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
         
       end
     end
   end
   
-  T_holder = TC_holder .+ 273.15
-  
-  if length(bias_holder) > 1 || length(T_holder) > 1
-    if bias_holder[1] == bias_holder[2]
-      figure(42)
-      title("sigma VS bias")
-      plot(1000 ./ (T_holder), log.(sigma_holder .* T_holder), label="bias "*string(bias_holder[1]))
-      legend(loc="best")
-      xlabel("1000/T")
-      ylabel("log T sigma")
-    else
-      figure(44)
-      title("sigma VS \"TC\"")
-      plot(bias_holder, sigma_holder, label="TC "*string(TC_holder[1]))
-      legend(loc="best")
-      xlabel("bias")
-      ylabel("sigma")
-    end
-  end
-  
+  return EEC_data_holder
+#   T_holder = TC_holder .+ 273.15
+#   
+#   if length(bias_holder) > 1 || length(T_holder) > 1
+#     if bias_holder[1] == bias_holder[2]
+#       figure(42)
+#       title("sigma VS bias")
+#       plot(1000 ./ (T_holder), log.(sigma_holder .* T_holder), label="bias "*string(bias_holder[1]))
+#       legend(loc="best")
+#       xlabel("1000/T")
+#       ylabel("log T sigma")
+#     else
+#       figure(44)
+#       title("sigma VS \"TC\"")
+#       plot(bias_holder, sigma_holder, label="TC "*string(TC_holder[1]))
+#       legend(loc="best")
+#       xlabel("bias")
+#       ylabel("sigma")
+#     end
+#   end
+#   
   
 end
 
+function save(EEC_data_holder, folder, name)
+  # TODO!
+end
+
+function load(EEC_data_holder)
+  # TODO!
+end
+
+
+function plot_EEC_data_general(EEC_data_holder; 
+                                y_name="C3",
+                                x_name="bias",
+                                #
+                                TC_interval = [-Inf, Inf],
+                                pO2_interval = [-Inf, Inf],
+                                bias_interval = [-Inf, Inf],
+                                data_set = Nothing,                              
+                                #
+                                fig_num=102, 
+                                plot_legend=true)
+  
+  function make_range_list(prm_name, interval)
+    output_list = []
+    if prm_name == "data_set"
+      for (i, item) in enumerate(getfield(EEC_data_holder, Symbol(prm_name)))
+        if item in interval
+          append!(output_list, i)
+        end
+      end
+    else
+      for (i, item) in enumerate(getfield(EEC_data_holder, Symbol(prm_name)))
+        if interval[1] <= item && item <= interval[2]
+          append!(output_list, i)
+        end
+      end
+    end
+    return output_list
+  end
+  
+  function add_legend_contribution(idx, plot_idx)
+    if length(plot_idx) == 1 && length(range_list[idx]) > 1
+      return "$(identifier_list[idx])=$(getfield(EEC_data_holder, Symbol(identifier_list[idx]))[plot_idx]) "
+    else
+      return ""
+    end
+  end
+  
+  x_name_idx = -1
+  identifier_list = ["TC", "pO2", "bias", "data_set"]
+  range_list = Array{Any}(undef, 4)
+  for i in 1:4
+    if x_name == identifier_list[i]
+      x_name_idx = i
+    end
+  end
+  y_name_idx = findall(x -> x==y_name, EEC_data_holder.prms_names)[1]
+  
+  
+  range_list[1] = make_range_list("TC", TC_interval)
+  range_list[2] = make_range_list("pO2", pO2_interval)
+  range_list[3] = make_range_list("bias", bias_interval)
+  if data_set != Nothing 
+    data_set = make_array_from_string(data_set)
+    range_list[4] = make_range_list("data_set", data_set)
+  else
+    range_list[4] = EEC_data_holder.data_set
+  end
+
+  figure(fig_num)
+  xlabel(x_name)
+  ylabel(y_name)
+  title(y_name*"  vs  "*x_name)
+  
+  for TC_idx in (x_name_idx != 1 ? range_list[1] : [range_list[1]]),
+      pO2_idx in (x_name_idx != 2 ? range_list[2] : [range_list[2]]),
+      bias_idx in (x_name_idx != 3 ? range_list[3] : [range_list[3]]),
+      data_set_idx in (x_name_idx != 4 ? range_list[4] : [range_list[4]])
+    
+    plot(getfield(EEC_data_holder, Symbol(identifier_list[x_name_idx]))[range_list[x_name_idx]], EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, y_name_idx],
+    label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))")
+    
+    if plot_legend
+      legend(loc="best")
+    end
+  end
+  
+  PyPlot.show()
+  return
+end

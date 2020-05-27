@@ -124,7 +124,7 @@ end
 
 function save_file_prms(sim::CV_simulation, df_out, save_dir, prms, prms_names, scripted_tuple)
     (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
-    run(`mkdir -p $out_path`)
+    mkpath(out_path)
 
     CSV.write(
         string(out_path,out_name),

@@ -644,15 +644,6 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
       return Tuple(prms)
   end
   
-  function check_x_in(x, low, upp)
-    for (i, item) in enumerate(x)
-      if item < low[i] || upp[i] < item
-        return false
-      end
-    end
-    return true
-  end
-  
   function to_optimize(x)
       if !(check_x_in(x, lowM, uppM))
         print_only_result || (output_buffer *= "    OUT OF THE BOUNDS   \n")
@@ -754,7 +745,7 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
 
   output_buffer = ""  
   if SIM_fitting.print_to_file
-    run(`mkdir -p $(SIM_fitting.save_dir)`)
+    mkpath(SIM_fitting.save_dir)
   end
   #######################################
   #######################################
