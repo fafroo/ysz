@@ -1,6 +1,7 @@
 using CSV
 using DataFrames
 using PyPlot
+using Printf
 
 function import_CVtoDataFrame_path(f_name)
     df = DataFrame(U = Float32[], I = Float32[], t = Float32[])
@@ -77,25 +78,25 @@ end
 
 function import_CVtoDataFrame(;TC,pO2, data_set="MONO_110")
   pO2=Int64(pO2)
-  if pO2==0
-    pO2="00"
-  end
+  pO2_Dan = @sprintf("%02g",pO2)
+  #
   TC=Int64(TC)
+  #
   if data_set=="OLD_MONO_100"
-    fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/CV.cor")
+    fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2_Dan,"% do 1V/CV.cor")
   elseif data_set == "POLY"
-    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/cv1.cor")
+    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2_Dan) 6/cv1.cor")
   elseif data_set == "MONO_110"
-    fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2)/cv1.cor")
+    fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2_Dan)/cv1.cor")
   #
   #
   elseif data_set=="POLY_I-V"
     # this needs to be added to separate simulation !!! ... IV_simulation
     return import_IVtoDataFrame_folder(TC=TC, pO2=pO2, bias_array=vcat(collect(0 : 0.1 : 1), collect(0.9 : -0.1 : -0.9), collect(-1 : 0.1 : 0)), 
-          folder="../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/")
+          folder="../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2_Dan) 6/")
   elseif data_set=="MONO_I-V"
     return import_IVtoDataFrame_folder(TC=TC, pO2=pO2, bias_array=vcat(collect(0 : 0.1 : 1), collect(0.9 : -0.1 : -0.9), collect(-1 : 0.1 : 0)), 
-          folder="../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2)/")
+          folder="../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2_Dan)/")
   else
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/$(data_set)")
   end
@@ -108,9 +109,8 @@ end
 
 function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
   pO2=Int64(pO2)
-  if pO2==0
-    pO2="00"
-  end
+  pO2_Dan = @sprintf("%02g",pO2)
+  pO2_Michal = @sprintf("%03g",pO2)
   #
   TC=Int64(TC)
   #
@@ -125,7 +125,7 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
   end
   #
   if length(data_set) >= 4 && data_set[1:4]=="POLY"
-    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/eis_$(bias_mV).z") 
+    fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2_Dan) 6/eis_$(bias_mV).z") 
   elseif data_set=="Zahner"
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/TEST DRT - Zahner - dummy cell.z")
   elseif data_set=="Solartron"
@@ -134,9 +134,16 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
     # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
     fNAME=string("../snehurka/experimental_data_PSS/HebbWagner/$(TC) C/$(TC)_EIS $(bias)V v ref 50mV amplituda.z")
   elseif length(data_set) >= 8 && data_set[1:8]=="MONO_110"
-    fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2)/eis_$(bias_mV).z")
+    fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2_Dan)/eis_$(bias_mV).z")
   elseif data_set=="OLD_MONO_100"
-    fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
+    fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/$(TC)C/100 $(TC)C $(pO2_Dan)% do 1V/is $(bias)DC 50AC.z")
+  elseif data_set=="MICHAL"
+    if bias == 0
+      ocp_token = "_ocp"
+    else
+      ocp_token = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/K4/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")
   else
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/$(data_set)")
   end

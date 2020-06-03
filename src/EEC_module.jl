@@ -623,16 +623,16 @@ function make_array_from_string(input)
 end
 
         
-function save_EEC_prms_to_file(TC, pO2, bias, data_set, EEC, saving_destination)
+function save_EEC_prms_to_file(TC, pO2, bias, data_set, prms_values, saving_destination)
   df_out = DataFrame(TC = TC, pO2 = pO2, bias = bias, data_set = data_set,
-                    R1      = [EEC.prms_values[1]],
-                    L2      = [EEC.prms_values[2]],
-                    R3      = [EEC.prms_values[3]],
-                    C3      = [EEC.prms_values[4]],
-                    alpha3  = [EEC.prms_values[5]],
-                    R4      = [EEC.prms_values[6]],
-                    C4      = [EEC.prms_values[7]],
-                    alpha4  = [EEC.prms_values[8]]
+                    R1      = [prms_values[1]],
+                    L2      = [prms_values[2]],
+                    R3      = [prms_values[3]],
+                    C3      = [prms_values[4]],
+                    alpha3  = [prms_values[5]],
+                    R4      = [prms_values[6]],
+                    C4      = [prms_values[7]],
+                    alpha4  = [prms_values[8]]
                     )
   CSV.write(saving_destination, df_out, delim="\t", append=true)
 end
@@ -715,9 +715,32 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
                   use_DRT=use_DRT, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set_item)
     SIM = SIM_list[1]    
-    EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)
     
+    
+    
+    
+    
+    try
+      EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)
+    catch 
+      warning_buffer *= " ->->-> ERROR: file for (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) ... NOT FOUND! \n"
+      missing_array = Array{Any}(undef, 8)
+      missing_array .= Missing
+      
+      EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(missing_array)
+      if save_file_bool
+        save_EEC_prms_to_file(TC_item, pO2_item, bias_item, data_set_item, missing_array, save_to_folder*file_name)
+      end
+      continue
+    end
 
+    
+    
+    
+    
+    
+    
+    
     if f_interval!=Nothing
       if f_interval == "auto"
         #typical_plot_exp(SIM, EIS_exp, "! before")
@@ -810,7 +833,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
         output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) =========="
         output_string *= "\n$(get_string_EEC_prms(EEC_actual))"
         if save_file_bool
-          save_EEC_prms_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual, save_to_folder*file_name)
+          save_EEC_prms_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_values, save_to_folder*file_name)
         else
           println(output_string)
           println(">>> error >>> ", fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp))
@@ -830,7 +853,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   println()
   println("          =================================")
   println("          =================================")
-  println("          =========== WARNINGS ============")
+  println("          =========== MESSAGES ============")
   if length(warning_buffer) > 0 
     println(warning_buffer)
   else
@@ -939,8 +962,18 @@ function plot_EEC_data_general(EEC_data_holder;
       bias_idx in (x_name_idx != 3 ? range_list[3] : [range_list[3]]),
       data_set_idx in (x_name_idx != 4 ? range_list[4] : [range_list[4]])
     
-    plot(getfield(EEC_data_holder, Symbol(identifier_list[x_name_idx]))[range_list[x_name_idx]], EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, y_name_idx],
-    label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))")
+    to_plot = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, y_name_idx]
+    
+    #@show to_plot
+    
+    plot(
+      getfield(
+        EEC_data_holder, 
+        Symbol(identifier_list[x_name_idx])
+      )[range_list[x_name_idx]], 
+      to_plot,
+      label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))"
+    )
     
     if plot_legend
       legend(loc="best")
