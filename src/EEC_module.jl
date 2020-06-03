@@ -282,8 +282,8 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   #######################################
   #######################################
   x0M, lowM, uppM = prepare_masked_stuff(mask, x0, lower_bounds, upper_bounds)
-  @show lowM
-  @show uppM
+  #@show lowM
+  #@show uppM
  
   x_previous = x0M
  
@@ -390,8 +390,8 @@ function EIS_data_preprocessing(EIS_df)
     end
   end
   
-  @show x_intersection_freq_idx
-  @show lowest_freq_idx
+  #@show x_intersection_freq_idx
+  #@show lowest_freq_idx
   
   if x_intersection_freq_idx == -1
     return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
@@ -447,9 +447,9 @@ function get_init_values(EIS_exp)
   output[4] = 1.0
   output[7] = 0.5
   
-  @show imag(EIS_exp.Z[end]) 
-  @show left, right, width
-  @show output
+  #@show imag(EIS_exp.Z[end]) 
+  #@show left, right, width
+  #@show output
   return output
   #return [2.0, 6.2, 0.5 , 0.001, 1.0,    0.6, 0.01, 0.8]
 end
@@ -751,7 +751,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
           println("ERROR: some of fixed_prms_names $(fixed_prms_names) not found!")
           return throw(Exception)
         end
-        @show output
+        #@show output
         return output
       end
     end
@@ -795,7 +795,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
         EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors)
         
         if !save_file_bool
-          println("FITTED_values = $(EEC_actual.prms_values)   <<<<<<<<<<<<<<<<<<<<<< ")
+          #println("FITTED_values = $(EEC_actual.prms_values)   <<<<<<<<<<<<<<<<<<<<<< ")
         end        
         
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
