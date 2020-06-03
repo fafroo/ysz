@@ -22,7 +22,7 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[850], pO2=[100], bias=collect(-1
                       f_interval="auto", succes_fit_threshold=0.007,
                       #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
                       fixed_prms_names=["L2"], fixed_prms_values=[1.75],
-                      save_file_bool=false, file_name="monocrystaline.txt", with_errors=false,
+                      save_file_bool=false, save_to_folder="../data/EEC/", file_name="monocrystaline.txt",
                       plot_bool=true, plot_legend=false, plot_initial_guess=true, plot_fit=true, use_DRT=false);
 
 ### Notes:
