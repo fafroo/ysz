@@ -220,7 +220,7 @@ end
 
 
 # useful wrap
-function simple_run(;TC, pO2=1.0, bias=0.0, data_set="MONO", simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+function simple_run(;TC, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
                          test=false)
     simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
                         test=false)
@@ -244,7 +244,7 @@ end
 
 
 
-function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="MONO", 
+function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="MONO_110", 
 tau_min_fac=10, tau_max_fac=10, tau_range_fac=2,
 peak_merge_tol=0.0, plot_legend=true, fig_num=EIS_standard_figure_num, plot_bool=true,
 CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true)
@@ -442,7 +442,7 @@ function run_SIM_fitting_script_wrap(;
                     TC_string="850", 
                     pO2_string="100", 
                     bias_string="0.0", 
-                    data_set="MONO",
+                    data_set="MONO_110",
                     simulations_stirng="[\"EIS\"]",
                     #
                     x0_string = string(get_fitting_initial_condition()),
@@ -507,7 +507,7 @@ function run_SIM_fitting_script_wrap(;
   return
 end
 
-function build_SIM_fitting(;TC=850, pO2=100, bias=0.0, data_set="MONO", simulations=["EIS"],  
+function build_SIM_fitting(;TC=850, pO2=100, bias=0.0, data_set="MONO_110", simulations=["EIS"],  
                       #
                       x0 = get_fitting_initial_condition(),
                       prms_names=["kappaA", "kappaR", "kappaO", 

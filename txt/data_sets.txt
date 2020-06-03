@@ -2,7 +2,7 @@
 
 Monocrystaline - <date>
   Key words
-    - "OLD_MONO"
+    - "OLD_MONO_100"
   Data ranges:
     - TC \in 700 : 50 : 850
     - pO2 \in 0 : 20 : 100
@@ -11,7 +11,7 @@ Monocrystaline - <date>
   
 Polycrystaline - <date>
   Key words:
-    - "MONO"
+    - "MONO_110"
     - "MONO_OCV$i" for OCV try i \in {1, 2, 3} (using automatically bias=0.0)
     #- "POLY_OCV_test" for displaying all OCV cases for i in {1, 2, 3}
   Data ranges:

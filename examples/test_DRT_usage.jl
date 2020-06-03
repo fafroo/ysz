@@ -25,7 +25,7 @@ ysz_fitting.test_DRT(mode="sim", TC=800, pO2=100, bias=0.0,
               prms_values=[1, 1, 1,       19.0, 19.8, 18.2,        0.0, -0.8, -0.0,     [90]*1.0e-14, [0.85]     ],
               lambda=0.001);
 
-# new data_set called "POLY" for polycrystaline. The monocrystaline is "MONO"
+# new data_set called "POLY" for polycrystaline. The monocrystaline is "MONO_110"
 ysz_fitting.test_DRT(mode="exp", TC=800, pO2=20, bias=collect(0.0 : 0.05 : 0.2), lambda=0.0, 
        backward_check=false, plot_option="DRT Nyq Bode Rtau", data_set="POLY", 
        tau_min_fac=1.1, tau_max_fac=1.1, tau_range_fac=20.0, f_range=(0.6, 9000, 1.2))

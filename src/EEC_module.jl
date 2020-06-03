@@ -637,7 +637,7 @@ function save_EEC_prms_to_file(TC, pO2, bias, data_set, EEC, saving_destination)
   CSV.write(saving_destination, df_out, delim="\t", append=true)
 end
 
-function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
+function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         f_interval=Nothing, succes_fit_threshold = 0.002,
                         fixed_prms_names=[], fixed_prms_values=[],
                         init_values=Nothing, alpha_low=0, alpha_upp=1, #fitting_mask=Nothing,

@@ -10,14 +10,14 @@ ysz_fitting.view_EEC(
            
 
 # run_EEC_fitting               
-ysz_fitting.run_EEC_fitting(TC=[700], pO2=[0], bias=collect(-1. : 0.1 : 1), data_set="MONO", 
+ysz_fitting.run_EEC_fitting(TC=[700], pO2=[0], bias=collect(-1. : 0.1 : 1), data_set="MONO_110", 
                f_interval=[5, 20000], succes_fit_threshold=0.004,
                #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
                save_file_bool=false, save_to_folder="../data/EEC/", file_name="monocrystaline.txt", with_errors=false,
                plot_bool=true, plot_legend=true, plot_initial_guess=false, plot_fit=true, use_DRT=false)        
                
 # fixed_prms_values                
-ysz_fitting.run_EEC_fitting(TC=[850], pO2=[100], bias=collect(-1.0 : 0.05 : -0.8), data_set="MONO", 
+ysz_fitting.run_EEC_fitting(TC=[850], pO2=[100], bias=collect(-1.0 : 0.05 : -0.8), data_set="MONO_110", 
                       f_interval="auto", succes_fit_threshold=0.007,
                       #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
                       fixed_prms_names=["L2", "alpha4"], fixed_prms_values=[1.75, 0.8],
