@@ -4,6 +4,7 @@ using PyPlot
 using DataFrames
 #using LeastSquaresOptim
 using Optim
+using CSV
 
 using NNLS
 #using LinearAlgebra
@@ -137,6 +138,31 @@ function get_EIS_from_EEC(EEC_actual::EEC_data_struct; f_range=[])
 end
 
 
+
+function HF_LF_check(prms_values)
+  if prms_values[3]*prms_values[4] < prms_values[6]*prms_values[7]
+    return true
+  else
+    return false
+  end
+end
+
+function HF_LF_correction(EEC)
+  if HF_LF_check(EEC.prms_values)
+    aux = EEC.prms_values[6]
+    EEC.prms_values[6] = EEC.prms_values[3]
+    EEC.prms_values[3] = aux
+    
+    aux = EEC.prms_values[7]
+    EEC.prms_values[7] = EEC.prms_values[4]
+    EEC.prms_values[4] = aux
+    
+    aux = EEC.prms_values[8]
+    EEC.prms_values[8] = EEC.prms_values[5]
+    EEC.prms_values[5] = aux
+  end
+end
+
 #
 #     mask can be generated via string input, e.g. every "L" should be constant >>
 #
@@ -197,6 +223,12 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
       #println("    OUT OF THE BOUNDS   \n")
       return 10000
     end
+    
+#     if !(HF_LF_check(prepare_prms(mask, x0, x)))
+#       println("     HF_LF_check is violated !!! ")
+#       return 10000
+#     end
+    
     EEC_actual.prms_values = prepare_prms(mask, x0, x)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 10)...))
@@ -313,7 +345,7 @@ end
 
 
 
-function get_left_right_width_of_EIS(EIS_df, N_for_sum=8)
+function get_left_right_width_of_EIS(EIS_df, N_for_sum=2)
   real_sum_left = 0
   real_sum_right = 0  
   for i in 1:N_for_sum
@@ -324,6 +356,61 @@ function get_left_right_width_of_EIS(EIS_df, N_for_sum=8)
   right = real_sum_right/N_for_sum
   width = right - left
   return left, right, width
+end
+
+function EIS_data_preprocessing(EIS_df)
+  
+  #lowest frequency cut off
+  lowest_freq_idx = -1
+  positive_counter = 0
+  for (i, Z) in enumerate(EIS_df.Z)
+    if imag(Z) < 0
+      positive_counter += 1
+    else
+      positive_counter = 0
+    end
+    if positive_counter == 10
+      lowest_freq_idx = i - 9
+      break
+    end
+  end
+  
+  # intersection with x axis
+  x_intersection_freq_idx = -1
+  negative_counter = 0
+  for i in (lowest_freq_idx + 5):length(EIS_df.f)
+    if imag(EIS_df.Z[i]) > 0
+      negative_counter += 1
+    else  
+      negative_counter = 0
+    end
+    if negative_counter == 8
+      x_intersection_freq_idx = i - 7
+      break
+    end
+  end
+  
+  @show x_intersection_freq_idx
+  @show lowest_freq_idx
+  
+  if x_intersection_freq_idx == -1
+    return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
+  else
+    # inductance cut off
+    accepted_inductance_real_axis_threshold = 0.05*real(EIS_df.Z[lowest_freq_idx]) + 0.95*real(EIS_df.Z[x_intersection_freq_idx])
+    highest_freq_idx = -1
+    for i in (x_intersection_freq_idx + 1 ):length(EIS_df.f)
+      if real(EIS_df.Z[i]) > accepted_inductance_real_axis_threshold
+        highest_freq_idx = i
+        break
+      end
+    end
+    if highest_freq_idx == -1
+      return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
+    end
+
+    return DataFrame(f = EIS_df.f[lowest_freq_idx:highest_freq_idx], Z = EIS_df.Z[lowest_freq_idx:highest_freq_idx])
+  end
 end
 
 function get_init_values(EIS_exp)
@@ -357,8 +444,8 @@ function get_init_values(EIS_exp)
   output[8] = 0.9
   
   # C3, C4
-  output[4] = 0.005
-  output[7] = 0.0005
+  output[4] = 1.0
+  output[7] = 0.5
   
   @show imag(EIS_exp.Z[end]) 
   @show left, right, width
@@ -414,21 +501,6 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
   return
 end
 
-function HF_LF_correction(EEC)
-  if EEC.prms_values[3]*EEC.prms_values[4] < EEC.prms_values[6]*EEC.prms_values[7]
-    aux = EEC.prms_values[6]
-    EEC.prms_values[6] = EEC.prms_values[3]
-    EEC.prms_values[3] = aux
-    
-    aux = EEC.prms_values[7]
-    EEC.prms_values[7] = EEC.prms_values[4]
-    EEC.prms_values[4] = aux
-    
-    aux = EEC.prms_values[8]
-    EEC.prms_values[8] = EEC.prms_values[5]
-    EEC.prms_values[5] = aux
-  end
-end
 
 function view_EEC(;
       EEC_structure="RL-R-L-RCPE-RCPE", 
@@ -499,7 +571,7 @@ function view_EEC(;
   return EEC
 end
 
-function get_string_EEC_prms(EEC::EEC_data_struct; plot_errors=true)
+function get_string_EEC_prms(EEC::EEC_data_struct; plot_errors=false)
   output = ""
   for (i, item) in enumerate(EEC.prms_values)
     output *= "$(@sprintf("%8s", EEC.prms_names[i]))  =  $(@sprintf("%12.8f", item))    "
@@ -550,11 +622,25 @@ function make_array_from_string(input)
   end
 end
 
-
+        
+function save_EEC_prms_to_file(TC, pO2, bias, data_set, EEC, saving_destination)
+  df_out = DataFrame(TC = TC, pO2 = pO2, bias = bias, data_set = data_set,
+                    R1      = [EEC.prms_values[1]],
+                    L2      = [EEC.prms_values[2]],
+                    R3      = [EEC.prms_values[3]],
+                    C3      = [EEC.prms_values[4]],
+                    alpha3  = [EEC.prms_values[5]],
+                    R4      = [EEC.prms_values[6]],
+                    C4      = [EEC.prms_values[7]],
+                    alpha4  = [EEC.prms_values[8]]
+                    )
+  CSV.write(saving_destination, df_out, delim="\t", append=true)
+end
 
 function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
                         f_interval=Nothing, succes_fit_threshold = 0.002,
-                        init_values=Nothing, alpha_low=0, alpha_upp=1, fitting_mask=Nothing,
+                        fixed_prms_names=[], fixed_prms_values=[],
+                        init_values=Nothing, alpha_low=0, alpha_upp=1, #fitting_mask=Nothing,
                         plot_bool=false, plot_legend=true, plot_initial_guess=false, plot_fit=true,
                         with_errors=false,
                         use_DRT=false,
@@ -571,16 +657,19 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
   ####  [x] f_interval ... to crop the Nyquist
   ####  [ ] sjednotit plot options, abych mohl zapinat DRT a menit ploty v klidecku!
   ####  [x] upravit hranice parametrickeho prostoru, aby nehledal kraviny!
+  ####  [ ] fixed_prms_names ... bug for *3 a *4  ... elements can be interchanged !!!
+  ####  [ ] maybe try several automatic initial guesses and pick up the best one?
   
   
   ########## Questions
   ####  [x] Jak se mam zachovat, kdyz fit neni dobry? Mam proste preskocit, nic nezapisovat do souboru a jet dal? Nebo zapsat a warning?
   ####  [x] Format zapisu do souboru -> nemel by to spis byt *.csv soubor s cisly oddelenymi carkami ci tabulatory?
-  ####  [ ] da se orezat Nyquist pro nizke frekvence, at nejde do zapornych cisel. Chceme?
+  ####  [x] da se orezat Nyquist pro nizke frekvence, at nejde do zapornych cisel. Chceme?
   ####  [x] teoreticky by se plotovani obrazku mohlo vzdy vypnout, kdyz by clovek chtel ukladat do souboru. Ale myslim, ze to neni nutne
-  ####  [ ] nechcete udelat treba animace nebo dalsi obrazky? (vyhledove)
   ####  [x] nazor na to, ze pocitam prumer systemu jako 1.2 cm, pricemz to je jne prumer elektrody, ale ellyt ma 2.5 cm v prumeru
-  ####  [ ] da se udelat nejake moudre orezani, ktere nedovoli vice hodnotam jit doprava oproti pruseciku s realnou osou
+  ####  [x] da se udelat nejake moudre orezani, ktere nedovoli vice hodnotam jit doprava oproti pruseciku s realnou osou
+  ####  [ ] nechcete udelat treba animace nebo dalsi obrazky? (vyhledove)
+  ####  [ ] chcete vypisovat L2 v mikro-Henry nebo v Henry? stejne jako zadavani a kdekoliv
   
   function succesful_fit(EIS_EEC, EIS_exp)
     if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp) > succes_fit_threshold
@@ -599,6 +688,22 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
   data_set = make_array_from_string(data_set)  
   EEC_data_holder = EEC_data_holder_struct(TC, pO2, bias, data_set, EEC_actual.prms_names)
   
+  warning_buffer = ""
+  if save_file_bool 
+    saving_destination = save_to_folder*file_name
+    df_out = DataFrame(TC = [], pO2 = [], bias = [], data_set = [],
+                    R1      = [],
+                    L2      = [],
+                    R3      = [],
+                    C3      = [],
+                    alpha3  = [],
+                    R4      = [],
+                    C4      = [],
+                    alpha4  = []
+                    )
+    CSV.write(saving_destination, df_out, delim="\t")
+  end
+  
   cycle_number = 0
   for   (TC_idx, TC_item) in enumerate(TC), 
         (pO2_idx, pO2_item) in enumerate(pO2), 
@@ -612,20 +717,51 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
     SIM = SIM_list[1]    
     EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)
     
+
     if f_interval!=Nothing
       if f_interval == "auto"
-        #TODO !!!
+        #typical_plot_exp(SIM, EIS_exp, "! before")
+        EIS_exp = EIS_data_preprocessing(EIS_exp)
+        #typical_plot_exp(SIM, EIS_exp, "! after")
       else
         EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
       end
     end
     
-    if fitting_mask == Nothing
-      mask = Array{Int16}(undef, length(EEC_actual.prms_names))
-      mask .= 1
-    else
-      mask = fitting_mask
+    function get_fitting_mask_and_apply_fixed_prms_values(EEC, init_values, fixed_prms_names, fixed_prms_values)
+      if length(fixed_prms_names) != length(fixed_prms_values)
+        println("ERROR: length(fixed_prms_names) != length(fixed_prms_values) ==>> $(length(fixed_prms_names)) != $(length(fixed_prms_values))")
+        return throw(Exception)
+      else
+        output = []
+        skip_bool = false
+        for (i, original_name) in enumerate(EEC.prms_names)
+          skip_bool = false
+          for (j, name) in enumerate(fixed_prms_names)
+            if name == original_name
+              append!(output, 0)
+              init_values[i] = fixed_prms_values[j]
+              skip_bool = true
+              break
+            end
+          end
+          skip_bool || append!(output, 1)
+        end
+        if length(fixed_prms_names) + sum(output) != length(EEC.prms_names)
+          println("ERROR: some of fixed_prms_names $(fixed_prms_names) not found!")
+          return throw(Exception)
+        end
+        @show output
+        return output
+      end
     end
+    
+#     if fitting_mask == Nothing
+#       mask = Array{Int16}(undef, length(EEC_actual.prms_names))
+#       mask .= 1
+#     else
+#       mask = fitting_mask
+#     end
     set_fitting_limits_to_EEC_from_EIS_exp!(EEC_actual, EIS_exp)
 
     
@@ -637,6 +773,8 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
     if init_values == Nothing || cycle_number > 1
       init_values = get_init_values(EIS_exp)
     end
+    
+    mask = get_fitting_mask_and_apply_fixed_prms_values(EEC_actual, init_values, fixed_prms_names, fixed_prms_values)
     
     begin
       begin
@@ -663,17 +801,16 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
         HF_LF_correction(EEC_actual)
         if !(succesful_fit(EIS_EEC, EIS_exp))
-          println("WARNING: (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! ////// error $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)) > defined threshold $(succes_fit_threshold) ///////")
+          warning_buffer *="WARNING: (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! // error $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)) > defined threshold $(succes_fit_threshold) //\n"
           # TODO ... optionally save picture of the result for humanous check
           # or this reports can go to another error_log_file.txt
         end
+
         
         output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) =========="
         output_string *= "\n$(get_string_EEC_prms(EEC_actual))"
         if save_file_bool
-          open(save_to_folder*file_name, "a") do f
-            write(f, output_string)
-          end
+          save_EEC_prms_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual, save_to_folder*file_name)
         else
           println(output_string)
           println(">>> error >>> ", fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp))
@@ -688,6 +825,16 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO",
         
       end
     end
+  end
+  
+  println()
+  println("          =================================")
+  println("          =================================")
+  println("          =========== WARNINGS ============")
+  if length(warning_buffer) > 0 
+    println(warning_buffer)
+  else
+    println(" no warnings :) ")
   end
   
   return EEC_data_holder
@@ -777,10 +924,10 @@ function plot_EEC_data_general(EEC_data_holder;
   range_list[3] = make_range_list("bias", bias_interval)
   if data_set != Nothing 
     data_set = make_array_from_string(data_set)
-    range_list[4] = make_range_list("data_set", data_set)
   else
-    range_list[4] = EEC_data_holder.data_set
+    data_set = make_array_from_string(EEC_data_holder.data_set)
   end
+  range_list[4] = make_range_list("data_set", data_set)
 
   figure(fig_num)
   xlabel(x_name)

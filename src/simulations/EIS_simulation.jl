@@ -347,11 +347,36 @@ end
 
 function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataFrame)
         err = 0.0
+        
+#         max_err_imag = -1
+#         max_err_real = -1
+#         diff_imag = 0
+#         diff_real = 0
+        
         if  exp_EIS.f == sim_EIS.f
                 
                 for row = 1:size(exp_EIS,1)
-                        err +=( (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))^2 
-                                 + (imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))^2)
+                    err += (
+                      (
+                        (imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))
+                        #/
+                        #(imag(exp_EIS.Z[row]) + imag(sim_EIS.Z[row]))/2
+                      )^2 
+                      +
+                      (
+                        (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
+                        #/
+                        #(real(exp_EIS.Z[row]) + real(sim_EIS.Z[row]))/2
+                      )^2
+                    )
+                    
+#                     diff_real = abs(imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))
+#                     diff_imag = abs(real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
+#                     
+#                     diff_real > max_err_real ? max_err_real = diff_real : true
+#                     diff_imag > max_err_imag ? max_err_imag = diff_imag : true
+#                     
+#                     err +=( diff_real^2 + diff_imag^2)
                 end
         else
                 println("ERROR: EIS_fitnesFunction: shape mismatch or different *.f values")
@@ -359,6 +384,7 @@ function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataF
         end
         # returns average error per checknode
         return sqrt(err)/Float32(size(exp_EIS,1))
+#         return sqrt(err)/Float32(size(exp_EIS,1)) + max_err_real + max_err_imag
 end
 
 # function monotony_test_function(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataFrame)
