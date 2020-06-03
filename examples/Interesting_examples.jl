@@ -17,7 +17,7 @@ ysz_fitting.test_DRT(mode="EEC",
 ###################### CPE vs exp ##########################
 # exp
 ysz_fitting.test_DRT(mode="exp", 
-           TC=850, pO2=[100], bias=[0.0], data_set="MONO", 
+           TC=850, pO2=[100], bias=[0.0], data_set="MONO_110", 
            lambda=0.0, 
            backward_check=true, draw_semicircles=true, plot_option="DRT RC Nyq Bode", 
            tau_min_fac=1, tau_range_fac=2.0, f_range=(0.6, 9000, 1.1));
@@ -31,7 +31,7 @@ ysz_fitting.test_DRT(mode="EEC",
                      
 ###################### trendy v experimentalnich datech ################                     
 ysz_fitting.test_DRT(mode="exp", 
-                  TC=800, pO2=[20, 40, 60], bias=[0.0], data_set="MONO", 
+                  TC=800, pO2=[20, 40, 60], bias=[0.0], data_set="MONO_110", 
                   lambda=0.0,
                   backward_check=false, draw_semicircles=false, plot_option="Rf RC Nyq Bode", 
                   tau_min_fac=1, tau_range_fac=2.0, f_range=(0.6, 9000, 1.1));                     
@@ -88,11 +88,11 @@ novy = 1; ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, DRT_dr
                      use_experiment=false);
                      
 ## experiment -> ukazka trendu ocasku
-ysz_fitting.test_DRT(mode="exp", TC=850, pO2=[0, 20, 40, 60, 80, 100], bias=[0.0], data_set="MONO", lambda=0.0, 
+ysz_fitting.test_DRT(mode="exp", TC=850, pO2=[0, 20, 40, 60, 80, 100], bias=[0.0], data_set="MONO_110", lambda=0.0, 
        backward_check=false, draw_semicircles=false, plot_option="Nyq Bode", tau_min_fac=1, tau_range_fac=20.0, f_range=(0.6, 9000, 1.1))
        
 ## experiment -> rozliseni skoro shodnych krivek
-ysz_fitting.test_DRT(mode="exp", TC=800, pO2=[0, 20, 40, 60, 80, 100], bias=[0.0], data_set="MONO", lambda=0.0, 
+ysz_fitting.test_DRT(mode="exp", TC=800, pO2=[0, 20, 40, 60, 80, 100], bias=[0.0], data_set="MONO_110", lambda=0.0, 
        backward_check=false, draw_semicircles=false, plot_option="Nyq Bode", tau_min_fac=1, tau_range_fac=20.0, f_range=(0.6, 9000, 1.1))
                      
 ############### Solartron #####################
@@ -115,14 +115,14 @@ ysz_fitting.test_DRT(mode="exp", TC=collect(600), pO2=[100], bias=[0.3], data_se
               
 ######## 2020-05-21 NEW  ###################
 # zajimava anomalie pro jednu teplotu (ale je konzistentni pro okolni biasy)
-ysz_fitting.run_EEC_fitting(TC=[700, 750, 800, 850], pO2=[100], bias=0.0, data_set="MONO", 
+ysz_fitting.run_EEC_fitting(TC=[700, 750, 800, 850], pO2=[100], bias=0.0, data_set="MONO_110", 
                f_interval=[40, 20000], succes_fit_threshold=0.004,
                #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
                save_file_bool=false, file_name="monocrystaline.txt", with_errors=false,
                plot_bool=true, plot_legend=true, plot_initial_guess=false, plot_fit=true)
 
 # dooost zvlastni Nyquisty !!!!!! :DDD
-ysz_fitting.run_EEC_fitting(TC=[700, 750, 800, 850], pO2=[100], bias=1.0, data_set="MONO", 
+ysz_fitting.run_EEC_fitting(TC=[700, 750, 800, 850], pO2=[100], bias=1.0, data_set="MONO_110", 
                f_interval=[40, 20000], succes_fit_threshold=0.004,
                #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
                save_file_bool=false, file_name="monocrystaline.txt", with_errors=false,

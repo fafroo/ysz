@@ -43,7 +43,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO", dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_DRT=true, DRT_control=DRT_control_struct(0.0, 1, 1, 2,0), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC", plot_legend=true)
+function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_DRT=true, DRT_control=DRT_control_struct(0.0, 1, 1, 2,0), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC", plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -238,7 +238,7 @@ end
 
 function save_file_prms(sim::EIS_simulation, df_out, save_dir, prms, prms_names, scripted_tuple)
     (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="EIS", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
-    run(`mkdir -p $out_path`)
+    mkpath(out_path)
 
     CSV.write(
         string(out_path,out_name),
@@ -267,7 +267,7 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO", use_checknodes=false, plot_legend=true, fig_num=12)    
+function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", use_checknodes=false, plot_legend=true, fig_num=12)    
     
     for TC_item in TC
       for pO2_item in pO2
@@ -347,11 +347,36 @@ end
 
 function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataFrame)
         err = 0.0
+        
+#         max_err_imag = -1
+#         max_err_real = -1
+#         diff_imag = 0
+#         diff_real = 0
+        
         if  exp_EIS.f == sim_EIS.f
                 
                 for row = 1:size(exp_EIS,1)
-                        err +=( (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))^2 
-                                 + (imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))^2)
+                    err += (
+                      (
+                        (imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))
+                        #/
+                        #(imag(exp_EIS.Z[row]) + imag(sim_EIS.Z[row]))/2
+                      )^2 
+                      +
+                      (
+                        (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
+                        #/
+                        #(real(exp_EIS.Z[row]) + real(sim_EIS.Z[row]))/2
+                      )^2
+                    )
+                    
+#                     diff_real = abs(imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))
+#                     diff_imag = abs(real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
+#                     
+#                     diff_real > max_err_real ? max_err_real = diff_real : true
+#                     diff_imag > max_err_imag ? max_err_imag = diff_imag : true
+#                     
+#                     err +=( diff_real^2 + diff_imag^2)
                 end
         else
                 println("ERROR: EIS_fitnesFunction: shape mismatch or different *.f values")
@@ -359,6 +384,7 @@ function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataF
         end
         # returns average error per checknode
         return sqrt(err)/Float32(size(exp_EIS,1))
+#         return sqrt(err)/Float32(size(exp_EIS,1)) + max_err_real + max_err_imag
 end
 
 # function monotony_test_function(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataFrame)

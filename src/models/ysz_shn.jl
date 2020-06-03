@@ -439,18 +439,15 @@ function flux!(f,u, edge, this::YSZParameters)
     f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])    
     
     bp,bm=fbernoulli_pm(
-        (
-          1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy])
-        )*(log(1-ul[iy]) - log(1-uk[iy]))
+        (log(1-ul[iy]) - log(1-uk[iy]))
         -
-        this.zA*this.e0/this.T/this.kB*(
-            1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy])
-        )*(ul[iphi] - uk[iphi])
+        this.zA*this.e0/this.T/this.kB
+        *(ul[iphi] - uk[iphi])
     )
     f[iy]= (
         this.DD
         *
-        (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))
+        (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))^2
         *
         this.mO*this.m_par*(1.0-this.nu)/this.vL
         *

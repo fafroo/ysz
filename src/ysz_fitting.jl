@@ -220,7 +220,7 @@ end
 
 
 # useful wrap
-function simple_run(;TC, pO2=1.0, bias=0.0, data_set="MONO", simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+function simple_run(;TC, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
                          test=false)
     simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
                         test=false)
@@ -244,10 +244,10 @@ end
 
 
 
-function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="MONO", 
+function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="MONO_110", 
 tau_min_fac=10, tau_max_fac=10, tau_range_fac=2,
 peak_merge_tol=0.0, plot_legend=true, fig_num=EIS_standard_figure_num, plot_bool=true,
-CAP_comparison=false, CAP_bottleneck_prm="rR")
+CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true)
   
 
   if data_set=="POLY_OCV_test"
@@ -258,11 +258,18 @@ CAP_comparison=false, CAP_bottleneck_prm="rR")
   end
   
   if CAP_comparison
-    prms_names_CAP = (prms_names..., CAP_bottleneck_prm)
-    prms_values_CAP = (prms_values..., 1)
-    ysz_fitting.simple_run(CAP_simulation(TC, pO2, analytical=false, voltrate=1.0e-5, upp_bound=maximum(bias), low_bound=minimum(bias)), 
-                          pyplot=1, prms_names=prms_names_CAP, prms_values=prms_values_CAP, use_experiment=false)
-    CAP_plot_num = gcf().number
+    if CAP_plot_CAP_CV
+      prms_names_CAP = (prms_names..., CAP_bottleneck_prm)
+      prms_values_CAP = (prms_values..., 1)
+      ysz_fitting.simple_run(CAP_simulation(TC, pO2, analytical=false, voltrate=1.0e-5, upp_bound=maximum(bias), low_bound=minimum(bias)), 
+                            pyplot=1, prms_names=prms_names_CAP, prms_values=prms_values_CAP, use_experiment=false)
+      CAP_plot_num = gcf().number
+    else
+      CAP_plot_num = 101
+    end
+    CAP_holder_width = 10
+    CAP_holder = DataFrame(bias=[], C1=[], C2=[], C3=[], C4=[], C5=[], C6=[], C7=[], C8=[], C9=[], C10=[])
+  
   end
   
   for TC_item in TC, pO2_item in pO2, bias_item in bias, lambda_item in lambda, data_set_item in data_set_list
@@ -274,7 +281,7 @@ CAP_comparison=false, CAP_bottleneck_prm="rR")
     DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol)
     
     SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, data_set=data_set_item, DRT_draw_semicircles=draw_semicircles, 
-                DRT_control=DRT_control, plot_option=plot_option, fig_num=fig_num, f_range=f_range)
+                DRT_control=DRT_control, plot_option=plot_option, fig_num=fig_num, f_range=f_range, plot_legend=plot_legend)
     SIM = SIM_list[1]
     
     #@show SIM
@@ -299,10 +306,17 @@ CAP_comparison=false, CAP_bottleneck_prm="rR")
     if CAP_comparison
       DRT_actual = get_DRT(EIS_df, DRT_control)
       
-      figure(CAP_plot_num)
-      for C in DRT_actual.peaks_df.C
-        plot(bias_item, C, "o")
+      
+      current_line = Array{Float32}(undef, CAP_holder_width+1)
+      current_line[1] = bias_item
+      for i in 1:CAP_holder_width
+        if i <= length(DRT_actual.peaks_df.C)
+          current_line[i+1] = DRT_actual.peaks_df.C[i]
+        else
+          current_line[i+1] = -1
+        end        
       end
+      push!(CAP_holder, current_line)
     end
     
     
@@ -317,6 +331,26 @@ CAP_comparison=false, CAP_bottleneck_prm="rR")
 #       plot_DRT_h(DRT_actual)
 #       typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false)..., DRT_actual.EIS_df, "! DRT_backward_check")
     end
+  end
+  
+  if CAP_comparison
+    figure(CAP_plot_num)
+    title("Capacitance VS Bias")
+    xlabel("\$\\eta\$ [V]")
+    ylabel("C [F]")
+    for i in 1:CAP_holder_width
+      current_C_range = []
+      current_bias_range = []
+      for j in 1:length(CAP_holder[!, Symbol("C$(i)")])
+        CC = CAP_holder[!, Symbol("C$(i)")][j]
+        if CC > -0.5
+          append!(current_C_range, CC)
+          append!(current_bias_range, CAP_holder[!, :bias][j])
+        end
+      end
+      
+      plot(current_bias_range, current_C_range, "-x")
+    end 
   end
     
   #return DRT_actual
@@ -408,7 +442,7 @@ function run_SIM_fitting_script_wrap(;
                     TC_string="850", 
                     pO2_string="100", 
                     bias_string="0.0", 
-                    data_set="MONO",
+                    data_set="MONO_110",
                     simulations_stirng="[\"EIS\"]",
                     #
                     x0_string = string(get_fitting_initial_condition()),
@@ -473,7 +507,7 @@ function run_SIM_fitting_script_wrap(;
   return
 end
 
-function build_SIM_fitting(;TC=850, pO2=100, bias=0.0, data_set="MONO", simulations=["EIS"],  
+function build_SIM_fitting(;TC=850, pO2=100, bias=0.0, data_set="MONO_110", simulations=["EIS"],  
                       #
                       x0 = get_fitting_initial_condition(),
                       prms_names=["kappaA", "kappaR", "kappaO", 
@@ -610,15 +644,6 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
       return Tuple(prms)
   end
   
-  function check_x_in(x, low, upp)
-    for (i, item) in enumerate(x)
-      if item < low[i] || upp[i] < item
-        return false
-      end
-    end
-    return true
-  end
-  
   function to_optimize(x)
       if !(check_x_in(x, lowM, uppM))
         print_only_result || (output_buffer *= "    OUT OF THE BOUNDS   \n")
@@ -720,7 +745,7 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
 
   output_buffer = ""  
   if SIM_fitting.print_to_file
-    run(`mkdir -p $(SIM_fitting.save_dir)`)
+    mkpath(SIM_fitting.save_dir)
   end
   #######################################
   #######################################

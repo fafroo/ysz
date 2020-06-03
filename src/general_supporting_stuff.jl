@@ -71,4 +71,13 @@ function check_equal_size(list_1, list_2)
   end
 end
 
+function check_x_in(x, low, upp)
+  for (i, item) in enumerate(x)
+    if item < low[i] || upp[i] < item
+      return false
+    end
+  end
+  return true
+end
+
 

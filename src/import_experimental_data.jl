@@ -75,17 +75,17 @@ end
 ##########################################################################################
 ##########################################################################################
 
-function import_CVtoDataFrame(;TC,pO2, data_set="MONO")
+function import_CVtoDataFrame(;TC,pO2, data_set="MONO_110")
   pO2=Int64(pO2)
   if pO2==0
     pO2="00"
   end
   TC=Int64(TC)
-  if data_set=="OLD_MONO"
+  if data_set=="OLD_MONO_100"
     fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/CV.cor")
   elseif data_set == "POLY"
     fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2) 6/cv1.cor")
-  elseif data_set == "MONO"
+  elseif data_set == "MONO_110"
     fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2)/cv1.cor")
   #
   #
@@ -106,7 +106,7 @@ end
 
 
 
-function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO")
+function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
   pO2=Int64(pO2)
   if pO2==0
     pO2="00"
@@ -133,9 +133,9 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO")
   elseif data_set=="HebbWagner"
     # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
     fNAME=string("../snehurka/experimental_data_PSS/HebbWagner/$(TC) C/$(TC)_EIS $(bias)V v ref 50mV amplituda.z")
-  elseif length(data_set) >= 4 && data_set[1:4]=="MONO"
+  elseif length(data_set) >= 8 && data_set[1:8]=="MONO_110"
     fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2)/eis_$(bias_mV).z")
-  elseif data_set=="OLD_MONO"
+  elseif data_set=="OLD_MONO_100"
     fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/",TC,"C/100 ",TC,"C ",pO2,"% do 1V/is ",bias,"DC 50AC.z")
   else
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/$(data_set)")
