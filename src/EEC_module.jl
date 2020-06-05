@@ -140,7 +140,7 @@ end
 
 
 function HF_LF_check(prms_values)
-  if prms_values[3]*prms_values[4] < prms_values[6]*prms_values[7]
+  if prms_values[3]*prms_values[4] > prms_values[6]*prms_values[7]
     return true
   else
     return false
@@ -414,20 +414,32 @@ function EIS_data_preprocessing(EIS_df)
 end
 
 function get_init_values(EIS_exp)
+
+  smaller_circle_resistance_ratio = 0.25  # with respect to full width
+  capacitance_spread_factor = 5/8
   
   # R | L | RCPE | RCPE structure REQUIERED!
   output = Array{Float64}(undef, 8)
   
   # resistors
-  smaller_circle_ratio = 0.3  # with respect to full width
   left, right, width = get_left_right_width_of_EIS(EIS_exp)
   
+  minimum = Inf
+  minimum_idx = -1
+  for (i, item) in enumerate(imag(EIS_exp.Z))
+    if item < minimum
+      minimum = item
+      minimum_idx = i
+    end
+  end
+  highest_freq = EIS_exp.f[minimum_idx]
   
+
   # R_ohm
   output[1] = left
   
   # L
-  output[2] = 1.54
+  output[2] = 1.64
 #   if imag(EIS_exp.Z[end]) > 0
 #     @show  imag(EIS_exp.Z[end])
 #     output[2] = imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units)
@@ -436,16 +448,22 @@ function get_init_values(EIS_exp)
 #   end
   
   # R3, R4
-  output[3] = width*smaller_circle_ratio
-  output[6] = width*(1 - smaller_circle_ratio)
+  output[3] = width*smaller_circle_resistance_ratio
+  output[6] = width*(1 - smaller_circle_resistance_ratio)
   
   # alphas
-  output[5] = 0.8
-  output[8] = 0.9
+  output[5] = 1.0
+  output[8] = 0.8
   
   # C3, C4
-  output[4] = 1.0
-  output[7] = 0.5
+  central_capacitance = 1/(2*pi*highest_freq*output[3])
+  
+  output[4] = central_capacitance*(capacitance_spread_factor)
+  output[7] = central_capacitance*(capacitance_spread_factor)
+  
+#   @show central_capacitance
+#   @show output[4]
+#   @show output[7]
   
   #@show imag(EIS_exp.Z[end]) 
   #@show left, right, width
@@ -640,9 +658,9 @@ end
 function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         f_interval=Nothing, succes_fit_threshold = 0.002,
                         fixed_prms_names=[], fixed_prms_values=[],
-                        init_values=Nothing, alpha_low=0, alpha_upp=1, #fitting_mask=Nothing,
+                        init_values=Nothing, alpha_low=0.2, alpha_upp=1, #fitting_mask=Nothing,
                         plot_bool=false, plot_legend=true, plot_initial_guess=false, plot_fit=true,
-                        with_errors=false,
+                        with_errors=false, use_previous_fit_as_initial=false,
                         use_DRT=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
   ####
@@ -659,6 +677,10 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   ####  [x] upravit hranice parametrickeho prostoru, aby nehledal kraviny!
   ####  [ ] fixed_prms_names ... bug for *3 a *4  ... elements can be interchanged !!!
   ####  [ ] maybe try several automatic initial guesses and pick up the best one?
+  ####  [ ] progress bar
+  ####  [ ] plot_EEC_data_general -> vymyslet zaznamenavani stabilnich velicin
+  ####  [ ] !!! 750, 100, 0.0, "MONO_110" dost blbe trefuje nizke frekvence
+  ####  [ ] !!! kolem TC 800, MONO_110 se dejou divne veci v R1
   
   
   ########## Questions
@@ -670,6 +692,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   ####  [x] da se udelat nejake moudre orezani, ktere nedovoli vice hodnotam jit doprava oproti pruseciku s realnou osou
   ####  [ ] nechcete udelat treba animace nebo dalsi obrazky? (vyhledove)
   ####  [ ] chcete vypisovat L2 v mikro-Henry nebo v Henry? stejne jako zadavani a kdekoliv
+  ####  [ ] jsou limity pro alphu [0.2, 1.0] ok? nebo by bylo lepsi 0.1? (protoze pro 0.01 to delalo divne veci) 750, 80, -0.5, "MONO_110"
   
   function succesful_fit(EIS_EEC, EIS_exp)
     if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp) > succes_fit_threshold
@@ -678,7 +701,35 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       return true
     end
   end
-
+    
+  function get_fitting_mask_and_apply_fixed_prms_values(EEC, init_values, fixed_prms_names, fixed_prms_values)
+    if length(fixed_prms_names) != length(fixed_prms_values)
+      println("ERROR: length(fixed_prms_names) != length(fixed_prms_values) ==>> $(length(fixed_prms_names)) != $(length(fixed_prms_values))")
+      return throw(Exception)
+    else
+      output = []
+      skip_bool = false
+      for (i, original_name) in enumerate(EEC.prms_names)
+        skip_bool = false
+        for (j, name) in enumerate(fixed_prms_names)
+          if name == original_name
+            append!(output, 0)
+            init_values[i] = fixed_prms_values[j]
+            skip_bool = true
+            break
+          end
+        end
+        skip_bool || append!(output, 1)
+      end
+      if length(fixed_prms_names) + sum(output) != length(EEC.prms_names)
+        println("ERROR: some of fixed_prms_names $(fixed_prms_names) not found!")
+        return throw(Exception)
+      end
+      #@show output
+      return output
+    end
+  end
+  
   if save_file_bool
     mkpath(save_to_folder)
   end
@@ -705,6 +756,8 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   end
   
   cycle_number = 0
+  previous_bias = Inf
+  
   for   (TC_idx, TC_item) in enumerate(TC), 
         (pO2_idx, pO2_item) in enumerate(pO2), 
         (bias_idx, bias_item) in enumerate(bias), 
@@ -751,33 +804,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       end
     end
     
-    function get_fitting_mask_and_apply_fixed_prms_values(EEC, init_values, fixed_prms_names, fixed_prms_values)
-      if length(fixed_prms_names) != length(fixed_prms_values)
-        println("ERROR: length(fixed_prms_names) != length(fixed_prms_values) ==>> $(length(fixed_prms_names)) != $(length(fixed_prms_values))")
-        return throw(Exception)
-      else
-        output = []
-        skip_bool = false
-        for (i, original_name) in enumerate(EEC.prms_names)
-          skip_bool = false
-          for (j, name) in enumerate(fixed_prms_names)
-            if name == original_name
-              append!(output, 0)
-              init_values[i] = fixed_prms_values[j]
-              skip_bool = true
-              break
-            end
-          end
-          skip_bool || append!(output, 1)
-        end
-        if length(fixed_prms_names) + sum(output) != length(EEC.prms_names)
-          println("ERROR: some of fixed_prms_names $(fixed_prms_names) not found!")
-          return throw(Exception)
-        end
-        #@show output
-        return output
-      end
-    end
+
     
 #     if fitting_mask == Nothing
 #       mask = Array{Int16}(undef, length(EEC_actual.prms_names))
@@ -794,7 +821,18 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     #
     
     if init_values == Nothing || cycle_number > 1
-      init_values = get_init_values(EIS_exp)
+      if use_previous_fit_as_initial && length(bias) > 1
+        
+        bias_step = bias[2] - bias[1]
+        
+        if abs((bias_item - bias_step) - previous_bias) < 0.000001
+          init_values = deepcopy(EEC_actual.prms_values)
+        else
+          init_values = get_init_values(EIS_exp)
+        end
+      else
+        init_values = get_init_values(EIS_exp)
+      end
     end
     
     mask = get_fitting_mask_and_apply_fixed_prms_values(EEC_actual, init_values, fixed_prms_names, fixed_prms_values)
@@ -844,10 +882,15 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
           plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fit")
         end
         
-        EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
+        
         
       end
     end
+    
+    EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
+    
+    previous_bias = bias_item
+    
   end
   
   println()
@@ -962,16 +1005,16 @@ function plot_EEC_data_general(EEC_data_holder;
       bias_idx in (x_name_idx != 3 ? range_list[3] : [range_list[3]]),
       data_set_idx in (x_name_idx != 4 ? range_list[4] : [range_list[4]])
     
-    to_plot = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, y_name_idx]
-    
-    #@show to_plot
-    
-    plot(
-      getfield(
+    x_to_plot = getfield(
         EEC_data_holder, 
         Symbol(identifier_list[x_name_idx])
-      )[range_list[x_name_idx]], 
-      to_plot,
+      )[range_list[x_name_idx]]
+    y_to_plot = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, y_name_idx]
+    valid_idxs = map( x -> x != Missing, y_to_plot)
+    
+    plot(
+      x_to_plot[valid_idxs], 
+      y_to_plot[valid_idxs],
       label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))"
     )
     

@@ -22,6 +22,8 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[850], pO2=[100], bias=collect(-1
                       f_interval="auto", succes_fit_threshold=0.007,
                       #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
                       fixed_prms_names=["L2"], fixed_prms_values=[1.75],
+                      alpha_low=0.2, alpha_upp=1,
+                      use_previous_fit_as_initial=false,
                       save_file_bool=false, save_to_folder="../data/EEC/", file_name="monocrystaline.txt",
                       plot_bool=true, plot_legend=false, plot_initial_guess=true, plot_fit=true, use_DRT=false);
 
@@ -44,7 +46,8 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[850], pO2=[100], bias=collect(-1
 ### - save_file_bool decides, if the output is printed into terminal (=false) or is saved to a file (=true)
 ### - default values are << save_to_folder="../data/EEC/" >> and  << file_name="default_output.txt" >>
 ### - fixed_prms_names: defines which parameters should NOT be fitted. e.g. ["R1", "L2"]
-### - fixed_prms_values: defines the values of the fixed_prms_names. e.g. [0.4, 1.4e-6]                      
+### - fixed_prms_values: defines the values of the fixed_prms_names. e.g. [0.4, 1.4e-6]    
+### - alpha_low=0.2, alpha_upp=1.0 (default values) defines lower and upper bound for fitting alphas          
                       
 # view of the results
 ysz_fitting.plot_EEC_data_general(computed_data, x_name="bias", y_name="R1",
