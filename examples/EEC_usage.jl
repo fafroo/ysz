@@ -15,7 +15,7 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[700,], pO2=[100], bias=collect(-
               #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
               fixed_prms_names=["L2"], fixed_prms_values=[1.75],
               alpha_low=0.2, alpha_upp=1,
-              which_initial_guess="previous",
+              which_initial_guess="both",
               save_file_bool=false, file_name="test_alg.txt",
               plot_bool=true, plot_legend=true, plot_best_initial_guess=false, plot_fit=true,
               show_all_initial_guesses=true, 

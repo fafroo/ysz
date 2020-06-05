@@ -839,7 +839,11 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
           push!(init_values_list, get_init_values(EIS_exp))
         end
       end
+    else
+      push!(init_values_list, init_values)
     end
+    
+    
     
     mask = get_fitting_mask_and_apply_fixed_prms_values!(EEC_actual, init_values_list, fixed_prms_names, fixed_prms_values)
     
