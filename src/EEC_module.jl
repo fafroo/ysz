@@ -147,7 +147,7 @@ function HF_LF_check(prms_values)
   end
 end
 
-function HF_LF_correction(EEC)
+function HF_LF_correction!(EEC)
   if HF_LF_check(EEC.prms_values)
     aux = EEC.prms_values[6]
     EEC.prms_values[6] = EEC.prms_values[3]
@@ -595,7 +595,7 @@ function get_string_EEC_prms(EEC::EEC_data_struct; plot_errors=false)
     output *= "$(@sprintf("%8s", EEC.prms_names[i]))  =  $(@sprintf("%12.8f", item))    "
     plot_errors ? (output *="(rel_err: $(@sprintf("%12.8f", EEC.standard_deviations[i]/item)))\n") : output *= "\n"
   end
-  return output
+  return output[1:end-1]
 end
 
 
@@ -659,8 +659,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         f_interval=Nothing, succes_fit_threshold = 0.002,
                         fixed_prms_names=[], fixed_prms_values=[],
                         init_values=Nothing, alpha_low=0.2, alpha_upp=1, #fitting_mask=Nothing,
-                        plot_bool=false, plot_legend=true, plot_initial_guess=false, plot_fit=true,
-                        with_errors=false, use_previous_fit_as_initial=false,
+                        plot_bool=false, plot_legend=true, plot_best_initial_guess=false, plot_fit=true, 
+                        show_all_initial_guesses=false,
+                        with_errors=false, which_initial_guess="both",
                         use_DRT=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
   ####
@@ -701,8 +702,10 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       return true
     end
   end
+  
+
     
-  function get_fitting_mask_and_apply_fixed_prms_values(EEC, init_values, fixed_prms_names, fixed_prms_values)
+  function get_fitting_mask_and_apply_fixed_prms_values!(EEC, init_values_list, fixed_prms_names, fixed_prms_values)
     if length(fixed_prms_names) != length(fixed_prms_values)
       println("ERROR: length(fixed_prms_names) != length(fixed_prms_values) ==>> $(length(fixed_prms_names)) != $(length(fixed_prms_values))")
       return throw(Exception)
@@ -714,13 +717,16 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
         for (j, name) in enumerate(fixed_prms_names)
           if name == original_name
             append!(output, 0)
-            init_values[i] = fixed_prms_values[j]
+            for init_values in init_values_list
+              init_values[i] = fixed_prms_values[j]
+            end
             skip_bool = true
             break
           end
         end
         skip_bool || append!(output, 1)
       end
+      
       if length(fixed_prms_names) + sum(output) != length(EEC.prms_names)
         println("ERROR: some of fixed_prms_names $(fixed_prms_names) not found!")
         return throw(Exception)
@@ -787,13 +793,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       continue
     end
 
-    
-    
-    
-    
-    
-    
-    
+
     if f_interval!=Nothing
       if f_interval == "auto"
         #typical_plot_exp(SIM, EIS_exp, "! before")
@@ -803,8 +803,6 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
         EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
       end
     end
-    
-
     
 #     if fitting_mask == Nothing
 #       mask = Array{Int16}(undef, length(EEC_actual.prms_names))
@@ -820,75 +818,119 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     #   EIS_exp = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     #
     
+    init_values_list = []
     if init_values == Nothing || cycle_number > 1
-      if use_previous_fit_as_initial && length(bias) > 1
-        
-        bias_step = bias[2] - bias[1]
-        
-        if abs((bias_item - bias_step) - previous_bias) < 0.000001
-          init_values = deepcopy(EEC_actual.prms_values)
-        else
-          init_values = get_init_values(EIS_exp)
+      if which_initial_guess == "both"
+        push!(init_values_list, get_init_values(EIS_exp))
+        if cycle_number > 1
+          push!(init_values_list, deepcopy(EEC_actual.prms_values))
         end
       else
-        init_values = get_init_values(EIS_exp)
+        if which_initial_guess == "previous" && length(bias) > 1
+          
+          bias_step = bias[2] - bias[1]
+          
+          if abs((bias_item - bias_step) - previous_bias) < 0.000001
+            push!(init_values_list, deepcopy(EEC_actual.prms_values))
+          else
+            push!(init_values_list, get_init_values(EIS_exp))
+          end
+        else
+          push!(init_values_list, get_init_values(EIS_exp))
+        end
       end
     end
     
-    mask = get_fitting_mask_and_apply_fixed_prms_values(EEC_actual, init_values, fixed_prms_names, fixed_prms_values)
+    mask = get_fitting_mask_and_apply_fixed_prms_values!(EEC_actual, init_values_list, fixed_prms_names, fixed_prms_values)
     
-    begin
-      begin
-        plot_bool && ysz_fitting.typical_plot_exp(SIM, EIS_exp)
-        
+    plot_bool && ysz_fitting.typical_plot_exp(SIM, EIS_exp)
+            
+    best_error = Inf
+    best_prms_values = []
+    best_init_values_idx = -1
+    
+    
+    for (init_values_idx, init_values) in enumerate(init_values_list)
         EEC_actual.prms_values = init_values        
         
-        if !save_file_bool
-          println("prms_names = $(EEC_actual.prms_names)")
-          println("init_values = $(EEC_actual.prms_values)")
-        end
-        
         EIS_EEC_pre = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        if plot_initial_guess
-          plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC initial guess")
+        if show_all_initial_guesses
+          plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC initial guess $(init_values_idx)")
         end
         
         EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors)
-        
-        if !save_file_bool
-          #println("FITTED_values = $(EEC_actual.prms_values)   <<<<<<<<<<<<<<<<<<<<<< ")
-        end        
+        HF_LF_correction!(EEC_actual)        
         
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        HF_LF_correction(EEC_actual)
-        if !(succesful_fit(EIS_EEC, EIS_exp))
-          warning_buffer *="WARNING: (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! // error $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)) > defined threshold $(succes_fit_threshold) //\n"
-          # TODO ... optionally save picture of the result for humanous check
-          # or this reports can go to another error_log_file.txt
+        actual_error = fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)
+        if actual_error < best_error
+          best_error = actual_error
+          best_prms_values = deepcopy(EEC_actual.prms_values)
+          best_init_values_idx = init_values_idx
         end
-
         
-        output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) =========="
-        output_string *= "\n$(get_string_EEC_prms(EEC_actual))"
-        if save_file_bool
-          save_EEC_prms_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_values, save_to_folder*file_name)
-        else
+        if show_all_initial_guesses && !(save_file_bool)
+          println(" --------- $(init_values_idx) --------- ")
+                  
+          output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) ==========\n"
+          output_string *= "$(get_string_EEC_prms(EEC_actual))"
+        
           println(output_string)
-          println(">>> error >>> ", fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp))
+          println("init_values $(init_values_idx) = $(EEC_actual.prms_values)")
+          println("FITTED_values $(init_values_idx) = $(EEC_actual.prms_values)   <<<<<<<<<<<<<<<<<<<<<< ")
+          println(">>> error $(init_values_idx) >>> $(actual_error)\n")
         end
         
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        if plot_fit
-          plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fit")
+        if plot_fit && show_all_initial_guesses
+          plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fit $(init_values_idx)")
         end
-        
-        
-        
+    end
+    
+    
+    if !save_file_bool     
+      if show_all_initial_guesses
+        println(" ------------ BEST ---------- ")
       end
+      output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) ==========\n"
+      output_string *= "$(get_string_EEC_prms(EEC_actual))"
+      
+      println(output_string)
+      println("best init_values = $(init_values_list[best_init_values_idx])")
+      println("best FITTED_values = $(best_prms_values)")
+      println(">>> best error >>> $(best_error)\n")
+    end
+    
+    
+    if plot_best_initial_guess
+      EEC_actual.prms_values = init_values_list[best_init_values_idx]
+      EIS_EEC_pre = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
+      plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC best initial guess")
+    end
+    
+    EEC_actual.prms_values = deepcopy(best_prms_values)
+    EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
+    actual_error = fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)        
+    
+
+    
+    if plot_fit
+      plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC best fit")
+    end
+    
+    if save_file_bool
+          save_EEC_prms_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_values, save_to_folder*file_name)
     end
     
     EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
     
+    
+    if !(succesful_fit(EIS_EEC, EIS_exp))
+      warning_buffer *="WARNING: (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! // error $(actual_error) > defined threshold $(succes_fit_threshold) //\n"
+      # TODO ... optionally save picture of the result for humanous check
+      # or this reports can go to another error_log_file.txt
+    end
+          
     previous_bias = bias_item
     
   end
