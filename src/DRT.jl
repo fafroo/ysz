@@ -176,7 +176,7 @@ function plot_DRT_h(DRT::DRT_struct, to_standard_figure=true, print_bool=false, 
     legend()
   end
   if print_bool
-    println("DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)")  
+    println("non-DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)")  
   end
 end
   
@@ -193,7 +193,7 @@ function plot_DRT_RC(DRT::DRT_struct, to_standard_figure=true, print_bool=true)
   grid(true)
   
   if print_bool
-    println("DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)") 
+    println("non-DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)") 
     for i in 1:size(peaks_df,1)
       println(">> f$i = $(1/(2*pi*peaks_df.C[i]*peaks_df.R[i]))    R$i = $(peaks_df.R[i])   C$i = $(peaks_df.C[i])   ... (tau_c$i = $(peaks_df.tau_c[i]))")
     end

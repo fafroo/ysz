@@ -163,10 +163,43 @@ function HF_LF_correction!(EEC)
   end
 end
 
+
+
+
+
 #
 #     mask can be generated via string input, e.g. every "L" should be constant >>
 #
 function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Nothing, alpha_low=0.0, alpha_upp=1.0, with_errors=false)
+  
+  projection_plot_maximum = 0.02
+  projection_plot_minimum = 10
+  
+  function EEC_plot_error_projection(prms_values, prms_names, error)
+  fig_num = 333
+  prms_length = length(prms_names)
+  plot_edge = ceil(sqrt(prms_length))
+
+  if projection_plot_maximum < 0 && error < 20
+    projection_plot_maximum = error
+  end
+  
+  if error < projection_plot_minimum
+    projection_plot_minimum = error
+  end
+  
+  figure(fig_num)
+  for i in 1:prms_length
+    subplot(plot_edge, plot_edge, i)
+    xlabel(prms_names[i])
+    ylabel("err")
+    ylim(projection_plot_minimum, projection_plot_maximum)
+    plot(prms_values[i], error, "o")
+  end
+  
+  return
+end
+  
   function prepare_prms(mask, x0, x)
       prms = zeros(0)
       xi = 1
@@ -218,11 +251,8 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     return false
   end
   
-  function to_optimize(x)
-    if !(check_x_in(x, lowM, uppM))
-      #println("    OUT OF THE BOUNDS   \n")
-      return 10000
-    end
+  function to_optimize(x)    
+
     
 #     if !(HF_LF_check(prepare_prms(mask, x0, x)))
 #       println("     HF_LF_check is violated !!! ")
@@ -231,13 +261,35 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     
     EEC_actual.prms_values = prepare_prms(mask, x0, x)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-    EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 10)...))
+    EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 1.4)...))
     SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq", plot_legend=false)[1]
-#     if check_dramatic_change(x)
+    
+#     if check_dramatic_change(x) || true
 #       typical_plot_sim(SIM, EIS_EEC_plot)
 #     end
+#     
+#     PyPlot.show()
+#     figure(11111)
+#     plot([1,2])
+#     pause(0.1)
+#     PyPlot.show()
+    
+    
     err = fitnessFunction(SIM, EIS_EEC, EIS_exp)
-#    println("~~~~~ LM e = $(err)\nx = $(x)")
+    
+#     EEC_plot_error_projection(
+#       take_only_masked(mask, EEC_actual.prms_values), 
+#       take_only_masked(mask, EEC_actual.prms_names), 
+#       err)
+    
+#   println("~~~~~ LM e = $(err)\nx = $(x)")
+    
+    if !(check_x_in(x, lowM, uppM))
+      #println("    OUT OF THE BOUNDS   \n")
+      return 1000
+    end
+    
+    
     return err
   end
   
@@ -360,31 +412,45 @@ end
 
 function EIS_data_preprocessing(EIS_df)
   
+  function get_lowest_freq_idx(EIS_df; find_at_least_negative=10)
+    lowest_freq_idx = -1
+    negative_counter = 0
+    for (i, Z) in enumerate(EIS_df.Z)
+      if imag(Z) < 0
+        negative_counter += 1
+      else
+        negative_counter = 0
+      end
+      if negative_counter == find_at_least_negative
+        lowest_freq_idx = i - find_at_least_negative + 1
+        break
+      end
+    end    
+    return lowest_freq_idx
+  end
+  
+  #ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, use_DRT=false)[1], EIS_df, "!EIS_data_preprocessing")
+  
   #lowest frequency cut off
-  lowest_freq_idx = -1
-  positive_counter = 0
-  for (i, Z) in enumerate(EIS_df.Z)
-    if imag(Z) < 0
-      positive_counter += 1
-    else
-      positive_counter = 0
-    end
-    if positive_counter == 10
-      lowest_freq_idx = i - 9
-      break
-    end
+  lowest_freq_idx = get_lowest_freq_idx(EIS_df, find_at_least_negative=10)
+  if lowest_freq_idx == -1
+    lowest_freq_idx = get_lowest_freq_idx(EIS_df, find_at_least_negative=4)
+  end
+  if lowest_freq_idx == -1
+    println("ERROR: lowest_freq_idx not found!")
+    return throw(Exception)
   end
   
   # intersection with x axis
   x_intersection_freq_idx = -1
-  negative_counter = 0
+  positive_counter = 0
   for i in (lowest_freq_idx + 5):length(EIS_df.f)
     if imag(EIS_df.Z[i]) > 0
-      negative_counter += 1
+      positive_counter += 1
     else  
-      negative_counter = 0
+      positive_counter = 0
     end
-    if negative_counter == 8
+    if positive_counter == 8
       x_intersection_freq_idx = i - 7
       break
     end
@@ -397,7 +463,7 @@ function EIS_data_preprocessing(EIS_df)
     return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
   else
     # inductance cut off
-    accepted_inductance_real_axis_threshold = 0.05*real(EIS_df.Z[lowest_freq_idx]) + 0.95*real(EIS_df.Z[x_intersection_freq_idx])
+    accepted_inductance_real_axis_threshold = 0.00*real(EIS_df.Z[lowest_freq_idx]) + 1.00*real(EIS_df.Z[x_intersection_freq_idx])
     highest_freq_idx = -1
     for i in (x_intersection_freq_idx + 1 ):length(EIS_df.f)
       if real(EIS_df.Z[i]) > accepted_inductance_real_axis_threshold
@@ -439,13 +505,13 @@ function get_init_values(EIS_exp)
   output[1] = left
   
   # L
-  output[2] = 1.64
-#   if imag(EIS_exp.Z[end]) > 0
-#     @show  imag(EIS_exp.Z[end])
-#     output[2] = imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units)
-#   else
-#     output[2] = 1.0
-#   end
+  #output[2] = 1.64
+  if imag(EIS_exp.Z[end]) > 0
+    #@show  imag(EIS_exp.Z[end])
+    output[2] = imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units)
+  else
+    output[2] = 1.0
+  end
   
   # R3, R4
   output[3] = width*smaller_circle_resistance_ratio
@@ -624,36 +690,30 @@ function EEC_data_holder_struct(TC, pO2, bias, data_set, prms_names)
   this.TC = TC
   this.pO2 = pO2
   this.bias = bias
-  this.data_set = data_set
+  this.data_set = make_array_from_string(data_set)
   this.prms_names = prms_names
   
-  this.data = Array{Any}(undef, (length(TC), length(pO2), length(bias), length(data_set), length(prms_names)))
+  this.data = Array{Any}(undef, (length(this.TC), length(this.pO2), length(this.bias), length(this.data_set), length(this.prms_names)))
   return this
 end
 
 
-function make_array_from_string(input)
-  if typeof(input) == String
-    return [input]
-  else
-    return input
-  end
-end
 
-        
-function save_EEC_prms_to_file(TC, pO2, bias, data_set, prms_values, saving_destination)
+function save_EEC_prms_item_to_file(TC, pO2, bias, data_set, prms_values, saving_destination; append=true)
   df_out = DataFrame(TC = TC, pO2 = pO2, bias = bias, data_set = data_set,
-                    R1      = [prms_values[1]],
-                    L2      = [prms_values[2]],
-                    R3      = [prms_values[3]],
-                    C3      = [prms_values[4]],
-                    alpha3  = [prms_values[5]],
-                    R4      = [prms_values[6]],
-                    C4      = [prms_values[7]],
-                    alpha4  = [prms_values[8]]
+                    R1      = prms_values[1],
+                    L2      = prms_values[2],
+                    R3      = prms_values[3],
+                    C3      = prms_values[4],
+                    alpha3  = prms_values[5],
+                    R4      = prms_values[6],
+                    C4      = prms_values[7],
+                    alpha4  = prms_values[8]
                     )
-  CSV.write(saving_destination, df_out, delim="\t", append=true)
+  CSV.write(saving_destination, df_out, delim="\t", append=append)
 end
+        
+
 
 function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         f_interval=Nothing, succes_fit_threshold = 0.002,
@@ -736,29 +796,17 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     end
   end
   
-  if save_file_bool
-    mkpath(save_to_folder)
-  end
-  
   EEC_actual = get_EEC("R-L-RCPE-RCPE")
       
   data_set = make_array_from_string(data_set)  
   EEC_data_holder = EEC_data_holder_struct(TC, pO2, bias, data_set, EEC_actual.prms_names)
   
   warning_buffer = ""
+  
   if save_file_bool 
+    mkpath(save_to_folder)
     saving_destination = save_to_folder*file_name
-    df_out = DataFrame(TC = [], pO2 = [], bias = [], data_set = [],
-                    R1      = [],
-                    L2      = [],
-                    R3      = [],
-                    C3      = [],
-                    alpha3  = [],
-                    R4      = [],
-                    C4      = [],
-                    alpha4  = []
-                    )
-    CSV.write(saving_destination, df_out, delim="\t")
+    save_EEC_prms_item_to_file([], [], [], [], [[],[],[],[],[],[],[],[]], saving_destination; append=false)
   end
   
   cycle_number = 0
@@ -788,8 +836,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       
       EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(missing_array)
       if save_file_bool
-        save_EEC_prms_to_file(TC_item, pO2_item, bias_item, data_set_item, missing_array, save_to_folder*file_name)
+        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, missing_array, save_to_folder*file_name)
       end
+      cycle_number += -1
       continue
     end
 
@@ -817,7 +866,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     #   EEC_actual.prms_values = [0.00001, 2.5, 1, 0.001, 2, 0.005, 0.4 ]
     #   EIS_exp = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     #
-    
+
     init_values_list = []
     if init_values == Nothing || cycle_number > 1
       if which_initial_guess == "both"
@@ -923,7 +972,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     end
     
     if save_file_bool
-          save_EEC_prms_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_values, save_to_folder*file_name)
+          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_values, save_to_folder*file_name)
     end
     
     EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
@@ -973,12 +1022,74 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   
 end
 
-function save(EEC_data_holder, folder, name)
-  # TODO!
+
+function save_EEC_data_holder(EEC_data_holder; folder="../data/EEC/", file_name="default.txt")
+  mkpath(folder)
+  saving_destination = folder*file_name
+  save_EEC_prms_item_to_file([], [], [], [], [[],[],[],[],[],[],[],[]], saving_destination; append=false)
+  
+  for (TC_idx, TC_item) in enumerate(EEC_data_holder.TC), 
+      (pO2_idx, pO2_item) in enumerate(EEC_data_holder.pO2), 
+      (bias_idx, bias_item) in enumerate(EEC_data_holder.bias), 
+      (data_set_idx, data_set_item) in enumerate(EEC_data_holder.data_set)
+    save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, 
+                EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, : ], saving_destination)
+  end
 end
 
-function load(EEC_data_holder)
-  # TODO!
+function load_EEC_data_holder(;folder="../data/EEC/", file_name="default.txt")
+  function get_unique_list_and_repetitivity_and_period(list)
+    # how many items in the row are the same
+    repetitivity = -1
+    for (i, item) in enumerate(list)
+      if item != list[1]
+        repetitivity = i-1
+        break
+      end
+    end
+    if repetitivity == -1
+      return list[1], 0, 0
+    end
+    
+    # how long does it take to arrive at the same item
+    period = -1
+    for (i, item) in enumerate(list[1 : repetitivity : length(list)])
+      
+      if item == list[1] && i != 1
+        period = repetitivity*(i-1)
+        break
+      end
+    end
+    if period == -1
+      period = length(list)
+    end
+    
+    list[1 : repetitivity : period], repetitivity, period
+  end
+  
+  saving_destination = folder*file_name
+  data_df = CSV.read(saving_destination)
+  
+  TC_list, TC_repet, TC_per = get_unique_list_and_repetitivity_and_period(data_df.TC)
+  pO2_list, pO2_repet, pO2_per = get_unique_list_and_repetitivity_and_period(data_df.pO2)
+  bias_list, bias_repet, bias_per = get_unique_list_and_repetitivity_and_period(data_df.bias)
+  data_set_list, data_set_repet, data_set_per = get_unique_list_and_repetitivity_and_period(data_df.data_set)
+  
+  
+  EEC_data_holder = EEC_data_holder_struct(TC_list, pO2_list, bias_list, data_set_list, ["R1", "L2", "R3", "C3", "alpha3", "R4", "C4", "alpha4"])
+  
+  overall_counter = 0
+  for (TC_idx, TC_item) in enumerate(EEC_data_holder.TC), 
+      (pO2_idx, pO2_item) in enumerate(EEC_data_holder.pO2), 
+      (bias_idx, bias_item) in enumerate(EEC_data_holder.bias), 
+      (data_set_idx, data_set_item) in enumerate(EEC_data_holder.data_set)
+    
+    overall_counter += 1
+    for (prm_name_idx, prm_name) in enumerate(EEC_data_holder.prms_names)    
+      EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, prm_name_idx] = data_df[overall_counter, Symbol(prm_name)]
+    end
+  end
+  return EEC_data_holder
 end
 
 
@@ -1072,3 +1183,87 @@ function plot_EEC_data_general(EEC_data_holder;
   PyPlot.show()
   return
 end
+
+function get_joint_EEC_data_via_bias(EEC_data_1, EEC_data_2)
+  if (EEC_data_1.TC == EEC_data_2.TC &&
+     EEC_data_1.pO2 == EEC_data_2.pO2 &&
+     EEC_data_1.data_set == EEC_data_2.data_set &&
+     EEC_data_1.prms_names == EEC_data_2.prms_names)
+    
+    EEC_data = Array{EEC_data_holder_struct}(undef, 2)
+    EEC_data = [EEC_data_1, EEC_data_2]
+    
+    if EEC_data_1.bias[end] < EEC_data_2.bias[end]
+      i_smaller = 1
+      i_greater = 2
+    else
+      i_smaller = 2
+      i_greater = 1
+    end
+    
+    
+    length_of_smaller = length(EEC_data[i_smaller].bias)
+    if EEC_data[i_smaller].bias[end] == EEC_data[i_greater].bias[1]      
+      start_of_greater = 2      
+    else
+      start_of_greater = 1
+    end
+    if EEC_data[i_smaller].bias[1] > EEC_data[i_smaller].bias[end]
+      apply_reverse = true
+    else
+      apply_reverse = false
+    end
+    
+    bias_OUT = [ (apply_reverse ?
+                  EEC_data[i_smaller].bias[end : -1 : 1] :  
+                  EEC_data[i_smaller].bias)... ,
+                EEC_data[i_greater].bias[start_of_greater:end]...]
+      
+    EEC_data_OUT = EEC_data_holder_struct(EEC_data[1].TC, EEC_data[1].pO2, bias_OUT, EEC_data[1].data_set, EEC_data[1].prms_names)
+      
+    EEC_data_OUT.data[:,:, 1:length_of_smaller, :, :] = ( apply_reverse ? 
+                                                          deepcopy(EEC_data[i_smaller].data[:, :, end : -1 : 1, :, :]) :
+                                                          deepcopy(EEC_data[i_smaller].data) )
+    EEC_data_OUT.data[:,:, length_of_smaller+1:end, :, :] = deepcopy(EEC_data[i_greater].data[:, :, start_of_greater:end, :, :])
+    
+    return EEC_data_OUT
+  else
+    prinltn("ERROR: meta_data are not the same!")
+    return throw(Exception)
+  end
+end
+  
+function model_R1_from_TC(x, TC)
+  return x[1]*exp(x[2]/(R*TCtoT(TC)))
+end
+
+function model_TC_from_R1(x, R1)
+  return TtoTC((x[2]/R)*(1/log(R1/x[1])))
+end
+
+
+
+
+function findfit_from_for_R(TC_data, R1_data)
+  function to_optimize(x)
+    error = 0
+    for (i, TC) in enumerate(TC_data)
+      error += (R1_data[i] - model_R1_from_TC(x, TC))^2
+    end
+    return sqrt(error)/length(TC_data)
+  end
+  
+  fit_O = optimize(to_optimize, [1., 1.])
+  
+  R1_fitted_values = []
+  TC_plot_range = 700 : 10 : 850
+  for TC in TC_plot_range
+    append!(R1_fitted_values, model_R1_from_TC(fit_O.minimizer, TCtoT(TC)))
+  end
+  
+  plot(TC_data, R1_data)
+  plot(TC_plot_range, R1_fitted_values)
+  return fit_O.minimizer
+end
+
+

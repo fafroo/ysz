@@ -20,6 +20,10 @@ function TCtoT(TC)
   return TC+273.15
 end
 
+function TtoTC(T)
+  return T-273.15
+end
+
 function pO2tosim(pO2)
   # here we can add some regularization
   treashold = 1.0e-5

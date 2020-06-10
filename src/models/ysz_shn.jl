@@ -140,6 +140,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     ARO_mode::Bool # switches off B & C reactions, assumes simpler surface lattice sites
     meas_new::Bool # switches on the new formula for current measure
     separate_vacancy::Bool # assumes separate vacancies
+    weird_DD_bool::Bool # weird_DD = with the square breacket
     #
     YSZParameters()= YSZParameters( new())
 end
@@ -226,6 +227,7 @@ function YSZParameters(this)
     this.ARO_mode = false # true# 
     this.meas_new = false
     this.separate_vacancy = true
+    this.weird_DD_bool = true
     #@show this.separate_vacancy
     
     #this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
@@ -432,27 +434,80 @@ function storage!(f,u, node, this::YSZParameters)
     f[iy]=this.mO*this.m_par*(1.0-this.nu)*u[iy]/this.vL
 end
 
+
+function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu)
+  DD_orig = parameters.DD
+  nu_orig = parameters.nu
+  parameters.DD = DD
+  parameters.nu = nu
+  YSZParameters_update!(parameters)
+  
+  f = Array{Float64}(undef, 2)
+  uk = Array{Float64}(undef, 2)
+  ul = Array{Float64}(undef, 2)
+  
+  # mental setting
+  ### U = 1 V       voltage
+  ### l = 1 m       YSZ_length
+  ### S = 1 m^2     YSZ_cross_surface_area
+  ### => d phi / dx = 1
+  ### 
+  ### I = abs( 2 * e0 * j^kg / mO)
+  ###   = abs( 2 * e0 * f[iy] / mO)
+  ###
+  ### sigma = (1/R)*(l/S)    [S/m^2]
+  ###       = (I/U)*(l/S)      
+  ###       = I
+  ###       = abs( 2 * e0 * f[iy] / mO) 
+  ###        
+  ###  R = (1/simga)*(l/S)      
+  
+
+  # unit gradient of electrical potential
+  uk[iphi] = 0
+  ul[iphi] = 1
+  
+  # no concentration gradient 
+  # and electroneutral filling ratio
+  uk[iy] = parameters.yB
+  ul[iy] = parameters.yB
+  
+  flux_core!(f, uk, ul, parameters)
+  
+  parameters.DD = DD_orig
+  parameters.nu = nu_orig
+  YSZParameters_update!(parameters)
+  
+  return abs( 2 * parameters.e0 * f[iy] / parameters.mO)
+end
+
+function flux_core!(f, uk, ul, this::YSZParameters)
+  f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
+  
+  bp,bm=fbernoulli_pm(
+      (log(1-ul[iy]) - log(1-uk[iy]))
+      -
+      this.zA*this.e0/this.T/this.kB
+      *(ul[iphi] - uk[iphi])
+  )
+  f[iy]= (
+      this.DD
+      *
+      (this.weird_DD_bool ? (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))^2 : 1)
+      *
+      this.mO*this.m_par*(1.0-this.nu)/this.vL
+      *
+      (bm*uk[iy]-bp*ul[iy])
+  )
+end
+
+
 # bulk flux
 function flux!(f,u, edge, this::YSZParameters)
     uk=viewK(edge,u)
     ul=viewL(edge,u)
-    f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])    
     
-    bp,bm=fbernoulli_pm(
-        (log(1-ul[iy]) - log(1-uk[iy]))
-        -
-        this.zA*this.e0/this.T/this.kB
-        *(ul[iphi] - uk[iphi])
-    )
-    f[iy]= (
-        this.DD
-        *
-        (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))^2
-        *
-        this.mO*this.m_par*(1.0-this.nu)/this.vL
-        *
-        (bm*uk[iy]-bp*ul[iy])
-    )
+    flux_core!(f, uk, ul, this)
 end
 
 

@@ -1,8 +1,14 @@
 
+kB = 1.3806488e-23
+N_A = 6.02214129e23
+R = kB*N_A
+
+
 mutable struct prms_struct
   names
   values
 end
+
 
 function consistency_check(prms::prms_struct)
   if prms.names == Nothing && prms.values == Nothing
@@ -79,5 +85,25 @@ function check_x_in(x, low, upp)
   end
   return true
 end
+
+function take_only_masked(mask, array)
+  output = []
+  for (i, item) in enumerate(mask)
+    if item == 1
+      append!(output, [array[i]])
+    end
+  end
+  return output
+end
+
+
+function make_array_from_string(input)
+  if typeof(input) == String
+    return [input]
+  else
+    return input
+  end
+end
+
 
 

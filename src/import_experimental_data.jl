@@ -94,7 +94,7 @@ function import_CVtoDataFrame(;TC,pO2, data_set="MONO_110")
     # this needs to be added to separate simulation !!! ... IV_simulation
     return import_IVtoDataFrame_folder(TC=TC, pO2=pO2, bias_array=vcat(collect(0 : 0.1 : 1), collect(0.9 : -0.1 : -0.9), collect(-1 : 0.1 : 0)), 
           folder="../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2_Dan) 6/")
-  elseif data_set=="MONO_I-V"
+  elseif data_set=="MONO_110_I-V"
     return import_IVtoDataFrame_folder(TC=TC, pO2=pO2, bias_array=vcat(collect(0 : 0.1 : 1), collect(0.9 : -0.1 : -0.9), collect(-1 : 0.1 : 0)), 
           folder="../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2_Dan)/")
   else

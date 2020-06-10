@@ -82,7 +82,9 @@ function run_new(;physical_model_name="",
                 #
                 EIS_TDS=false, tref=0,
                 #
-                STEP=false, dt_fac=1.5, dt_start=1.0e-5, t_end=0.01
+                STEP=false, dt_fac=1.5, dt_start=1.0e-5, t_end=0.01,
+                #
+                conductivity_fitting=false
                 )
 
     
@@ -123,6 +125,13 @@ function run_new(;physical_model_name="",
     
     # update the "computed" values in parameters
     parameters = model_symbol.YSZParameters_update!(parameters)
+    
+    # conductivity stuff
+    if conductivity_fitting
+      sigma = model_symbol.get_conductivity(parameters)
+      R_ohm = (1/sigma)*(width/AreaEllyt)
+      return sigma, R_ohm
+    end
 
 #     if debug_print_bool 
 #         println("NEW ---- ")

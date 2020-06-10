@@ -367,14 +367,46 @@ end
 ###########################################################
 ###########################################################
 
-# function EIS_get_and_plot_RC_element(R, C, Rohm=0)
-#   EIS_RC = DataFrame( f = [], Z = [])
-#   for f in get_shared_checknodes(EIS_simulation(800,100,0.0)...)
-#     push!(EIS_RC, (f, Rohm + R/(1 + im*2*pi*f*R*C)))
-#   end
-#   typical_plot_sim(EIS_simulation(800,100,0.0)..., EIS_RC, " RC_elem")
-#   return EIS_RC
-# end
+function model_R1_from_TC_sim(x, TC; print_DD=false)
+  DD =  1.0e-13*x[1]*exp(x[2]/(R*TCtoT(TC)))
+  if print_DD
+    @show DD
+  end
+  sigma, R_ohm = ysz_experiments.run_new(;physical_model_name="",
+              pO2=1.0, T=TCtoT(TC),
+              prms_names_in=["DD","weird_DD_bool"],
+              prms_values_in=(DD, false),
+              
+              conductivity_fitting=true
+              )
+  #@show x, R_ohm
+  return R_ohm
+end
+
+function get_TC_fit_sim(R1_data, TC_data)
+
+  function to_optimize(x)
+    error = 0
+    for (i, TC) in enumerate(TC_data)
+      error += (R1_data[i] - model_R1_from_TC_sim(x, TC))^2
+    end
+    #@show x, error
+    @show sqrt(error)/length(TC_data)
+    return sqrt(error)/length(TC_data)
+  end
+  
+  fit_O = optimize(to_optimize, [1.0e-12, 1.])
+  
+  R1_fitted_values = []
+  TC_plot_range = 700 : 10 : 850
+  for TC in TC_plot_range
+    append!(R1_fitted_values, model_R1_from_TC_sim(fit_O.minimizer, TC))
+  end
+  
+  plot(TC_data, R1_data)
+  plot(TC_plot_range, R1_fitted_values)
+  return fit_O
+end
 
 
 ###########################################################
@@ -703,16 +735,6 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
 #       println(" || ",err_string,": err =", err)
 
       return err
-  end
-
-  function take_only_masked(mask, array)
-    output = []
-    for (i, item) in enumerate(mask)
-      if item == 1
-        append!(output, [array[i]])
-      end
-    end
-    return output
   end
   
   function print_and_delete_buffer(buffer="string")
