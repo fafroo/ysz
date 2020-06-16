@@ -22,6 +22,10 @@ mutable struct DRT_control_struct
   peak_merge_tol::Float32
 end
 
+function DRT_control_struct()
+  return DRT_control_struct(0.0, 1, 1, 2,0)
+end
+
 mutable struct DRT_struct
   EIS_df::DataFrame
   tau_range::Array{Float64}

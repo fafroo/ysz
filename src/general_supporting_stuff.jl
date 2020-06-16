@@ -2,6 +2,7 @@
 kB = 1.3806488e-23
 N_A = 6.02214129e23
 R = kB*N_A
+e0 = 1.602176565e-19
 
 
 mutable struct prms_struct

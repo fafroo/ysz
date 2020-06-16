@@ -368,7 +368,8 @@ end
 ###########################################################
 
 function model_R1_from_TC_sim(x, TC; print_DD=false)
-  DD =  1.0e-13*x[1]*exp(x[2]/(R*TCtoT(TC)))
+  DD =  1.0e-13*x[1]*exp((e0*x[2])/(kB*TCtoT(TC)))
+
   if print_DD
     @show DD
   end
@@ -383,7 +384,7 @@ function model_R1_from_TC_sim(x, TC; print_DD=false)
   return R_ohm
 end
 
-function get_TC_fit_sim(R1_data, TC_data)
+function find_TC_fit_sim(TC_data, R1_data; initial_guess=[1.0e+7, -0.5])
 
   function to_optimize(x)
     error = 0
@@ -391,11 +392,11 @@ function get_TC_fit_sim(R1_data, TC_data)
       error += (R1_data[i] - model_R1_from_TC_sim(x, TC))^2
     end
     #@show x, error
-    @show sqrt(error)/length(TC_data)
+    #@show sqrt(error)/length(TC_data)
     return sqrt(error)/length(TC_data)
   end
   
-  fit_O = optimize(to_optimize, [1.0e-12, 1.])
+  fit_O = optimize(to_optimize, initial_guess)
   
   R1_fitted_values = []
   TC_plot_range = 700 : 10 : 850
@@ -403,8 +404,12 @@ function get_TC_fit_sim(R1_data, TC_data)
     append!(R1_fitted_values, model_R1_from_TC_sim(fit_O.minimizer, TC))
   end
   
-  plot(TC_data, R1_data)
-  plot(TC_plot_range, R1_fitted_values)
+  title("Fitting of Diffusion Coefficient ... \$ D = A \\ \\mathrm{exp}(-\\frac{E}{k_\\mathrm{B} T})  \$")
+  xlabel("TC")
+  ylabel("\$R_{\\Omega}\$")
+  plot(TC_data, R1_data, label="data: MONO_110, bias=0", "x")
+  plot(TC_plot_range, R1_fitted_values, label="fit")
+  legend(loc="best")
   return fit_O
 end
 

@@ -10,6 +10,15 @@ include("../DRT.jl")
 
 
 ######################################
+mutable struct EIS_DRT_options_struct
+  use_DRT
+  DRT_control::DRT_control_struct
+  DRT_draw_semicircles
+end
+
+function EIS_DRT_options_struct(use_DRT; DRT_control::DRT_control_struct= DRT_control_struct(), DRT_draw_semicircles=false)
+  return EIS_DRT_options_struct(use_DRT, DRT_control, DRT_draw_semicircles)
+end
 
 mutable struct EIS_simulation <: abstract_simulation
   TC::Float64
@@ -30,6 +39,8 @@ mutable struct EIS_simulation <: abstract_simulation
   DRT_control::DRT_control_struct
   DRT_draw_semicircles::Bool
   #
+  EIS_DRT_options::EIS_DRT_options_struct
+  #
   plot_option::String
   plot_legend::Bool
   #
@@ -43,7 +54,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_DRT=true, DRT_control=DRT_control_struct(0.0, 1, 1, 2,0), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC", plot_legend=true)
+function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC", plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -67,6 +78,8 @@ function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", dx_exp=-9, f_ran
         this.use_DRT = use_DRT
         this.DRT_control = DRT_control
         this.DRT_draw_semicircles = DRT_draw_semicircles
+        #
+        this.EIS_DRT_options = EIS_DRT_options_struct(use_DRT, DRT_control, DRT_draw_semicircles)
         #
         this.plot_option = plot_option
         this.plot_legend = plot_legend

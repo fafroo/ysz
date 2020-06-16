@@ -48,16 +48,22 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[700,], pO2=[100], bias=collect(-
 ### - fixed_prms_names: defines which parameters should NOT be fitted. e.g. ["R1", "L2"]
 ### - fixed_prms_values: defines the values of the fixed_prms_names. e.g. [0.4, 1.4e-6]    
 ### - alpha_low=0.2, alpha_upp=1.0 (default values) defines lower and upper bound for fitting alphas          
+
+# saving and loading
+ysz_fitting.save_EEC_data_holder(computed_data, folder="../data/EEC/", file_name="default.txt")
+computed_data2 = ysz_fitting.load_EEC_data_holder(folder="../data/EEC/", file_name="default.txt")
+
+
                       
 # view of the results
-ysz_fitting.plot_EEC_data_general(computed_data, x_name="bias", y_name="R1",
+R1_data = ysz_fitting.plot_EEC_data_general(computed_data, x_name="bias", y_name="R1",
                                             TC_interval = [700, 850],
                                             pO2_interval = [0, 100],
                                             bias_interval = [-Inf, Inf],
                                             data_set = Nothing,                              
                                             #
-                                            fig_num=102, 
-                                            plot_legend=true);
+                                            fig_num=102,
+                                            plot_legend=true, plot_all_prms=true);
             
 ### Notes:
 ### - computed_data are precomputed results
@@ -66,3 +72,28 @@ ysz_fitting.plot_EEC_data_general(computed_data, x_name="bias", y_name="R1",
 ### - *_interval serve as a crop tool for displayed data. 
 ###       NOTE: It is an ""inteval"" for cropping. It is NOT a list of values to be plotted.
 ### - if data_set = Nothing, than all data_sets in computed_data are ploted
+### - plot_all_prms: write all plotted parameters in the title of the figure
+###
+### !!! the function returns the last ploted set of y_values !!!
+###
+
+ysz_fitting.display_fit_vs_exp(computed_data, 
+                                   TC = [700],
+                                   pO2 = [60],
+                                   bias = [-0.05],
+                                   data_set = ["MONO_110"],
+                                   f_interval="auto", use_DRT=true)
+                                   
+### Notes:
+### f_interval="auto" behaves the asme as in ysz_fitting.run_EEC_fitting( ... )
+
+############################################################
+############## Temperature fitting stuff ###################
+TC_data = [700, 750, 800, 850]
+fit_info = findfit_from_for_R(TC_data, R1_data)
+fit_minimizer = fit_info.fit_minimizer
+
+
+
+
+

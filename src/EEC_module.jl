@@ -10,6 +10,8 @@ using NNLS
 #using LinearAlgebra
 using LsqFit
 
+#include("../src/DRT.jl")
+
 
 # structure ############
 # input:
@@ -176,29 +178,29 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   projection_plot_minimum = 10
   
   function EEC_plot_error_projection(prms_values, prms_names, error)
-  fig_num = 333
-  prms_length = length(prms_names)
-  plot_edge = ceil(sqrt(prms_length))
+    fig_num = 333
+    prms_length = length(prms_names)
+    plot_edge = ceil(sqrt(prms_length))
 
-  if projection_plot_maximum < 0 && error < 20
-    projection_plot_maximum = error
+    if projection_plot_maximum < 0 && error < 20
+      projection_plot_maximum = error
+    end
+    
+    if error < projection_plot_minimum
+      projection_plot_minimum = error
+    end
+    
+    figure(fig_num)
+    for i in 1:prms_length
+      subplot(plot_edge, plot_edge, i)
+      xlabel(prms_names[i])
+      ylabel("err")
+      ylim(projection_plot_minimum, projection_plot_maximum)
+      plot(prms_values[i], error, "o")
+    end
+    
+    return
   end
-  
-  if error < projection_plot_minimum
-    projection_plot_minimum = error
-  end
-  
-  figure(fig_num)
-  for i in 1:prms_length
-    subplot(plot_edge, plot_edge, i)
-    xlabel(prms_names[i])
-    ylabel("err")
-    ylim(projection_plot_minimum, projection_plot_maximum)
-    plot(prms_values[i], error, "o")
-  end
-  
-  return
-end
   
   function prepare_prms(mask, x0, x)
       prms = zeros(0)
@@ -262,6 +264,7 @@ end
     EEC_actual.prms_values = prepare_prms(mask, x0, x)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 1.4)...))
+    
     SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq", plot_legend=false)[1]
     
 #     if check_dramatic_change(x) || true
@@ -590,7 +593,7 @@ function view_EEC(;
       EEC_structure="RL-R-L-RCPE-RCPE", 
       prms_values=[1, 0.001,      1.7, 0,        1. , 0.001, 1.0,    1.0, 0.01, 0.8], 
       f_range=(0.01, 10000, 1.2),
-      print_bool=false, pyplot=1, plot_legend=true, use_DRT=true
+      print_bool=false, pyplot=1, plot_legend=true, use_DRT=true#, DRT_options=DRT_options_struct()
       )
   
   EEC = get_EEC(EEC_structure)
@@ -699,17 +702,17 @@ end
 
 
 
-function save_EEC_prms_item_to_file(TC, pO2, bias, data_set, prms_values, saving_destination; append=true)
-  df_out = DataFrame(TC = TC, pO2 = pO2, bias = bias, data_set = data_set,
-                    R1      = prms_values[1],
-                    L2      = prms_values[2],
-                    R3      = prms_values[3],
-                    C3      = prms_values[4],
-                    alpha3  = prms_values[5],
-                    R4      = prms_values[6],
-                    C4      = prms_values[7],
-                    alpha4  = prms_values[8]
-                    )
+function save_EEC_prms_item_to_file(TC, pO2, bias, data_set, prms_names, prms_values, saving_destination; append=true)
+
+  full_prms_names = ("TC", "pO2", "bias", "data_set", (prms_names)...)
+  full_prms_values = (TC, pO2, bias, data_set, prms_values...)
+
+  df_out = DataFrame()
+  
+  for (i, name) in enumerate(full_prms_names)
+    df_out[!, Symbol(name)] = length(full_prms_values) == length(full_prms_names) ? [full_prms_values[i]] : []
+  end
+  
   CSV.write(saving_destination, df_out, delim="\t", append=append)
 end
         
@@ -722,7 +725,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         plot_bool=false, plot_legend=true, plot_best_initial_guess=false, plot_fit=true, 
                         show_all_initial_guesses=false,
                         with_errors=false, which_initial_guess="both",
-                        use_DRT=false,
+                        use_DRT=false, #DRT_options=DRT_options_struct(),
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
   ####
   ####  TODO:
@@ -806,7 +809,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   if save_file_bool 
     mkpath(save_to_folder)
     saving_destination = save_to_folder*file_name
-    save_EEC_prms_item_to_file([], [], [], [], [[],[],[],[],[],[],[],[]], saving_destination; append=false)
+    save_EEC_prms_item_to_file([], [], [], [], EEC_actual.prms_names, [], saving_destination, append=false)
   end
   
   cycle_number = 0
@@ -820,7 +823,8 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
 
   
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
-                  use_DRT=use_DRT, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set_item)
+                  use_DRT=use_DRT, #DRT_options=DRT_options, 
+                  plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set_item)
     SIM = SIM_list[1]    
     
     
@@ -836,7 +840,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       
       EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(missing_array)
       if save_file_bool
-        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, missing_array, save_to_folder*file_name)
+        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*file_name)
       end
       cycle_number += -1
       continue
@@ -940,7 +944,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
         end
     end
     
-    
+    EEC_actual.prms_values .= best_prms_values
     if !save_file_bool     
       if show_all_initial_guesses
         println(" ------------ BEST ---------- ")
@@ -972,7 +976,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     end
     
     if save_file_bool
-          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_values, save_to_folder*file_name)
+          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*file_name)
     end
     
     EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
@@ -1026,13 +1030,14 @@ end
 function save_EEC_data_holder(EEC_data_holder; folder="../data/EEC/", file_name="default.txt")
   mkpath(folder)
   saving_destination = folder*file_name
-  save_EEC_prms_item_to_file([], [], [], [], [[],[],[],[],[],[],[],[]], saving_destination; append=false)
+  save_EEC_prms_item_to_file([], [], [], [], EEC_data_holder.prms_names, [], saving_destination; append=false)
   
   for (TC_idx, TC_item) in enumerate(EEC_data_holder.TC), 
       (pO2_idx, pO2_item) in enumerate(EEC_data_holder.pO2), 
       (bias_idx, bias_item) in enumerate(EEC_data_holder.bias), 
       (data_set_idx, data_set_item) in enumerate(EEC_data_holder.data_set)
     save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, 
+                EEC_data_holder.prms_names,
                 EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, : ], saving_destination)
   end
 end
@@ -1103,7 +1108,7 @@ function plot_EEC_data_general(EEC_data_holder;
                                 data_set = Nothing,                              
                                 #
                                 fig_num=102, 
-                                plot_legend=true)
+                                plot_legend=true, plot_all_prms=true)
   
   function make_range_list(prm_name, interval)
     output_list = []
@@ -1155,8 +1160,8 @@ function plot_EEC_data_general(EEC_data_holder;
   figure(fig_num)
   xlabel(x_name)
   ylabel(y_name)
-  title(y_name*"  vs  "*x_name)
   
+  y_to_plot = []
   for TC_idx in (x_name_idx != 1 ? range_list[1] : [range_list[1]]),
       pO2_idx in (x_name_idx != 2 ? range_list[2] : [range_list[2]]),
       bias_idx in (x_name_idx != 3 ? range_list[3] : [range_list[3]]),
@@ -1172,16 +1177,35 @@ function plot_EEC_data_general(EEC_data_holder;
     plot(
       x_to_plot[valid_idxs], 
       y_to_plot[valid_idxs],
-      label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))"
+      label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))",
+      "-x"
     )
-    
-    if plot_legend
-      legend(loc="best")
-    end
   end
   
+  if plot_all_prms
+    full_prms_string = ""
+    for (i, name) in enumerate(identifier_list)
+      full_prms_string *=" $(name)=$(string(range_list[i]))"
+    end
+    THE_list = EEC_data_holder.bias[range_list[3]]
+    if length(range_list[3])>1
+      bias_step = round(THE_list[2] - THE_list[1], digits=5)
+    else
+      bias_step = 666
+    end
+    bias_aux_string = (length(THE_list) < 8 ? THE_list : "collect($(THE_list[1]) : $(bias_step) : $(THE_list[end]))")
+    
+    title("TC=$(EEC_data_holder.TC[range_list[1]])    pO2=$(EEC_data_holder.pO2[range_list[2]])\nbias=$(bias_aux_string)    data_set=$(EEC_data_holder.data_set[range_list[4]]) ", fontsize=10)
+  else
+    title(y_name*"  vs  "*x_name)    
+  end
+  
+  if plot_legend
+    legend(loc="best")
+  end
+
   PyPlot.show()
-  return
+  return y_to_plot
 end
 
 function get_joint_EEC_data_via_bias(EEC_data_1, EEC_data_2)
@@ -1202,16 +1226,20 @@ function get_joint_EEC_data_via_bias(EEC_data_1, EEC_data_2)
     end
     
     
-    length_of_smaller = length(EEC_data[i_smaller].bias)
-    if EEC_data[i_smaller].bias[end] == EEC_data[i_greater].bias[1]      
-      start_of_greater = 2      
-    else
-      start_of_greater = 1
-    end
     if EEC_data[i_smaller].bias[1] > EEC_data[i_smaller].bias[end]
       apply_reverse = true
     else
       apply_reverse = false
+    end
+    
+    length_of_smaller = length(EEC_data[i_smaller].bias)
+    
+    # TODO ... the following condition should be MUCH !!! better
+    if    EEC_data[i_smaller].bias[end] == EEC_data[i_greater].bias[1] ||
+          EEC_data[i_smaller].bias[1] == EEC_data[i_greater].bias[1]
+      start_of_greater = 2      
+    else
+      start_of_greater = 1
     end
     
     bias_OUT = [ (apply_reverse ?
@@ -1233,16 +1261,64 @@ function get_joint_EEC_data_via_bias(EEC_data_1, EEC_data_2)
   end
 end
   
+  
+function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=false, plot_legend=false, f_interval="auto")
+
+  for   (TC_idx, TC_item) in enumerate(TC), 
+      (pO2_idx, pO2_item) in enumerate(pO2), 
+      (bias_idx, bias_item) in enumerate(bias), 
+      (data_set_idx, data_set_item) in enumerate(make_array_from_string(data_set))
+    
+    SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
+                    use_DRT=use_DRT, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set_item)
+    SIM = SIM_list[1]
+    EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)    
+    
+    if f_interval!=Nothing
+      if f_interval == "auto"
+        #typical_plot_exp(SIM, EIS_exp, "! before")
+        EIS_exp = EIS_data_preprocessing(EIS_exp)
+        #typical_plot_exp(SIM, EIS_exp, "! after")
+      else
+        EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
+      end
+    end
+    typical_plot_exp(SIM, EIS_exp)
+    
+    
+    # EEC part
+    function find_idx_in_list(item, list)      
+      findall(x -> x==item, list)[1]
+    end
+    
+    prms_values = deepcopy(EEC_data_holder.data[
+          find_idx_in_list(TC_item, EEC_data_holder.TC), 
+          find_idx_in_list(pO2_item, EEC_data_holder.pO2), 
+          find_idx_in_list(bias_item, EEC_data_holder.bias), 
+          find_idx_in_list(data_set_item, EEC_data_holder.data_set),
+          : ])
+    
+    EEC_actual = get_EEC("R-L-RCPE-RCPE")
+    EEC_actual.prms_values = prms_values
+    EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range = EIS_exp.f)
+    
+    typical_plot_sim(SIM, EIS_EEC)
+    
+    println("--- ($(TC_item), $(pO2_item), $(bias_item), $(data_set)) --- ")
+    @show prms_values
+    println("fitnessFunction = $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp))")
+    
+  end  
+end
+  
+
 function model_R1_from_TC(x, TC)
-  return x[1]*exp(x[2]/(R*TCtoT(TC)))
+  return x[1]*exp((x[2]* e0)/(kB*TCtoT(TC)))
 end
 
 function model_TC_from_R1(x, R1)
   return TtoTC((x[2]/R)*(1/log(R1/x[1])))
 end
-
-
-
 
 function findfit_from_for_R(TC_data, R1_data)
   function to_optimize(x)
@@ -1253,17 +1329,33 @@ function findfit_from_for_R(TC_data, R1_data)
     return sqrt(error)/length(TC_data)
   end
   
+  
+  
   fit_O = optimize(to_optimize, [1., 1.])
   
   R1_fitted_values = []
   TC_plot_range = 700 : 10 : 850
   for TC in TC_plot_range
-    append!(R1_fitted_values, model_R1_from_TC(fit_O.minimizer, TCtoT(TC)))
+    append!(R1_fitted_values, model_R1_from_TC(fit_O.minimizer, TC))
   end
   
   plot(TC_data, R1_data)
   plot(TC_plot_range, R1_fitted_values)
-  return fit_O.minimizer
+  return fit_O
 end
 
 
+
+#############
+#############
+#############
+
+function get_computed_data_MONO_110()
+  cdm = load_EEC_data_holder(folder="../data/EEC/", file_name="computed_data_minus_pO2.txt")
+  cdp = load_EEC_data_holder(folder="../data/EEC/", file_name="computed_data_plus_pO2.txt")
+  return get_joint_EEC_data_via_bias(cdm, cdp)
+end
+
+function test_R3_stealing()
+  println("TODO!!!")
+end
