@@ -25,7 +25,8 @@ using LinearAlgebra
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
 #model_label = "ysz_model_GAS_LoMA"
-model_label = "ysz_shn"
+#model_label = "ysz_shn"
+model_label = "ysz_shn_overvoltage"
 
 include("../src/models/$(model_label).jl")
 include("../prototypes/timedomain_impedance.jl")
@@ -259,7 +260,7 @@ function run_new(;physical_model_name="",
           
           for phi_ramp in (ramp_nodes == 0 ? phi_steady : collect(0.0 : phi_steady/ramp_nodes : phi_steady))
             # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
-              try
+# #               try
                 
                 #@show phi_ramp
                 sys.boundary_values[excited_spec,1] = phi_ramp
@@ -268,15 +269,15 @@ function run_new(;physical_model_name="",
                 
                 ramp_isok = true
                 
-              catch e
-                if e isa InterruptException
-                  rethrow(e)
-                else
-                  #println("fail")
-                  ramp_isok=false
-                  break
-                end
-              end
+# #               catch e
+# #                 if e isa InterruptException
+# #                   rethrow(e)
+# #                 else
+# #                   #println("fail")
+# #                   ramp_isok=false
+# #                   break
+# #                 end
+# #               end
           end
           if ramp_isok
             break

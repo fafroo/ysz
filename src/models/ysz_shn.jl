@@ -541,11 +541,12 @@ function breaction!(f,u,node,this::YSZParameters)
         
         # ARO mass production
         g_ARO = similar(f)
+        
+        g_ARO[iphi]=0
         g_ARO[iy]= this.mO*oxide_ads
         g_ARO[iyAs]= - this.mO*electroR - this.mO*oxide_ads
         g_ARO[iyOs]= this.mO*electroR - this.mO*2*gas_ads
         g_ARO[iyOmins]= 0  #this.mO*(0.1 - u[iyOmins])
-        g_ARO[iphi]=0
         
         # AROBC mass production 
         rema = this.stoichiometric_matrix

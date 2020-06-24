@@ -11,7 +11,7 @@ module ysz_fitting
 # [x] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
 # [x] vymyslet novy relevantni vektor parametru
 # [?] aplikovat masku pro fitting pro scan_2D_recursive
-# [ ] snehurka, velke objemy dat, maska a metafile
+# [x] snehurka, velke objemy dat, maska a metafile
 # ---[x] save_dir preposilany parametrem a odlisit scripted_dir
 # ---[x] sneh - zadavani i jinych parametru nez prms
 # ---[x] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
@@ -31,16 +31,16 @@ module ysz_fitting
 # [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
 # [x] get rig of shared_prms and shared_add_prms !!!
 # [ ] snehurka by rada ./zabal.sh a pocitac zase ./rozbal_par_study.sh
-# [!] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ...
-# ---[ ] nejak si preposilat steadystate?! 
+# [x] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ...
+# ---[x] nejak si preposilat steadystate?! 
 # ------[x] zacina se ze steady_statu, ktery se pocita rychle
-# [ ] simple_run by mohl vracet par_study
-# ---[ ] par study by pak mohla mit funcki "uloz me"
+# [N] simple_run by mohl vracet par_study
+# ---[N] par study by pak mohla mit funcki "uloz me"
 # [ ] promyslet velikost Floatu pri importu velkeho mnozstvi dat
 # [x] funkci pro par_study, aby umela zmenit sve info (redukovat pO2_list a tak) -> funkce par_study_filter()
 # [ ] par_study_plot_the_best() by mela vyhodit jeden figure s dvema subploty... asi ... 
-# [ ] prms_names a prms_values dat do jedne tridy
-# ---[ ] vlastne jakoby nevim, jestli je to dobry napad?
+# [N] prms_names a prms_values dat do jedne tridy
+# ---[N] vlastne jakoby nevim, jestli je to dobry napad?
 # [ ] automaticke vybirani vhodne scripted_tuple
 # [ ] f_range pouzivat jako Array frekvenci, nikoliv jako trojici cisel
 # [x] zobrazovani jmena data_setu i v simple_run 
@@ -50,22 +50,27 @@ module ysz_fitting
 # [ ] add data_set and other features to CAP
 # [ ] make I-V simulation
 # [ ] zaradit jednoduchy vztah teplotni zavislosti na odporu
-# [ ] dodelat v CV simulaci vse potrebne, co je v EIS. I importovani novych souboru.
-# [ ] plot_legend nechat jako volitelny parameter typical_plot ... asi
+# [x] dodelat v CV simulaci vse potrebne, co je v EIS. I importovani novych souboru.
+# [x] plot_legend nechat jako volitelny parameter typical_plot ... asi
 #
 # ##### stacionarni krivky
 # [ ] zatim to modeluji jako CV s nizkym voltratem
 #
 # ##### interpolace ######
-# [o] vizualizace trendu chyby mezi interpolanty
+# [x] vizualizace trendu chyby mezi interpolanty
 # ---[x] zobrazovat soucty odchylek
 # ------[x] obrazky po normalizaci vypadaji ruznorode
-# ---[o] zkusit vykoukat trend z nenormalizovanych dat
+# ---[x] zkusit vykoukat trend z nenormalizovanych dat
 #
 #
 # #### od Affra ####
 # [ ] fitness funkce s maximovou metrikou
-#
+# [ ] sdilene vakance nesmi byt nadruhou ... (chyba pri prechodu z separatnich vakanci) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# [ ] zobrazovani plot_EEC_data_general(...) pro "R3 + R4"
+# [ ] 
+# 
 # 
 # #### Fitting process
 # [x] prozkoumat experimentalni data (a udelat prislusne procedury)

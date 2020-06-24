@@ -141,27 +141,31 @@ end
 
 
 
-function HF_LF_check(prms_values)
-  if prms_values[3]*prms_values[4] > prms_values[6]*prms_values[7]
-    return true
-  else
-    return false
-  end
-end
+# function HF_LF_check(prms_values)
+#   if prms_values[3]*prms_values[4] > prms_values[6]*prms_values[7]
+#     return true
+#   else
+#     return false
+#   end
+# end
 
 function HF_LF_correction!(EEC)
-  if HF_LF_check(EEC.prms_values)
-    aux = EEC.prms_values[6]
-    EEC.prms_values[6] = EEC.prms_values[3]
-    EEC.prms_values[3] = aux
-    
-    aux = EEC.prms_values[7]
-    EEC.prms_values[7] = EEC.prms_values[4]
-    EEC.prms_values[4] = aux
-    
-    aux = EEC.prms_values[8]
-    EEC.prms_values[8] = EEC.prms_values[5]
-    EEC.prms_values[5] = aux
+  
+  RCPE_count = get_count_of_RCPEs(EEC)
+  
+  
+  characteristic_frequency_df = DataFrame(char_f = [], idx = [])
+  for i in 1:RCPE_count
+    push!(characteristic_frequency_df, (EEC.prms_values[3 + (i-1)*3]*EEC.prms_values[4 + (i-1)*3], i))
+  end
+  
+  sort!(characteristic_frequency_df, :char_f)
+  
+  copy_of_prms_values = deepcopy(EEC.prms_values)
+  for i in 1:RCPE_count
+    for j in 3:5
+      EEC.prms_values[j + (i-1)*3] = copy_of_prms_values[j + (characteristic_frequency_df.idx[i] - 1)*3]
+    end
   end
 end
 
@@ -482,13 +486,25 @@ function EIS_data_preprocessing(EIS_df)
   end
 end
 
-function get_init_values(EIS_exp)
 
-  smaller_circle_resistance_ratio = 0.25  # with respect to full width
-  capacitance_spread_factor = 5/8
+
+function get_count_of_RCPEs(EEC::EEC_data_struct)
+  EEC_structure_splitted = split(EEC.structure, "-")
+  return sum(map(x -> (x == "RCPE" ? 1 : 0), EEC_structure_splitted))
+end
+
+
+function get_init_values(EIS_exp, EEC::EEC_data_struct)
+  
+  function get_capacitance_spread_item(i, total_number)
+    return (i - total_number/2 - 0.5)
+  end
+  
+  #smaller_circle_resistance_ratio = 0.25  # with respect to full width
+  capacitance_spread_factor = 7/8
   
   # R | L | RCPE | RCPE structure REQUIERED!
-  output = Array{Float64}(undef, 8)
+  output = Array{Float64}(undef, length(EEC.prms_names))
   
   # resistors
   left, right, width = get_left_right_width_of_EIS(EIS_exp)
@@ -502,7 +518,6 @@ function get_init_values(EIS_exp)
     end
   end
   highest_freq = EIS_exp.f[minimum_idx]
-  
 
   # R_ohm
   output[1] = left
@@ -516,20 +531,44 @@ function get_init_values(EIS_exp)
     output[2] = 1.0
   end
   
-  # R3, R4
-  output[3] = width*smaller_circle_resistance_ratio
-  output[6] = width*(1 - smaller_circle_resistance_ratio)
+  RCPE_count = get_count_of_RCPEs(EEC)
   
-  # alphas
-  output[5] = 1.0
-  output[8] = 0.8
+  for i in 1:RCPE_count
+    # R
+    output[3 + (i-1)*3] = width*(1.0/RCPE_count)
+    
+    # C
+    central_capacitance = 1/(2*pi*highest_freq*output[3])
+    if RCPE_count == 1
+      spread_item = 0
+    else
+      spread_item = capacitance_spread_factor*(
+            get_capacitance_spread_item(i, RCPE_count) /
+            get_capacitance_spread_item(RCPE_count, RCPE_count)
+          )
+    end
+    output[4 + (i-1)*3] = central_capacitance*(1 + spread_item)
+    
+    # alpha
+    output[5 + (i-1)*3] = 0.9
+  end
   
-  # C3, C4
-  central_capacitance = 1/(2*pi*highest_freq*output[3])
   
-  output[4] = central_capacitance*(capacitance_spread_factor)
-  output[7] = central_capacitance*(capacitance_spread_factor)
   
+# #   # R3, R4
+# #   output[3] = width*smaller_circle_resistance_ratio
+# #   output[6] = width*(1 - smaller_circle_resistance_ratio)
+# #   
+# #   # alphas
+# #   output[5] = 1.0
+# #   output[8] = 0.8
+# #   
+# #   # C3, C4
+# # 
+# #   
+# #   output[4] = central_capacitance*(capacitance_spread_factor)
+# #   output[7] = central_capacitance*(capacitance_spread_factor)
+# #   
 #   @show central_capacitance
 #   @show output[4]
 #   @show output[7]
@@ -559,29 +598,21 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
   lower_limits[2] = (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))/10
   upper_limits[2] = (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))*10
 
-  # R3
-  lower_limits[3] = -Inf
-  upper_limits[3] = width*2
+  RCPE_count = get_count_of_RCPEs(EEC)
   
-  # R4
-  lower_limits[6] = -Inf
-  upper_limits[6] = width*2
-  
-  # C3
-  lower_limits[4] = -Inf
-  upper_limits[4] = 10
-  
-  # C4
-  lower_limits[7] = -Inf
-  upper_limits[7] = 10
-  
-  # alpha3
-  lower_limits[5] = -Inf
-  upper_limits[5] = Inf
-  
-  # alpha4
-  lower_limits[8] = -Inf
-  upper_limits[8] = Inf
+  for i in 1:RCPE_count
+    #R
+    lower_limits[3 + (i-1)*3] = -Inf
+    upper_limits[3 + (i-1)*3] = width*2    
+    
+    #C
+    lower_limits[4 + (i-1)*3] = -Inf
+    upper_limits[4 + (i-1)*3] = 10    
+    
+    #alpha
+    lower_limits[5 + (i-1)*3] = -Inf
+    upper_limits[5 + (i-1)*3] = Inf    
+  end
   
   EEC.lower_limits_for_fitting = lower_limits
   EEC.upper_limits_for_fitting = upper_limits
@@ -593,7 +624,7 @@ function view_EEC(;
       EEC_structure="RL-R-L-RCPE-RCPE", 
       prms_values=[1, 0.001,      1.7, 0,        1. , 0.001, 1.0,    1.0, 0.01, 0.8], 
       f_range=(0.01, 10000, 1.2),
-      print_bool=false, pyplot=1, plot_legend=true, use_DRT=true#, DRT_options=DRT_options_struct()
+      print_bool=false, pyplot=1, plot_legend=true, use_DRT=true, DRT_draw_semicircles=DRT_draw_semicircles,
       )
   
   EEC = get_EEC(EEC_structure)
@@ -626,7 +657,7 @@ function view_EEC(;
           println(get_string_EEC_prms(EEC, plot_errors=false))
         end
         if pyplot > 0
-            ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, plot_legend=plot_legend, use_DRT=use_DRT)[1], EIS_EEC, "!EEC"*plot_prms_string) 
+            ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, f_range=f_range, plot_legend=plot_legend, use_DRT=use_DRT, DRT_draw_semicircles=DRT_draw_semicircles,)[1], EIS_EEC, "!EEC"*plot_prms_string) 
         end 
         
         
@@ -722,10 +753,11 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         f_interval=Nothing, succes_fit_threshold = 0.002,
                         fixed_prms_names=[], fixed_prms_values=[],
                         init_values=Nothing, alpha_low=0.2, alpha_upp=1, #fitting_mask=Nothing,
+                        EEC_structure="R-L-RCPE-RCPE",
                         plot_bool=false, plot_legend=true, plot_best_initial_guess=false, plot_fit=true, 
                         show_all_initial_guesses=false,
                         with_errors=false, which_initial_guess="both",
-                        use_DRT=false, #DRT_options=DRT_options_struct(),
+                        use_DRT=false, DRT_draw_semicircles=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
   ####
   ####  TODO:
@@ -799,7 +831,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     end
   end
   
-  EEC_actual = get_EEC("R-L-RCPE-RCPE")
+  EEC_actual = get_EEC(EEC_structure)
       
   data_set = make_array_from_string(data_set)  
   EEC_data_holder = EEC_data_holder_struct(TC, pO2, bias, data_set, EEC_actual.prms_names)
@@ -823,7 +855,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
 
   
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
-                  use_DRT=use_DRT, #DRT_options=DRT_options, 
+                  use_DRT=use_DRT, DRT_draw_semicircles=DRT_draw_semicircles, 
                   plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set_item)
     SIM = SIM_list[1]    
     
@@ -863,18 +895,16 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
 #     else
 #       mask = fitting_mask
 #     end
+
+## HERE
     set_fitting_limits_to_EEC_from_EIS_exp!(EEC_actual, EIS_exp)
 
-    
-    # test!
-    #   EEC_actual.prms_values = [0.00001, 2.5, 1, 0.001, 2, 0.005, 0.4 ]
-    #   EIS_exp = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-    #
 
+## HERE
     init_values_list = []
     if init_values == Nothing || cycle_number > 1
       if which_initial_guess == "both"
-        push!(init_values_list, get_init_values(EIS_exp))
+        push!(init_values_list, get_init_values(EIS_exp, EEC_actual))
         if cycle_number > 1
           push!(init_values_list, deepcopy(EEC_actual.prms_values))
         end
@@ -886,10 +916,10 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
           if abs((bias_item - bias_step) - previous_bias) < 0.000001
             push!(init_values_list, deepcopy(EEC_actual.prms_values))
           else
-            push!(init_values_list, get_init_values(EIS_exp))
+            push!(init_values_list, get_init_values(EIS_exp, EEC_actual))
           end
         else
-          push!(init_values_list, get_init_values(EIS_exp))
+          push!(init_values_list, get_init_values(EIS_exp, EEC_actual))
         end
       end
     else
@@ -916,6 +946,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
         end
         
         EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors)
+## HERE        
         HF_LF_correction!(EEC_actual)        
         
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
@@ -1262,7 +1293,7 @@ function get_joint_EEC_data_via_bias(EEC_data_1, EEC_data_2)
 end
   
   
-function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=false, plot_legend=false, f_interval="auto")
+function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=false, DRT_draw_semicircles=false, plot_legend=false, f_interval="auto")
 
   for   (TC_idx, TC_item) in enumerate(TC), 
       (pO2_idx, pO2_item) in enumerate(pO2), 
@@ -1270,7 +1301,7 @@ function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=fal
       (data_set_idx, data_set_item) in enumerate(make_array_from_string(data_set))
     
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
-                    use_DRT=use_DRT, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set_item)
+                    use_DRT=use_DRT, DRT_draw_semicircles=DRT_draw_semicircles, plot_option="Bode Nyq DRT RC", plot_legend=plot_legend, data_set=data_set_item)
     SIM = SIM_list[1]
     EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)    
     

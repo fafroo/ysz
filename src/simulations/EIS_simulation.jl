@@ -10,15 +10,7 @@ include("../DRT.jl")
 
 
 ######################################
-mutable struct EIS_DRT_options_struct
-  use_DRT
-  DRT_control::DRT_control_struct
-  DRT_draw_semicircles
-end
 
-function EIS_DRT_options_struct(use_DRT; DRT_control::DRT_control_struct= DRT_control_struct(), DRT_draw_semicircles=false)
-  return EIS_DRT_options_struct(use_DRT, DRT_control, DRT_draw_semicircles)
-end
 
 mutable struct EIS_simulation <: abstract_simulation
   TC::Float64
@@ -38,8 +30,6 @@ mutable struct EIS_simulation <: abstract_simulation
   use_DRT::Bool
   DRT_control::DRT_control_struct
   DRT_draw_semicircles::Bool
-  #
-  EIS_DRT_options::EIS_DRT_options_struct
   #
   plot_option::String
   plot_legend::Bool
@@ -78,8 +68,6 @@ function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", dx_exp=-9, f_ran
         this.use_DRT = use_DRT
         this.DRT_control = DRT_control
         this.DRT_draw_semicircles = DRT_draw_semicircles
-        #
-        this.EIS_DRT_options = EIS_DRT_options_struct(use_DRT, DRT_control, DRT_draw_semicircles)
         #
         this.plot_option = plot_option
         this.plot_legend = plot_legend
