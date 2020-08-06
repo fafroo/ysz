@@ -86,6 +86,7 @@ module ysz_fitting
 # ---[ ] try to fit CV and EIS at once!
 # ------[ ] compute a lots of EIS, compute some CVs and interpolate
 # 
+# [ ] TEMPERATURE dependence shoud be automated
 # [!] fitting with one dominating SIM.fitness_factor, but also see the others with lower factor
 # [ ] get Fminbox() to work ! ... or do it by my own withing the to_optimize() function 
 #######################
@@ -147,7 +148,8 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
   end
   res = DataFrame()
   for SIM in SIM_list
-  
+    
+    
     function recursive_simple_run_call(output_prms, plot_names, plot_values, active_idx)
       if active_idx > size(prms_names,1)
 
@@ -225,7 +227,7 @@ end
 
 
 # useful wrap
-function simple_run(;TC, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=[], pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+function simple_run(;TC=800, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=Array{String}(undef, 0), pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
                          test=false)
     simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
                         test=false)
@@ -449,7 +451,7 @@ function get_fitting_initial_condition()
   
   x0 = (1.0, 0.0, 1.0, 20.93358829626075, 21.402618660603686, 21.136328351766778, 5.47009852248677, 23.37319636187158, -0.4140996223040165, -0.6454107557668001, 0.6964208008004982, 9.0e-13, 0.85, true, 0.25, 0.5) # intermediate ... to delete !
   
-  x0 = (1.0, 0.0, 1.0, 20.93358829626075, 20.402618660603686, 20.136328351766778, 20.47009852248677, 20.37319636187158, -0.4140996223040165, -0.6454107557668001, 0.6964208008004982, 9.0e-13, 0.85, true, 0.25, 0.5) # intermediate ... to delete !
+  x0 = (1.0, 0.0, 1.0, 20.93358829626075, 20.402618660603686, 20.136328351766778, 0.0, 0.0, -0.0140996223040165, -0.06454107557668001, 0.06964208008004982, 12.3e-11, 0.85, true, 0.25, 0.5) # intermediate ... to delete !
   
   return x0
 end
@@ -468,9 +470,9 @@ mutable struct SIM_fitting_struct
   mask
   lower_bounds
   upper_bounds
-  fitted_prms
+  prms_values
   #
-  BBO_bool::Bool
+  bboptimize_bool::Bool  #which optimizer is called ..... TODO!!! maybe change to string?
   iteration_count::Int64
   #
   print_to_file::Bool
@@ -480,18 +482,70 @@ mutable struct SIM_fitting_struct
   SIM_fitting_struct() = new()
 end
 
-function run_SIM_fitting_script_wrap(;
+function build_SIM_fitting(;TC=850, pO2=80, bias=0.0, data_set="MONO_110", simulations=["EIS"],  
+                      #                      
+                      prms_names=["kappaA", "kappaR", "kappaO", 
+                                  "rA", "rR", "rO",         "rB", "rC",     
+                                  "DGA", "DGR", "DGO",     
+                                  "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"  ],
+                      x0 = get_fitting_initial_condition(),            
+                      mask          =(0, 0, 0,
+                                      1, 1, 1,        0, 0,
+                                      1, 1, 1,
+                                      0, 0,     0,        0, 0    ),
+                      lower_bounds=(0.0, 0.0, 0.0,
+                                    15.5, 15.9, 15.7,        5, 5,       
+                                    -0.8, -0.8, -0.8,     
+                                    [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    ),
+                      upper_bounds=(0.0, 0.0, 0.0,
+                                    25.5, 25.9, 25.7,        25, 25,        
+                                    0.8, 0.8, 0.8,     
+                                    [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    ),
+                      #
+                      bboptimize_bool=false, iteration_count=100,   
+                      #
+                      print_to_file=true, save_dir="../data/EEC/temp/log/", file_name="default.txt",
+                      )
+  SIM_fitting = SIM_fitting_struct()
+  
+  SIM_fitting.TC = TC
+  SIM_fitting.pO2 = pO2
+  SIM_fitting.bias = bias
+  SIM_fitting.data_set = data_set
+  SIM_fitting.simulations = simulations
+
+  #
+  SIM_fitting.prms_names = prms_names
+  #@show typeof(x0)
+  SIM_fitting.x0 = x0
+  SIM_fitting.mask = mask
+  SIM_fitting.lower_bounds = lower_bounds
+  SIM_fitting.upper_bounds = upper_bounds
+  #
+  SIM_fitting.bboptimize_bool = false
+  SIM_fitting.iteration_count = iteration_count
+  #
+  SIM_fitting.print_to_file = print_to_file
+  SIM_fitting.save_dir = save_dir
+  SIM_fitting.file_name = file_name
+  
+  SIM_fitting.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations)
+
+  return SIM_fitting
+end
+
+function run_SIM_fitting_script_wrap(
                     TC_string="850", 
-                    pO2_string="100", 
-                    bias_string="0.0", 
+                    pO2_string="100",
+                    bias_string="0.0",
                     data_set="MONO_110",
-                    simulations_stirng="[\"EIS\"]",
-                    #
-                    x0_string = string(get_fitting_initial_condition()),
+                    simulations_string="[\"EIS\"]",
+                    #                    
                     prms_names_string=string(["kappaA", "kappaR", "kappaO", 
                                 "rA", "rR", "rO",         "rB", "rC",     
                                 "DGA", "DGR", "DGO",     
                                 "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"  ]),
+                    x0_string = string(get_fitting_initial_condition()),            
                     mask_string        =string((0, 0, 0,
                                     1, 1, 1,        0, 0,
                                     1, 1, 1,
@@ -505,12 +559,13 @@ function run_SIM_fitting_script_wrap(;
                                   0.8, 0.8, 0.8,     
                                   [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    )),
                     #
-                    BBO_bool_string=string(false), 
+                    bboptimize_bool_string=string(false), 
                     iteration_count_string="100",   
                     #
-                    print_to_file=string(true), 
+                    print_to_file_string=string(true), 
                     save_dir="../data/EEC/temp/log/", 
                     file_name="default.txt",
+                    #
                     #
                     pyplot_string=string(false),  
                     plot_each_x_th_string=string(50),
@@ -527,112 +582,43 @@ function run_SIM_fitting_script_wrap(;
   SIM_fitting.TC = TC
   SIM_fitting.pO2 = pO2
   SIM_fitting.bias = bias
+  SIM_fitting.data_set = data_set
   SIM_fitting.simulations = simulations
   #
   SIM_fitting.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations)
   #
-  SIM_fitting.x0 = eval(Meta.parse(x0_string))
   SIM_fitting.prms_names = eval(Meta.parse(prms_names_string))
+  SIM_fitting.x0 = eval(Meta.parse(x0_string))
   SIM_fitting.mask = eval(Meta.parse(mask_string))
   SIM_fitting.lower_bounds = eval(Meta.parse(lower_bounds_string))
   SIM_fitting.upper_bounds = eval(Meta.parse(upper_bounds_string))
   #
-  SIM_fitting.BBO_bool = eval(Meta.parse(BBO_bool_string))
+  SIM_fitting.bboptimize_bool = eval(Meta.parse(bboptimize_bool_string))
   SIM_fitting.iteration_count = eval(Meta.parse(iteration_count_string))
+  #
   SIM_fitting.print_to_file = eval(Meta.parse(print_to_file_string))
+  SIM_fitting.save_dir = save_dir
+  SIM_fitting.file_name = file_name
   
-  run_SIM_fitting(SIM_fitting, 
+  
+  
+  printfields(SIM_fitting)
+  return run_SIM_fitting(SIM_fitting, 
                   pyplot=eval(Meta.parse(pyplot_string)),
                   plot_each_x_th=eval(Meta.parse(plot_each_x_th_string)),
                   print_only_result=eval(Meta.parse(print_only_result_string))
                   )
-  return
 end
 
-function build_SIM_fitting(;TC=850, pO2=100, bias=0.0, data_set="MONO_110", simulations=["EIS"],  
-                      #
-                      x0 = get_fitting_initial_condition(),
-                      prms_names=["kappaA", "kappaR", "kappaO", 
-                                  "rA", "rR", "rO",         "rB", "rC",     
-                                  "DGA", "DGR", "DGO",     
-                                  "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"  ],
-                      mask          =(0, 0, 0,
-                                      1, 1, 1,        0, 0,
-                                      1, 1, 1,
-                                      0, 0,     0,        0, 0    ),
-                      lower_bounds=(0.0, 0.0, 0.0,
-                                    15.5, 15.9, 15.7,        5, 5,       
-                                    -0.8, -0.8, -0.8,     
-                                    [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    ),
-                      upper_bounds=(0.0, 0.0, 0.0,
-                                    25.5, 25.9, 25.7,        25, 25,        
-                                    0.8, 0.8, 0.8,     
-                                    [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    ),
-                      #
-                      BBO_bool=false, iteration_count=100,   
-                      #
-                      print_to_file=true, save_dir="../data/EEC/temp/log/", file_name="default.txt",
-                      )
-  SIM_fitting = SIM_fitting_struct()
-  
-  SIM_fitting.TC = TC
-  SIM_fitting.pO2 = pO2
-  SIM_fitting.bias = bias
-  SIM_fitting.data_set = data_set
-  SIM_fitting.simulations = simulations
 
-  #
-  SIM_fitting.prms_names = prms_names
-  @show typeof(x0)
-  SIM_fitting.x0 = x0
-  SIM_fitting.mask = mask
-  SIM_fitting.lower_bounds = lower_bounds
-  SIM_fitting.upper_bounds = upper_bounds
-  #
-  SIM_fitting.BBO_bool = false
-  SIM_fitting.iteration_count = iteration_count
-  #
-  SIM_fitting.print_to_file = print_to_file
-  SIM_fitting.save_dir = save_dir
-  SIM_fitting.file_name = file_name
-
-  return SIM_fitting
-end
-
-function run_par_study_script_wrap(
-                    prms_lists_string=("[20, 20, 20, 0.0, 0.0, 0.0]"),
-                    save_dir="./kadinec/",
-                    name="default_par_study_name",
-                    scripted_tuple_string=("(1, 0, 0, 0, 0, 0)"),
-                    prms_names_string="[\"A0\", \"R0\", \"K0\", \"DGA\", \"DGR\", \"DGO\"]", 
-                    TC_string="800",
-                    pO2_string="100",
-                    bias_string="0.0",
-                    simulations_string="[\"EIS\"]",
-                    mode="test",
-                    physical_model_name="nothing")
-  
-  
-  actual_par_study = par_study_struct()
-  
-  actual_par_study.physical_model_name = physical_model_name
-  actual_par_study.name = name
-  actual_par_study.save_dir = save_dir
-  actual_par_study.prms_lists = eval(Meta.parse(prms_lists_string))
-  actual_par_study.scripted_tuple = eval(Meta.parse(scripted_tuple_string))
-  actual_par_study.prms_names = eval(Meta.parse(prms_names_string))
-  #
-  TC = eval(Meta.parse(TC_string))
-  pO2 = eval(Meta.parse(pO2_string))
-  bias = eval(Meta.parse(bias_string))
-  simulations = eval(Meta.parse(simulations_string))
-  #
-  actual_par_study.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, simulations)
-  
-  run_par_study(    actual_par_study,
-                    save_dir=save_dir, 
-                    save_file_bool=true,
-                    mode=mode)
+function SIM_fitting_show_EIS(SIM_fitting::SIM_fitting_struct, pyplot=1, use_experiment=true, use_fitted_values=false)
+  simple_run(
+    SIM_fitting.SIM_list, 
+    prms_names=SIM_fitting.prms_names,
+    prms_values= (use_fitted_values ? SIM_fitting.prms_values : SIM_fitting.x0),
+    use_experiment=use_experiment,
+    pyplot=pyplot
+    )
 end
 
 function run_SIM_fitting_example()
@@ -758,6 +744,8 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
   end
 
   
+  println(" -------- run_SIM_fitting --- started! -------- ")
+  return 0
   
   physical_model_name="necum"
   iteration_counter = 0
@@ -828,17 +816,11 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
     return output
   end
   
-  function rosenbrock2d(x)
-    return (1.0 - x[1])^2 + 100.0 * (x[2] - x[1]^2)^2
-  end
-
-  #bboptimize(rosenbrock2d, SearchRange = [(-5.0, 5.0), (-2.0, 2.0)])
-  
   # for BlackBoxOptim
   SearchRange = get_SearchRange(lowM, uppM)
   #@show SearchRange
   
-  if SIM_fitting.BBO_bool
+  if SIM_fitting.bboptimize_bool
     fit= bboptimize(to_optimize, SearchRange = SearchRange)
   else
 #     fit = optimize(
@@ -888,6 +870,52 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
 end
 
 
+function meta_run_SIM_fitting(SIM_fitting::SIM_fitting_struct=build_SIM_fitting(),
+                              pyplot = false,
+                              plot_each_x_th = 50,
+                              print_only_result = true,
+                              direct_call = true
+                              )
+  if direct_call
+    return run_SIM_fitting(SIM_fitting,
+                      pyplot=pyplot,
+                      plot_each_x_th=plot_each_x_th,
+                      print_only_result=print_only_result
+                      )
+  else
+    #bash_command = "echo"
+    bash_command = "julia"
+    run_file_name = "../snehurka/run_ysz_fitting_SIM_fitting.jl"
+    return run(`
+                $bash_command  
+                $run_file_name 
+                
+                $(string(SIM_fitting.TC)) 
+                $(string(SIM_fitting.pO2))
+                $(string(SIM_fitting.bias))
+                $(string(SIM_fitting.data_set))
+                $(string(SIM_fitting.simulations))
+                                    
+                $(string(SIM_fitting.prms_names))
+                $(string(SIM_fitting.x0))
+                $(string(SIM_fitting.mask))
+                $(string(SIM_fitting.lower_bounds))
+                $(string(SIM_fitting.upper_bounds))
+                
+                $(string(SIM_fitting.bboptimize_bool))
+                $(string(SIM_fitting.iteration_count))
+                
+                $(string(SIM_fitting.print_to_file))
+                $(string(SIM_fitting.save_dir))
+                $(string(SIM_fitting.file_name))
+                
+                
+                $(string(pyplot))
+                $(string(plot_each_x_th))
+                $(string(print_only_result))
+    `)
+  end
+end
 
 
 

@@ -106,5 +106,13 @@ function make_array_from_string(input)
   end
 end
 
-
-
+function printfields(this)
+    for name in fieldnames(typeof(this))
+        @printf("%8s = ",name)
+        try
+          println(getfield(this,name))
+        catch
+          println(" <<< UNDEFINED !!! >>>")
+        end
+    end
+end

@@ -48,12 +48,12 @@ function get_SIM_list_rectangle(TC,pO2, bias, data_set, simulations::Array{Strin
     SIM_list = Array{abstract_simulation}(undef,0)
     if "CV" in simulations
       append!(SIM_list,[
-        CV_simulation(TC, pO2, data_set)...
+        CV_simulation(TC, pO2, data_set=data_set)...
       ])
     end
     if "EIS" in simulations
       append!(SIM_list,[
-        EIS_simulation(TC, pO2, bias, data_set)...
+        EIS_simulation(TC, pO2, bias, data_set=data_set)...
       ])  
     end
     if "CAP" in simulations

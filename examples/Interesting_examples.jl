@@ -74,6 +74,18 @@ ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, DRT_draw_semicir
                                   [90]*1.0e-14, [0.85], 2.0, collect(0.07 : 0.01 : 0.07)     ), 
                      use_experiment=true);
 
+## 4 peaks -> intersting exchange of roles with rB                      
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, plot_legend=false, DRT_draw_semicircles=false, plot_option="Nyq Rf RC"), pyplot=1,  
+                            prms_names=["kappaA", "kappaR", "kappaO", 
+                                        "rA", "rR", "rO",     "rB", "rC",     
+                                        "DGA", "DGR", "DGO",     
+                                        "DD", "nu", "sites_Om0", "sites_Om1"     ], 
+                            prms_values=(1.0, 0.0, 0.0,
+                                         collect(21.85 : 0.3 : 21.85), 20.0, collect(19.0 : 0.1 : 19.),  collect(17.0 : 0.1 : 20), 17,       
+                                         collect(-0.75 : -0.05 : -0.75), 0.0, 0.05,    
+                                         [12.60]*1.0e-11, [0.85], 1.0, collect(0.07 : 0.01 : 0.07)     ), 
+                            use_experiment=true);
+                     
 ################ ocasek #######################                  
 ## zatoceni low freq !!!!!!!!!!!!!!!!!!!
 novy = 1; ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, DRT_draw_semicircles=false, plot_option="Nyq Bode Rf RC"), pyplot=1,  
@@ -127,3 +139,52 @@ ysz_fitting.run_EEC_fitting(TC=[700, 750, 800, 850], pO2=[100], bias=1.0, data_s
                #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
                save_file_bool=false, file_name="monocrystaline.txt", with_errors=false,
                plot_bool=true, plot_legend=true, plot_initial_guess=false, plot_fit=true)
+
+
+#################### e_fac testovani ... spolu s B C legracemi ################
+ysz_fitting.EIS_view_experimental_data( 
+                                   TC = [750],
+                                   pO2 = [0],
+                                   bias = collect(-0.5 : 0.1 : 0.3),
+                                   data_set = "MONO_110",
+                                   )
+                                   
+# vliv e_fac
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation([850], 100,  collect(0.1 : 0.1 : 0.1), data_set="POLY"), pyplot=1,  
+                            prms_names=["ARO_mode", 
+                                        "kappaA", "kappaR", "kappaO", 
+                                        "rA", "rR", "rO",         "rB", "rC",     
+                                        "DGA", "DGR", "DGO",     
+                                        "DD", "nu", 
+                                        "separate_vacancy", "e_fac",       
+                                        "sites_Om0", "sites_Om1"  
+                                        ], 
+                            prms_values=(false,
+                                         0.0, 0.0, 0.0,
+                                         21.5, 20.9, 20.7,        1, 20, #collect(21 : -0.5 : 21),       
+                                         -0.0, -0.0, collect(-0.0 : 0.01 : 0.0),     
+                                         [90].*1.0e-14, collect(0.85 : 0.05 : 0.85), 
+                                         true, collect(0.0 : 0.01 : 0.05),       
+                                         1/4, 1/2    
+                                         ), 
+                            use_experiment=false);
+               
+# podivne preklopeni pod realnou osu ... zmizeni standardniho RC oblouku
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation([850], 100,  collect(0.1 : 0.1 : 0.1), data_set="POLY"), pyplot=1,  
+                            prms_names=["ARO_mode", 
+                                        "kappaA", "kappaR", "kappaO", 
+                                        "rA", "rR", "rO",         "rB", "rC",     
+                                        "DGA", "DGR", "DGO",     
+                                        "DD", "nu", 
+                                        "separate_vacancy", "e_fac",       
+                                        "sites_Om0", "sites_Om1"  
+                                        ], 
+                            prms_values=(false,
+                                         0.0, 0.0, 0.0,
+                                         21.5, 20.9, 20.7,        1, 1, #collect(21 : -0.5 : 21),       
+                                         -0.0, -0.0, collect(-0.0 : 0.01 : 0.0),     
+                                         [90].*1.0e-14, collect(0.85 : 0.05 : 0.85), 
+                                         true, collect(0.02 : 0.0005 : 0.025),       
+                                         1/4, 1/2    
+                                         ), 
+                            use_experiment=false);
