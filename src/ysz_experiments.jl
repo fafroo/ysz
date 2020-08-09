@@ -71,7 +71,7 @@ function run_new(;physical_model_name="",
                 test=false, test_from_above=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
-                pO2=1.0, T=1073,
+                pO2=1.0, T=1073, data_set=Nothing,
                 prms_names_in=[],
                 prms_values_in=[],
                 #
@@ -93,7 +93,22 @@ function run_new(;physical_model_name="",
 
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
-    AreaEllyt = 0.00011309724 * 0.7        # m^2 (geometrical area)*(1 - porosity)
+    
+    if data_set == Nothing
+      AreaEllyt == 1.0    # random value
+    else
+      if data_set == "OLD_MONO_100"
+        AreaEllyt = 0.00011309724 * 0.7       # m^2 (geometrical area)*(1 - porosity)
+      elseif data_set[1:4] == "MONO"
+        AreaEllyt = 0.00011309724 * 0.7       # m^2 (geometrical area)*(1 - porosity)
+      elseif data_set[1:4] == "POLY"
+        AreaEllyt = 0.000201 * 0.7            # m^2 (geometrical area)*(1 - porosity)
+      else
+        println("\nERROR: ysz_experiments.jl: data_set NOT RECOGNIZED !!!! \n")
+        return throw(Exception)
+      end
+    end
+    
     #width_Ellyt = 0.00045           # m     width of the half-cell
     #width_Ellyt = 0.0005           # m     width of the half-cell
 #     if dlcap

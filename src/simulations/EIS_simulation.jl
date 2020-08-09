@@ -253,7 +253,7 @@ function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_
   EIS_df = ysz_experiments.run_new(
       pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, bias=SIM.bias, f_range=SIM.f_range,
       dx_exp=SIM.dx_exp,
-      T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
+      T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in
   )
@@ -270,21 +270,21 @@ end
 
 function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", use_checknodes=false, plot_legend=true, fig_num=12)    
     
-    for TC_item in TC
-      for pO2_item in pO2
-        for bias_item in bias, data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
-          if use_checknodes
-            SIM = EIS_simulation()
-            checknodes =  get_shared_checknodes(SIM)
-            EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item), checknodes)
-          else
-            EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
-          end
-          figure(fig_num)
-          typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, plot_legend=plot_legend)..., EIS_exp, "", false)
+  for TC_item in TC
+    for pO2_item in pO2
+      for bias_item in bias, data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
+        if use_checknodes
+          SIM = EIS_simulation()
+          checknodes =  get_shared_checknodes(SIM)
+          EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item), checknodes)
+        else
+          EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
         end
+        figure(fig_num)
+        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, data_set=data_set_item, plot_legend=plot_legend)..., EIS_exp, "", false)
       end
     end
+  end
 end
 
 # function EIS_capacitance_test()

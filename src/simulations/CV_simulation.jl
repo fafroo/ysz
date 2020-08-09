@@ -27,6 +27,8 @@ mutable struct CV_simulation <: abstract_simulation
   checknodes::Any
   fitness_factor::Float64
   #
+  plot_legend::Bool
+  #
   name::String
   ID::Int16
   
@@ -37,7 +39,7 @@ function string(SIM::CV_simulation)
   return "CV_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CV_simulation(TC, pO2; data_set="MONO_110", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=10.0)
+function CV_simulation(TC, pO2; data_set="MONO_110", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=10.0, plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -58,6 +60,8 @@ function CV_simulation(TC, pO2; data_set="MONO_110", upp_bound=1.0, low_bound=-1
       this.checknodes = get_shared_checknodes(this)
       this.fitness_factor = fitness_factor
       #
+      this.plot_legend = plot_legend
+      #
       this.name = "CV"
       this.ID = 1
       
@@ -67,8 +71,8 @@ function CV_simulation(TC, pO2; data_set="MONO_110", upp_bound=1.0, low_bound=-1
   return output
 end
 
-function CV_simulation(TC, pO2, bias; data_set="MONO_110", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=10.0)
-    CV_simulation(TC, pO2; data_set=data_set, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size)
+function CV_simulation(TC, pO2, bias; data_set="MONO_110", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=10.0, plot_legend=true)
+    CV_simulation(TC, pO2; data_set=data_set, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size, fitness_factor=fitness_factor, plot_legend=plot_legend)
 end
 
 
@@ -133,7 +137,7 @@ function save_file_prms(sim::CV_simulation, df_out, save_dir, prms, prms_names, 
     return
 end
 
-function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_standard_figure=true; plot_legend=true)
+function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_standard_figure=true)
   if to_standard_figure
     figure(CV_standard_figure_num, figsize=SIM.fig_size)
   end
@@ -145,7 +149,7 @@ function typical_plot_sim(SIM::CV_simulation, CV_df, additional_string="", to_st
   
   PyPlot.plot(CV_df.U, CV_df.I, label=my_label)
   PyPlot.grid(true)
-  if !(my_label == "") && plot_legend
+  if !(my_label == "") && SIM.plot_legend
       legend(loc="best")
   end
 end
@@ -163,7 +167,7 @@ function typical_plot_exp(SIM::CV_simulation, CV_df, additional_string="", to_st
   PyPlot.plot(CV_df.U, CV_df.I, "--", label=my_label)
   PyPlot.grid(true)
 
-  if !(my_label == "")
+  if !(my_label == "") && SIM.plot_legend
       legend(loc="best")
   end
 end
@@ -172,7 +176,7 @@ function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_i
   ysz_experiments.run_new(
       out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false), 
       dx_exp=SIM.dx_exp, sample=SIM.sample, upp_bound=SIM.upp_bound, low_bound=SIM.low_bound, voltrate=SIM.voltrate,
-      T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2),
+      T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in,
   )
@@ -182,18 +186,16 @@ function import_data_to_DataFrame(SIM::CV_simulation)
   import_CVtoDataFrame(TC=SIM.TC, pO2=SIM.pO2, data_set=SIM.data_set)
 end
 
-function CV_view_experimental_data(TC_list, pO2_list; use_checknodes=false, fig_num=11)    
+function CV_view_experimental_data(;TC, pO2, data_set, use_checknodes=false, fig_num=11)    
     figure(fig_num)
-    for TC in TC_list
-      for pO2 in pO2_list
-        if use_checknodes
-          checknodes =  CV_get_shared_checknodes()
-          CV_exp = CV_apply_checknodes(import_CVtoDataFrame(TC=TC, pO2=pO2), checknodes)
-        else
-          CV_exp = import_CVtoDataFrame(TC=TC, pO2=pO2)
-        end
-        typical_plot_exp(CV_simulation(TC, pO2)..., CV_exp, "", false)
+    for TC_item in TC, pO2_item in pO2, data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
+      if use_checknodes
+        checknodes =  CV_get_shared_checknodes()
+        CV_exp = CV_apply_checknodes(import_CVtoDataFrame(TC=TC_item, pO2=pO2_item, data_set=data_set_item), checknodes)
+      else
+        CV_exp = import_CVtoDataFrame(TC=TC_item, pO2=pO2_item, data_set=data_set_item)
       end
+      typical_plot_exp(CV_simulation(TC_item, pO2_item, data_set_item)..., CV_exp, "", false)
     end
 end
 

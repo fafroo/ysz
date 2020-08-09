@@ -91,6 +91,7 @@ module ysz_fitting
 # [ ] get Fminbox() to work ! ... or do it by my own withing the to_optimize() function 
 #
 # [ ] f_interval pridat do SIM_fitting
+# [ ] ysz_experiments ... ellyt width for each data_set can be different !!!
 #######################
 
 
@@ -455,6 +456,8 @@ function get_fitting_initial_condition()
   
   x0 = (1.0, 0.0, 1.0, 20.93358829626075, 20.402618660603686, 20.136328351766778, 0.0, 0.0, -0.0140996223040165, -0.06454107557668001, 0.06964208008004982, 12.3e-11, 0.85, true, 0.25, 0.5) # intermediate ... to delete !
   
+  
+  x0 = (1.0, 0.0, 1.0, 24.352, 25.9, 22.1599, 0.0, 0.0, 0.271907, -0.197024, -0.214102, 1.23e-10, 0.85, true, 0.25, 0.5)
   return x0
 end
 
@@ -700,7 +703,11 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
             rethrow(e)
           else
             print(e)
-            err += 1000*norm(x0M.-x) 
+            if norm(x0M.-x) < 0.01
+              err += 10000
+            else
+              err += 10000*norm(x0M.-x) 
+            end
           end
         end 
         
@@ -712,7 +719,7 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
       
       if pyplot
         plot_error_projection(
-          take_only_masked(SIM_fitting.mask, prms_values), 
+          take_only_masked(SIM_fitting.mask, prms_values),
           take_only_masked(SIM_fitting.mask, SIM_fitting.prms_names), 
           err)
       end
@@ -909,6 +916,87 @@ function partial_meta_run_SIM_fitting(;SIM_fitting::SIM_fitting_struct=build_SIM
 end
 
 
+####
+####
+## #################3
+
+#  ################################
+
+function slurm_evaluate_results(;print_bool=false, show_x0 = false)
+  working_dir = "../snehurka/"
+
+  dir_items = cd(readdir, working_dir)
+  
+  error_and_prms_values_dataframe = DataFrame(error = [], prms_values = [], x0 = [], file_name = [])
+  for item in dir_items
+    if (length(item) >= 5) && (item[1:5]=="slurm")
+      buffer = readlines(working_dir*item)
+      
+      if length(buffer) > 3
+        
+        error_split = split(buffer[end-1], '=')
+        if error_split[1] == "err"
+          error = eval(Meta.parse(
+                error_split[2]
+                )
+              )
+        else
+          continue
+        end
+        
+        prms_values_split = split(buffer[end-3], '=')
+        if prms_values_split[1] == "prms_values "
+          prms_values = eval(Meta.parse(
+                  prms_values_split[2]
+                  )
+                )
+        else
+          continue
+        end
+        
+        x0_split = split(buffer[end-6], '=')
+        if x0_split[1] == "x0 "
+          x0 = eval(Meta.parse(
+                  x0_split[2]
+                  )
+                )
+        else
+          continue
+        end
+        
+        push!(
+          error_and_prms_values_dataframe,
+          (error, prms_values, x0, item)
+        )
+      end
+    end
+  end
+  
+  sort!(error_and_prms_values_dataframe, :error)
+  if print_bool
+    if !show_x0
+      @show error_and_prms_values_dataframe[:, [:error, :prms_values]]
+    else
+      @show error_and_prms_values_dataframe[:, [:error, :x0]]
+    end
+  end
+  return error_and_prms_values_dataframe
+end
+
+function SIM_fitting_evaluate(SIM_fitting, fitted_values)
+  simple_run(
+    SIM_fitting.SIM_list,
+    prms_names=SIM_fitting.prms_names,
+    prms_values= fitted_values,
+    use_experiment=true,
+    pyplot=1
+    )
+end
+
+function SIM_fitting_x0_test(SIM_fitting, x0; pyplot=false, print_only_result=false, plot_each_x_th=45)
+  SIM_fitting.x0 = x0
+  return run_SIM_fitting(SIM_fitting, pyplot=pyplot, print_only_result=print_only_result, plot_each_x_th=plot_each_x_th)
+end
 
 ###########################################################
 ###########################################################
@@ -918,7 +1006,7 @@ end
 
 
 
-function meta_run_par_study()  
+function meta_run_par_study(;only_return_SIM_fitting=false)  
   function recursive_bash_call(output_prms_lists, active_idx)
     if active_idx > size(scripted_tuple,1)
       scripted_tuple_string = string(scripted_tuple)
@@ -1021,27 +1109,29 @@ function meta_run_par_study()
               "rA", "rR", "rO",         "rB", "rC",     
               "DGA", "DGR", "DGO",     
               "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"  ]
-  prms_lists = (
-    1.0, 0.0, 1.0,
-    # rX
-    collect(22.0 : 1.0 : 23.0),  
-    collect(22.0 : 1.0 : 23.0),  
-    collect(22.0 : 1.0 : 23.0), 
-    0.0,
-    0.0,
-    # DGX
-    collect(-0.0 : 1.0 : 0.0), 
-    collect(-0.0 : 1.0 : 0.0), 
-    collect(-0.0 : 1.0 : 0.0),
-    #
-    # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.92, 5.35, 9.05)e-13
-    # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11
-    [12.3e-11], 
-    0.85, 
-    true, 
-    0.25, 
-    0.5
-  )  
+  
+  prms_lists = (1.0, 0.0, 1.0, 24.0, 22.0, 22.0, 0.0, 0.0, 0.2, -0.2, -0.2, 1.23e-10, 0.85, true, 0.25, 0.5)
+#   prms_lists = (
+#     1.0, 0.0, 1.0,
+#     # rX
+#     collect(23.0 : 1.0 : 23.0),  
+#     collect(23.0 : 1.0 : 23.0),  
+#     collect(23.0 : 1.0 : 23.0), 
+#     0.0,
+#     0.0,
+#     # DGX
+#     collect(0.5 : 1.0 : 0.5), 
+#     collect(0.5 : 1.0 : 0.5), 
+#     collect(0.5 : 1.0 : 0.5),
+#     
+#     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.92, 5.35, 9.05)e-13
+#     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11
+#     [12.3e-11], 
+#     0.85, 
+#     true, 
+#     0.25, 
+#     0.5
+#   )  
   
   
   mask          =(0, 0, 0,
@@ -1053,7 +1143,7 @@ function meta_run_par_study()
                 -0.8, -0.8, -0.8,     
                 [1]*1.0e-13, 0.01, true,       -Inf, -Inf    )
   upper_bounds=(0.0, 0.0, 0.0,
-                25.5, 25.9, 25.7,        25, 25,        
+                27.5, 27.9, 27.7,        25, 25,        
                 0.8, 0.8, 0.8,     
                 [1]*1.0e-8, 0.99, true,       Inf, Inf    )
 
@@ -1070,7 +1160,7 @@ function meta_run_par_study()
 # #     collect(-0.0 : 1.0 : 0.0), 
 # #     collect(-0.0 : 1.0 : 0.0),
 # #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.92, 5.35, 9.05)e-13
-# #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.92, 5.35, 12.3)e-11
+# #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, ??, 9.18, 12.3)e-11
 # #     [12.3e-11]
 # #   )
   scripted_tuple =(1, 1, 1,
@@ -1084,11 +1174,11 @@ function meta_run_par_study()
                       0, 0,     0,        0, 0    )
   
   TC = 850
-  pO2 = [60, 80]
+  pO2 = [40, 60, 80]
   bias = 0.0
 
   data_set = "MONO_110"
-  simulations = ["EIS"]  
+  simulations = ["CV", "EIS"]
   
   
   
@@ -1109,7 +1199,7 @@ function meta_run_par_study()
   #mode = "only_print"
   mode = "go"
   
-  express3_bool = false
+  express3_bool = true
 
   
   
@@ -1163,10 +1253,14 @@ function meta_run_par_study()
                                     file_name="SIM_fitting_default.txt",
                                     #
                                     bboptimize_bool=false, 
-                                    iteration_count=100,
+                                    iteration_count=1000,
                                     )
+
+  if only_return_SIM_fitting
+    return SIM_fitting
+  end
                                     
-  pyplot = true
+  pyplot = false
   plot_each_x_th = 45
   print_only_result = true
                                     
@@ -1239,6 +1333,10 @@ function meta_run_par_study()
   recursive_bash_call([], 1)
     
   println("ok :) ")
+  
+  if SIM_fitting_mode
+    return SIM_fitting
+  end
 end
         
 
