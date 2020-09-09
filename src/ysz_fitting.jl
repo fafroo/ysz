@@ -93,6 +93,14 @@ module ysz_fitting
 # [ ] f_interval pridat do SIM_fitting
 # [ ] ysz_experiments ... ellyt width for each data_set can be different !!!
 #######################
+#
+# [ ] HEY !!! the code is NOT working ... with reaction template! Fix it!
+# [ ] preskalovani erroru, aby se dobre dalo fitovat rozdilne velike objekty ---- relativni chyba!
+#
+#
+#
+###########################
+
 
 
 using Printf
@@ -117,6 +125,7 @@ import Base.string
 
 include("../src/general_supporting_stuff.jl")
 include("../src/import_experimental_data.jl")
+include("../src/export_simulated_data.jl")
 
 include("../src/simulations/general_simulation.jl")
 include("../src/simulations/CV_simulation.jl")
@@ -126,20 +135,6 @@ include("../src/simulations/CAP_simulation.jl")
 include("../src/par_study.jl")
 #include("../src/interpolation_fitting.jl")
 include("../src/EEC_module.jl")
-
-
-
-
-
-
-function get_fitted_all_prms()
-  # for which model???
-  prms_names=["A0", "R0", "K0", "SA", "SR", "SO", "DGA", "DGR", "DGO", "betaA", "betaR", "betaO", "DD"]
-  #prms_values=[19.7, 19.7, 18.6,    1, 1, 1,    0.7, -0.8, -0.3,      0.5, 0.5, 0.5,    5.35e-13]  # fitted to EIS 800, 100, 0.0
-    
-  return prms_names, prms_values
-end
-
 
 
 
@@ -603,6 +598,10 @@ function run_SIM_fitting_script_wrap(
                   )
 end
 
+function SIM_fitting_save_to_file(SIM_fitting::SIM_fitting_struct, )
+  
+end
+
 
 function SIM_fitting_show_EIS(SIM_fitting::SIM_fitting_struct, pyplot=1, use_experiment=true, use_fitted_values=false)
   simple_run(
@@ -617,7 +616,7 @@ end
 function run_SIM_fitting_example()
   SIM_fitting = build_SIM_fitting()
   
-  fit = run_SIM_fitting(SIM_fitting, pyplot=false, print_only_result=false)
+  fit = run_SIM_fitting(SIM_fitting, pyplot=false, print_only_result=true)
   return fit
 end
 
@@ -916,14 +915,17 @@ function partial_meta_run_SIM_fitting(;SIM_fitting::SIM_fitting_struct=build_SIM
 end
 
 
-####
-####
-## #################3
+###################################################################################################
+###################################################################################################
+###################################################################################################
+###################################################################################################
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
-#  ################################
 
-function slurm_evaluate_results(;print_bool=false, show_x0 = false)
-  working_dir = "../snehurka/"
+
+function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir="../snehurka/")
 
   dir_items = cd(readdir, working_dir)
   
@@ -983,6 +985,7 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false)
   return error_and_prms_values_dataframe
 end
 
+
 function SIM_fitting_evaluate(SIM_fitting, fitted_values)
   simple_run(
     SIM_fitting.SIM_list,
@@ -997,6 +1000,26 @@ function SIM_fitting_x0_test(SIM_fitting, x0; pyplot=false, print_only_result=fa
   SIM_fitting.x0 = x0
   return run_SIM_fitting(SIM_fitting, pyplot=pyplot, print_only_result=print_only_result, plot_each_x_th=plot_each_x_th)
 end
+
+
+function aux_save_SIM_fitting(res::DataFrame, name)
+  file_path = "aux_slurm_data/"*name*"/"
+  run(`mkdir -p $(file_path)`)
+  
+  dir_items = cd(readdir, working_dir)
+  
+end
+
+###########################################################
+###########################################################
+#### par_search_SIM_fitting ###############################
+###########################################################
+###########################################################
+
+# function par_search
+
+
+
 
 ###########################################################
 ###########################################################
@@ -1065,7 +1088,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
                       $bias_string 
                       $simulations_string 
                       $mode 
-                      $physical_model_name 
+                      $physical_model_name
           `)
         end
       end
@@ -1108,11 +1131,15 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   prms_names=["kappaA", "kappaR", "kappaO", 
               "rA", "rR", "rO",         "rB", "rC",     
               "DGA", "DGR", "DGO",     
-              "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"  ]
+              "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"]
   
-  prms_lists = (1.0, 0.0, 1.0, 24.0, 22.0, 22.0, 0.0, 0.0, 0.2, -0.2, -0.2, 1.23e-10, 0.85, true, 0.25, 0.5)
+  prms_lists = (0.0, 0.0, 0.0, 27.057187118792626, 25.13293375680216, 20.65779081447695, 0.0, 0.0, 0.1798575807353102, -0.006993821579013175, 0.0347866985461243, 9.0e-11, 0.85, true, 0.25, 0.5, 1.8e-6)
+  prms_lists = (0.0, 0.0, 0.0, 27.07872827199363, 27.221166964172173, 20.62519730240254, 0.0, 0.0, -0.08588173549154003, 0.03803129389532403, -0.09923645940221279, 9.0e-11, 0.85, true, 0.25, 0.5, 1.8e-6)
+  prms_lists = (0.0, 0.0, 0.0, 23.0, 23.0, 23.0, 0.0, 0.0, 0.1, 0.1, -0.3, 9.0e-11, 0.85, true, 0.25, 0.5, 1.8e-6)
+  prms_lists = (0.0, 0.0, 0.0, 21.72795464386497, 26.48447730617659, 16.48324414002768, 0.0, 0.0, 0.07220245585626828, 0.14297336797238616, -0.37994612943000317, 9.3e-11, 0.85, true, 1.3591318464628224, 0.5)
+  
 #   prms_lists = (
-#     1.0, 0.0, 1.0,
+#     0.0, 0.0, 0.0,
 #     # rX
 #     collect(23.0 : 1.0 : 23.0),  
 #     collect(23.0 : 1.0 : 23.0),  
@@ -1120,65 +1147,57 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
 #     0.0,
 #     0.0,
 #     # DGX
-#     collect(0.5 : 1.0 : 0.5), 
-#     collect(0.5 : 1.0 : 0.5), 
-#     collect(0.5 : 1.0 : 0.5),
-#     
-#     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.92, 5.35, 9.05)e-13
-#     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11
-#     [12.3e-11], 
+#     collect(0.1 : 1.0 : 0.1), 
+#     collect(0.1 : 1.0 : 0.1),
+#     collect(0.1 : 1.0 : 0.1),
+#         
+#     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
+#     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9., 12.3)e-11 for "OLD_MONO_100"
+#     [9.0e-11], 
 #     0.85, 
 #     true, 
 #     0.25, 
-#     0.5
+#     0.5,
+#     1.8e-6
 #   )  
   
   
   mask          =(0, 0, 0,
                   1, 1, 1,        0, 0,
                   1, 1, 1,
-                  0, 0,     0,        0, 0    )
+                  0, 0,     0,        0, 0)
   lower_bounds=(0.0, 0.0, 0.0,
                 15.5, 15.9, 15.7,        5, 5,       
                 -0.8, -0.8, -0.8,     
-                [1]*1.0e-13, 0.01, true,       -Inf, -Inf    )
-  upper_bounds=(0.0, 0.0, 0.0,
+                [1]*1.0e-13, 0.01, true,       -Inf, -Inf     )
+  upper_bounds=(1.0, 1.0, 1.0,
                 27.5, 27.9, 27.7,        25, 25,        
                 0.8, 0.8, 0.8,     
-                [1]*1.0e-8, 0.99, true,       Inf, Inf    )
-
-  
-  
-  
-# #   prms_names = ["rA", "rR", "rO", "DGA", "DGR", "DGO", "DD"]
-# #   # BE CAREFUL! data are saved to files only with TWO digits after comma!
-# #   prms_lists = (
-# #     collect(21.0 : 1.0 : 21.0),  
-# #     collect(21.0 : 1.0 : 21.0),  
-# #     collect(21.0 : 1.0 : 21.0), 
-# #     collect(-0.0 : 1.0 : 0.0), 
-# #     collect(-0.0 : 1.0 : 0.0), 
-# #     collect(-0.0 : 1.0 : 0.0),
-# #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.92, 5.35, 9.05)e-13
-# #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, ??, 9.18, 12.3)e-11
-# #     [12.3e-11]
-# #   )
+                [1]*1.0e-8, 0.99, true,       Inf, Inf,     )
+                
   scripted_tuple =(1, 1, 1,
                   1, 1, 1,        1, 1,
                   1, 1, 1,
                   1, 1,     1,        1, 1    )
-                  
-  SIM_fitting_mask = (0, 0, 0,
-                      1, 1, 1,        0, 0,
-                      1, 1, 1,
-                      0, 0,     0,        0, 0    )
-  
-  TC = 850
-  pO2 = [40, 60, 80]
+# # # # # #   prms_names = ["rA", "rR", "rO", "DGA", "DGR", "DGO", "DD"]
+# # # # # #   # BE CAREFUL! data are saved to files only with TWO digits after comma!
+# # # # # #   prms_lists = (
+# # # # # #     collect(21.0 : 1.0 : 21.0),  
+# # # # # #     collect(21.0 : 1.0 : 21.0),  
+# # # # # #     collect(21.0 : 1.0 : 21.0), 
+# # # # # #     collect(-0.0 : 1.0 : 0.0), 
+# # # # # #     collect(-0.0 : 1.0 : 0.0), 
+# # # # # #     collect(-0.0 : 1.0 : 0.0),
+# # # # # #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.92, 5.35, 9.05)e-13
+# # # # # #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, ??, 9.18, 12.3)e-11
+# # # # # #     [12.3e-11]
+# # # # # #   )  
+  TC = 800
+  pO2 = [100]
   bias = 0.0
 
-  data_set = "MONO_110"
-  simulations = ["CV", "EIS"]
+  data_set = "OLD_MONO_100"
+  simulations = ["CV"]
   
   
   
@@ -1244,7 +1263,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
                                     #
                                     prms_names=prms_names,
                                     #x0=output_prms_lists,
-                                    mask=SIM_fitting_mask,
+                                    mask=mask,
                                     lower_bounds=lower_bounds,
                                     upper_bounds=upper_bounds,
                                     #
@@ -1253,15 +1272,15 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
                                     file_name="SIM_fitting_default.txt",
                                     #
                                     bboptimize_bool=false, 
-                                    iteration_count=1000,
+                                    iteration_count=500,
                                     )
 
   if only_return_SIM_fitting
     return SIM_fitting
   end
                                     
-  pyplot = false
-  plot_each_x_th = 45
+  pyplot = true
+  plot_each_x_th = 50
   print_only_result = true
                                     
   #######################################################

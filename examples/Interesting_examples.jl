@@ -188,3 +188,70 @@ ysz_fitting.simple_run(ysz_fitting.EIS_simulation([850], 100,  collect(0.1 : 0.1
                                          1/4, 1/2    
                                          ), 
                             use_experiment=false);
+                            
+                            
+                            
+                            
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+# Fitting ... 
+
+# separate_vacancy ... best fit for {800 , 100, 0.0, OLD_MONO_100}
+ysz_fitting.simple_run(
+              ysz_fitting.EIS_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false, DRT_draw_semicircles=false, plot_option="Nyq Bode Rf RC"),
+              #ysz_fitting.CV_simulation(850, 80, 0.0),
+              pyplot=1,  
+                                   prms_names=["kappaA", "kappaR", "kappaO", 
+                                               "rA", "rR", "rO",     "rB", "rC",     
+                                               "DGA", "DGR", "DGO",     
+                                               "DD", "nu", "separate_vacancy", "sites_Om0", "sites_Om1"     ], 
+                                   prms_values=(0.0, 0.0, 0.0,
+                                                21.79, 27.89, 19.74,   0, 0,
+                                                0.097, 0.008, -0.218, #collect(-0.3 : 0.01 : 0.1),
+                                                [9.3]*1.0e-11, [0.85], true, 1.2, 0.5  ), 
+                                   use_experiment=true);
+
+# separate_vacancy ... {800, [40, 60, 80, 100], 0.0, OLD_MONO_100}  ... BUT no CV fit
+ysz_fitting.simple_run(
+       ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100", plot_legend=false, DRT_draw_semicircles=false, plot_option="Nyq Bode Rf RC"),
+       #ysz_fitting.CV_simulation(850, 80, 0.0),
+       pyplot=1,  
+                            prms_names=["kappaA", "kappaR", "kappaO", 
+                                        "rA", "rR", "rO",     "rB", "rC",     
+                                        "DGA", "DGR", "DGO",     
+                                        "DD", "nu", "separate_vacancy", "sites_Om0", "sites_Om1"     ], 
+                            prms_values=(0.0, 0.0, 0.0,
+                                         21.29, 27.89, 18.54,   0, 0,
+                                         0.097, 0.011, -0.218, #collect(-0.3 : 0.01 : 0.1),    
+                                         [9.0]*1.0e-11, [0.85], true, 0.1, 0.5  ), 
+                            use_experiment=true);
+
+                                
+# separate_vacancy ... {800, [40, 80], 0.0, OLD_MONO_100} .... with CVs !!!!!!!!!!!!!!!!!!!
+ysz_fitting.simple_run(
+       ysz_fitting.EIS_simulation(800, [40, 80], 0.0, data_set="OLD_MONO_100", plot_legend=false, DRT_draw_semicircles=false, plot_option="Nyq Bode Rf RC"),
+       #ysz_fitting.CV_simulation(800, [40, 80], 0.0),
+       pyplot=1,  
+                            prms_names=["kappaA", "kappaR", "kappaO", 
+                                        "rA", "rR", "rO",     "rB", "rC",     
+                                        "DGA", "DGR", "DGO",     
+                                        "DD", "nu", "separate_vacancy", "sites_Om0", "sites_Om1"     ], 
+                            prms_values= (0.0, 0.0, 0.0, 21.7474, 26.7855, 20.6466, 0.0, 0.0, 0.027508, 0.106477, -0.175718, 9.3e-11, 0.85, true, 2.60081, 0.5)
+                            
+                            ,use_experiment=true);
+                            
+# separate_vacancy ... {800, [40, 60, 80, 100], 0.0, OLD_MONO_100} ... with CVs !!!! 40 not quite good  ----> <<<"e_fac">>>
+ysz_fitting.simple_run(
+                     ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100", plot_legend=false, DRT_draw_semicircles=false, plot_option="Nyq Bode Rf RC"),
+                     #ysz_fitting.CV_simulation(850, 80, 0.0),
+                     pyplot=1,  
+                                          prms_names=["kappaA", "kappaR", "kappaO", 
+                                                      "rA", "rR", "rO",     "rB", "rC",     
+                                                      "DGA", "DGR", "DGO",     
+                                                      "DD", "nu", "separate_vacancy", "sites_Om0", "sites_Om1",  "e_fac"     ], 
+                                          prms_values=(0.0, 0.0, 0.0, 21.411013641457583, 27.481801343839734, 19.774755928324968, 0.0, 0.0, -0.11464160143584941, -0.0684415679565699, 0.17278366094279843, 9.3e-11, 0.85, true, 1.014446180003061, 0.5, 0.16057108498298814)
+                                          
+                                          ,use_experiment=true);
+
+                                          
