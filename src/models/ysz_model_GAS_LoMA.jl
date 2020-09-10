@@ -216,7 +216,7 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
     #
     treshold_for_linear_function = 0.6*10^(-9)
     for inode=1:size(inival,2)
-        x = nodecoord(grid, inode)[1]
+        x = coordinates(grid)[inode]
         if x < treshold_for_linear_function
           inival[iphi, inode] = (((treshold_for_linear_function - x)*parameters.phi_eq)/
                                   treshold_for_linear_function)                                  

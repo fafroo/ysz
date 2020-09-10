@@ -25,8 +25,10 @@ using LinearAlgebra
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
 #model_label = "ysz_model_GAS_LoMA"
-model_label = "ysz_shn"
+model_label = "ysz_model_GAS_LoMA_overvoltage"
+#model_label = "ysz_shn"
 #model_label = "ysz_shn_overvoltage"
+#model_label = "ysz_shn_overvoltage__TEMP"
 
 include("../src/models/$(model_label).jl")
 include("../prototypes/timedomain_impedance.jl")
@@ -512,7 +514,6 @@ function run_new(;physical_model_name="",
         end
         
         cv_cycles = 1
-        relaxation_length = 1    # how many "(cv_cycle/4)" should relaxation last
         relax_counter = 0
         istep_cv_start = -1
         time_range = zeros(0)  # [s]
@@ -524,7 +525,7 @@ function run_new(;physical_model_name="",
         end
         direction_switch_count = 0
 
-        tstep=((upp_bound-low_bound)/2)/voltrate/sample   
+        tstep=Float64(((upp_bound-low_bound)/2)/voltrate/sample)
         if print_bool
             @printf("tstep %g = \n", tstep)
         end
@@ -536,8 +537,8 @@ function run_new(;physical_model_name="",
         
         if pyplot
             PyPlot.close()
-            PyPlot.ion()
-            PyPlot.figure(figsize=(10,8))
+            PyPlot.ion()            
+            PyPlot.figure(321, figsize=(10,8))
             #PyPlot.figure(figsize=(5,5))
         end
         
@@ -553,10 +554,11 @@ function run_new(;physical_model_name="",
           # calculating directly steadystate ###############
           #state = "cv_is_on"
           state = "relaxation"
-          relaxation_length = 2.0/sample
+          relaxation_length = 2*2.0/sample
           istep_cv_start = 0
           phi=parameters.phi_eq
           dir=1 
+          
           
           solve!(U0,inival,sys, control=control)
           if save_files || out_df_bool
@@ -582,7 +584,7 @@ function run_new(;physical_model_name="",
           append!(time_range,0)
           
           phi_prev = phi
-          phi = phi + voltrate*dir*tstep
+          #phi = phi + voltrate*dir*tstep
           phi_out = (phi_prev + phi)/2.0
           ##################################################
           # using the ramp ... not recommended
@@ -629,15 +631,16 @@ function run_new(;physical_model_name="",
                 state = "cv_is_off"
             end
             
-            
             # tstep to potential phi
             sys.boundary_values[index_driving_species,1]=phi
             
+            @show parameters.phi_eq, phi
+            
             control.Δt = tstep
             evolve!(U, U0, sys, [0, tstep], control=control)
+          
+#             solve!(U, U0, sys, control=control, tstep=tstep)  
             
-            
-#             solve!(U, U0, sys, control=control, tstep=tstep)
             
             
             # Transient part of measurement functional
@@ -707,7 +710,8 @@ function run_new(;physical_model_name="",
             
             # plotting                  
             if pyplot && istep%2 == 0
-
+                
+                figure(321)
                 num_subplots=4
                 ys_marker_size=6
                 PyPlot.subplots_adjust(hspace=0.5)

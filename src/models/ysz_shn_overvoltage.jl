@@ -563,7 +563,16 @@ function breaction!(f,u,node,this::YSZParameters)
           electroR=electroreaction(this,u)
           oxide_ads = exponential_oxide_adsorption(this, u)
           gas_ads = exponential_gas_adsorption(this, u)       
-        
+  
+          f[iy] = this.mO*oxide_ads
+          # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
+          # sign is negative bcs of the equation implementation
+          f[iyAs] = - this.mO*electroR - this.mO*oxide_ads
+          f[iyOs] = this.mO*electroR - this.mO*2*gas_ads
+          f[iphi] = 0
+          f[iyOmins] = 0
+          
+          return 
           # ARO mass production
           h_template_ARO = [
             u[1]*0,
