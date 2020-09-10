@@ -1131,7 +1131,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   prms_names=["kappaA", "kappaR", "kappaO", 
               "rA", "rR", "rO",         "rB", "rC",     
               "DGA", "DGR", "DGO",     
-              "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1"]
+              "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1", "e_fac"  ]
   
   prms_lists = (0.0, 0.0, 0.0, 27.057187118792626, 25.13293375680216, 20.65779081447695, 0.0, 0.0, 0.1798575807353102, -0.006993821579013175, 0.0347866985461243, 9.0e-11, 0.85, true, 0.25, 0.5, 1.8e-6)
   prms_lists = (0.0, 0.0, 0.0, 27.07872827199363, 27.221166964172173, 20.62519730240254, 0.0, 0.0, -0.08588173549154003, 0.03803129389532403, -0.09923645940221279, 9.0e-11, 0.85, true, 0.25, 0.5, 1.8e-6)
@@ -1153,32 +1153,32 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
 #         
 #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
 #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9., 12.3)e-11 for "OLD_MONO_100"
-#     [9.0e-11], 
+#     [9.3e-11], 
 #     0.85, 
-#     true, 
+#     false, 
 #     0.25, 
 #     0.5,
-#     1.8e-6
+#     0.0
 #   )  
   
   
   mask          =(0, 0, 0,
                   1, 1, 1,        0, 0,
                   1, 1, 1,
-                  0, 0,     0,        0, 0)
+                  0, 0,     0,        0, 0, 	0)
   lower_bounds=(0.0, 0.0, 0.0,
                 15.5, 15.9, 15.7,        5, 5,       
                 -0.8, -0.8, -0.8,     
-                [1]*1.0e-13, 0.01, true,       -Inf, -Inf     )
+                [1]*1.0e-13, 0.01, true,       0.0, 0.0,     0.0     )
   upper_bounds=(1.0, 1.0, 1.0,
                 27.5, 27.9, 27.7,        25, 25,        
                 0.8, 0.8, 0.8,     
-                [1]*1.0e-8, 0.99, true,       Inf, Inf,     )
+                [1]*1.0e-8, 0.99, true,       Inf, Inf,      3.0)
                 
   scripted_tuple =(1, 1, 1,
                   1, 1, 1,        1, 1,
                   1, 1, 1,
-                  1, 1,     1,        1, 1    )
+                  1, 1,     1,        1, 1,    	1)
 # # # # # #   prms_names = ["rA", "rR", "rO", "DGA", "DGR", "DGO", "DD"]
 # # # # # #   # BE CAREFUL! data are saved to files only with TWO digits after comma!
 # # # # # #   prms_lists = (
@@ -1279,8 +1279,8 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
     return SIM_fitting
   end
                                     
-  pyplot = true
-  plot_each_x_th = 50
+  pyplot = false
+  plot_each_x_th = 45
   print_only_result = true
                                     
   #######################################################
