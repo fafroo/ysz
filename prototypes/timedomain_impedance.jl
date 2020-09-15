@@ -1,4 +1,5 @@
 using LsqFit
+using Plots
 
 #
 # Calculate impedance in time domain
@@ -53,7 +54,12 @@ function timedomain_impedance(sys, # time domain system
     if fit
         fit_window=fit_window_size/ω
     end
-
+    
+    ########### TODO .. erease
+    actual_p=Plots.plot()
+    t_plot_decider = 0
+    ##########################
+    
     # time loop: we loop until amplitude has settled. Optionally
     # append the fit window
     while t_current<t_settle+fit_window 
@@ -64,6 +70,13 @@ function timedomain_impedance(sys, # time domain system
         excitation_val=sin(ω*t_current)*excitation_amplitude
         sys.boundary_values[excited_spec,excited_bc]=excited_bcval+excitation_val
         solve!(U,Uold,sys,tstep=tstep)
+        
+        
+
+        
+        
+        
+        
 
         # Obtain measurement
         # measured_val=(integrate(sys,measurement_testfunc,U, Uold,tstep)[1]-mstdy_steadystate)/excitation_amplitude
@@ -74,8 +87,25 @@ function timedomain_impedance(sys, # time domain system
         mtran_Uold=[0.0]
         meas_tran(mtran_Uold,values(Uold))
         
-        measured_val=(mstdy_U[1] + (mtran_U[1]-mtran_Uold[1])/tstep-mstdy_steadystate[1])/excitation_amplitude
         
+        
+        mtran_steadystate = [0.0]
+        meas_tran(mtran_steadystate, values(steadystate))
+        
+# # #         @show excitation_val
+# # #         @show mtran_Uold
+# # #         @show mtran_U
+# # #         @show mstdy_U
+# # #         println()
+# # #         @show mstdy_steadystate
+# # #         @show mtran_steadystate
+# # #         
+# # #         return
+        
+        
+        measured_val=(mstdy_U[1] + (mtran_U[1]-mtran_Uold[1])/tstep - mstdy_steadystate[1])/excitation_amplitude
+        
+        #@show mstdy_steadystate[1]
         
         
         push!(all_times,t_current)
@@ -106,6 +136,13 @@ function timedomain_impedance(sys, # time domain system
         if t_settle>1.0e9 &&  measured_max* measured_min <0.0 && t_current*ω>4π
             relative_amplitude_mismatch=(abs(measured_max)-abs(measured_min))/(abs(measured_min)+abs(measured_max))
             if abs(relative_amplitude_mismatch)<tol_amplitude
+                
+                
+                
+                @show yeah = 666
+                
+                
+                
                 t_settle=t_current
                 settled_amplitude=measured_max
             end
@@ -121,6 +158,19 @@ function timedomain_impedance(sys, # time domain system
         Uold.=U
         excitation_prev=excitation_val
         measured_prev=measured_val
+        
+        
+        ###### TODO ... erease ########
+        t_plot_decider += 1
+        if plot_amplitude && t_plot_decider == 100 
+            t_plot_decider = 1
+            #Plots.plot!(actual_p,all_times,model(all_times,params), label="estimated")
+            
+            Plots.plot!(actual_p,all_times,all_measured)
+            gui(actual_p)
+        end
+        ###############################
+        
         # emergency abort
         if t_current>t_abort
             error("reached t_abort without detecting amplitude")
@@ -141,9 +191,9 @@ function timedomain_impedance(sys, # time domain system
 
     # Optional plot of amplitude
     if plot_amplitude
-        p=plot(all_times,all_measured, label="measured",size=(600,800),legend=:bottomright,ylim=(-2*settled_amplitude,2*settled_amplitude))
-        plot!(p,all_times,model(all_times,params), label="estimated")
-        plot!(p,[t_settle, t_settle],[-settled_amplitude,0],linewidth=3,label="t_settle")
+        p=Plots.plot(all_times,all_measured, label="measured",size=(600,800),legend=:bottomright,ylim=(-2*settled_amplitude,2*settled_amplitude))
+        Plots.plot!(p,all_times,model(all_times,params), label="estimated")
+        Plots.plot!(p,[t_settle, t_settle],[-settled_amplitude,0],linewidth=3,label="t_settle")
         gui(p)
     end
     z=settled_amplitude*exp(1im*phase_shift)

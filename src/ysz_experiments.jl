@@ -24,8 +24,8 @@ using LinearAlgebra
 ##########################################
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
-#model_label = "ysz_model_GAS_LoMA"
-model_label = "ysz_model_GAS_LoMA_overvoltage"
+model_label = "ysz_model_GAS_LoMA"
+#model_label = "ysz_model_GAS_LoMA_overvoltage"
 #model_label = "ysz_shn"
 #model_label = "ysz_shn_overvoltage"
 #model_label = "ysz_shn_overvoltage__TEMP"
@@ -214,6 +214,8 @@ function run_new(;physical_model_name="",
 #     return
 ################
 
+    @show parameters.phi_eq
+    
 
 
     ############################################
@@ -237,6 +239,7 @@ function run_new(;physical_model_name="",
     #####################################
     #####################################
     ######### EIS computation #############
+
     if EIS_IS || EIS_TDS
         #
         # Transient part of measurement functional 
@@ -323,8 +326,9 @@ function run_new(;physical_model_name="",
 
         w = 2*pi*f_range[1]
 
+        
         # Frequency loop
-        while w < 2*pi*f_range[2]
+        while w < 2*pi*f_range[2]            
             print_bool && @show w
             push!(all_w,w)
             if EIS_IS
@@ -337,23 +341,30 @@ function run_new(;physical_model_name="",
             
             if EIS_TDS
                 # Similar API, but use the the measurement functional themselves    
+                
                 ztime=timedomain_impedance(sys,w,steadystate,excited_spec,excited_bc,excited_bcval,meas_stdy, meas_tran,
-                                    tref=tref,
-                                    fit=true)
+                                    tref=tref, excitation_amplitude=1.0e-3,
+                                    fit=true, tol_amplitude=1.0e-3, fit_window_size=20.0, plot_amplitude=true)
                 push!(z_timedomain,1.0/ztime)
                 print_bool && @show ztime
             end
 
-
+            
+            
             
             # growth factor such that there are 10 points in every order of magnitude
             # (which is consistent with "freq" list below)
-            #w=w*1.25892           
+            #w=w*1.25892     
+            
             w = w*f_range[3]
+            
         end
-
-
+# # # # ##############################
+# # # #         pyplot = true 
+# # # #         ##########################################
         if pyplot
+            EIS_TDS_figure_num = 323
+            
             function positive_angle(z)
                 ϕ=angle(z)
                 if ϕ<0.0
@@ -394,22 +405,30 @@ function run_new(;physical_model_name="",
             PyPlot.grid()
             ax.set_aspect(aspect=1.0)
             if EIS_IS
-                plot(real(z_freqdomain),-imag(z_freqdomain),label="\$i\\omega\$", color=:red)
+                PyPlot.plot(real(z_freqdomain),-imag(z_freqdomain),label="\$i\\omega\$", color=:red)
             end
             if EIS_TDS
-                plot(real(z_timedomain),-imag(z_timedomain),label="\$\\frac{d}{dt}\$", color=:green)
+                PyPlot.plot(real(z_timedomain),-imag(z_timedomain),label="\$\\frac{d}{dt}\$", color=:green)
             end
             PyPlot.xlabel("Re")
             PyPlot.ylabel("Im")
             PyPlot.legend(loc="lower center")
             PyPlot.tight_layout()
             pause(1.0e-10)
+            
+            ###########################
+            pause(1000)
+            ###########################
         end
         
         if out_df_bool
             EIS_df = DataFrame(f = all_w/(2*pi), Z = z_freqdomain)
             return EIS_df
         end
+        
+# # # # #         ###########
+# # # # #         pause(1000)
+# # # # #         ##########
     end
 
     #########################################
@@ -634,7 +653,7 @@ function run_new(;physical_model_name="",
             # tstep to potential phi
             sys.boundary_values[index_driving_species,1]=phi
             
-            @show parameters.phi_eq, phi
+            #@show parameters.phi_eq, phi
             
             control.Δt = tstep
             evolve!(U, U0, sys, [0, tstep], control=control)

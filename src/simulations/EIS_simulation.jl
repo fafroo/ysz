@@ -27,6 +27,9 @@ mutable struct EIS_simulation <: abstract_simulation
   checknodes::Any
   fitness_factor::Float64
   #
+  use_TDS::Int16
+  tref::Float64
+  #
   use_DRT::Bool
   DRT_control::DRT_control_struct
   DRT_draw_semicircles::Bool
@@ -44,7 +47,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC", plot_legend=true)
+function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC", plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -64,6 +67,9 @@ function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", dx_exp=-9, f_ran
         #
         this.checknodes = EIS_get_checknodes_geometrical(f_range...)
         this.fitness_factor = fitness_factor
+        #
+        this.use_TDS = use_TDS
+        this.tref = tref
         #
         this.use_DRT = use_DRT
         this.DRT_control = DRT_control
@@ -253,6 +259,7 @@ function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_
   EIS_df = ysz_experiments.run_new(
       pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, bias=SIM.bias, f_range=SIM.f_range,
       dx_exp=SIM.dx_exp,
+      EIS_TDS=(SIM.use_TDS > 0 ? true : false), tref=SIM.tref,
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in

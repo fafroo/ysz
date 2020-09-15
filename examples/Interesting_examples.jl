@@ -255,3 +255,31 @@ ysz_fitting.simple_run(
                                           ,use_experiment=true);
 
                                           
+################ CORRECTED ######################## ysz_model_GAS_LoMA ############################
+#  ! ! ! ! ! ! use     ysz_model_GAS_LoMA !!!!   ->>> all good... 4 EIS_and CV  -->>> capturing the non-monotony !!!
+##### EXP
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
+                            prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                            prms_values=(1.0, 1.0, 1.0, 21.8106, 27.898, 20.4851, -0.697806, -0.434529, 0.229967, 9.3e-11, 0.85, 3.04504)
+                            ,use_experiment=true);
+
+# 4 CV ... convex fail ... but the best with EXP      
+#  # # #  ##  # # #                                             ##  # # # ##  ##  ##  !!! !!! WEIRD discontinuous shift in EIS >>>
+#
+ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
+                                   prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                                   prms_values=(1.0, 1.0, 1.0, 27.345, 27.5299, 20.3249, -0.590819, 0.0340098, 0.758359, 9.3e-11, 0.85, 0.0374857)
+                                   ,use_experiment=true);          
+                                   
+###### LoMA
+# 4 EIS ... not capturing the non-monotony ... even with extended search area
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
+                                   prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                                   prms_values=(0.0, 0.0, 0.0, 23.536793805295844, 26.44428245339161, 21.308492340939917, -0.5500221642340698, 0.029112401256050482, -0.020889037864824146, 9.3e-11, 0.85, 2.0593360762011694)
+                                   ,use_experiment=true);
+                                    
+# 4 CV ... not capturing the shape ... convex fail
+ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
+                                   prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                                   prms_values=(0.0, 0.0, 0.0, 24.115354988076593, 25.42144932757581, 22.139558838796805, -0.7999773681257123, -0.5118625772334413, -0.020915586937639292, 9.3e-11, 0.85, 0.5824816856107942)
+                                   ,use_experiment=true);
