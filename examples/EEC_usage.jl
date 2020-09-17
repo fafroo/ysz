@@ -95,5 +95,6 @@ fit_minimizer = fit_info.fit_minimizer
 
 
 
-
+# concatening data via bias!
+ysz_fitting.get_joint_EEC_data_via_bias(EEC_data_1, EEC_data_2)
 

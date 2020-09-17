@@ -193,7 +193,7 @@ function equilibrium_boundary_conditions(this::YSZParameters)
     #@show yOs
     #@show yAs
     #@show y0    
-    return y0_activity_to_phi(this, a_y0), a_y0/(1 + a_y0),  a_yAs/(1 + a_yAs), a_yOs/(1 + a_yOs)
+    return y0_activity_to_phi(this, a_y0), (a_y0/(1 + a_y0))+0.0,  a_yAs/(1 + a_yAs), a_yOs/(1 + a_yOs)
 end
 
 # boundary conditions
@@ -298,20 +298,18 @@ end
 function flux!(f,u, edge, this::YSZParameters)
     uk=viewK(edge,u)
     ul=viewL(edge,u)
-    f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])    
+    f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
     
     bp,bm=fbernoulli_pm(
-        (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu))
-        *(log(1-ul[iy]) - log(1-uk[iy]))
+        (log(1-ul[iy]) - log(1-uk[iy]))
         -
-        this.zA*this.e0/this.T/this.kB*(
-            1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy])
-        )*(ul[iphi] - uk[iphi])
+        this.zA*this.e0/this.T/this.kB
+        *(ul[iphi] - uk[iphi])
     )
     f[iy]= (
         this.DD
         *
-        (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))
+        (true ? (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))^2 : 1)
         *
         this.mO*this.m_par*(1.0-this.nu)/this.vL
         *
@@ -332,7 +330,7 @@ function exponential_oxide_adsorption(this::YSZParameters, u; debug_bool=false)
         # O-2(y) + V(s) => O-2(s) + V(y)
         if Bool(this.expA)
           the_fac = 1
-        else
+        else  
           # LoMA
           the_fac = (
                 (u[iy]*(1-u[iy]))

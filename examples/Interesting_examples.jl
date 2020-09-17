@@ -283,3 +283,20 @@ ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [40, 60, 80, 100], 0.0, da
                                    prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
                                    prms_values=(0.0, 0.0, 0.0, 24.115354988076593, 25.42144932757581, 22.139558838796805, -0.7999773681257123, -0.5118625772334413, -0.020915586937639292, 9.3e-11, 0.85, 0.5824816856107942)
                                    ,use_experiment=true);
+
+# e_fac ... R_ohm static ... example
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
+                                   prms_names=["e_fac", "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                                   prms_values=([0.0, 0.1, 0.2, 0.3, 0.4], 1.0, 1.0, 1.0, 20.8106, 27.898, 20.4851, -0.097806, -0.434529, 0.229967, 9.3e-11, 0.85, 3.04504)
+                                   ,use_experiment=false);                                   
+                                   
+# e_fac ... R_ohm varying !!!! 
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
+                                   prms_names=["e_fac", "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                                   prms_values=([0.0, 0.1, 0.2, 0.3, 0.4], 1.0, 1.0, 1.0, 23.8106, 27.898, 20.4851, -0.097806, -0.434529, 0.229967, 9.3e-11, 0.85, 3.04504)
+                                   ,use_experiment=false);
+# e_fac ... HF right turn
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
+                                   prms_names=["e_fac", "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                                   prms_values=([0.1, 0.2, 0.3, 0.4], 1.0, 1.0, 1.0, 21.8106, 27.898, 20.4851, -0.697806, -0.434529, 0.229967, 9.3e-11, 0.85, 3.04504)
+                                   ,use_experiment=false);

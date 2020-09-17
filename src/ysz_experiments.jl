@@ -24,8 +24,8 @@ using LinearAlgebra
 ##########################################
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
-model_label = "ysz_model_GAS_LoMA"
-#model_label = "ysz_model_GAS_LoMA_overvoltage"
+#model_label = "ysz_model_GAS_LoMA"
+model_label = "ysz_model_GAS_LoMA_overvoltage"
 #model_label = "ysz_shn"
 #model_label = "ysz_shn_overvoltage"
 #model_label = "ysz_shn_overvoltage__TEMP"
@@ -50,10 +50,10 @@ function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
   point_marker_size = 5
   
   
-  subplot(211)
-  plot((x_factor)*X[:],U[iy,:],label="y")
+  PyPlot.subplot(211)
+  PyPlot.plot((x_factor)*X[:],U[iy,:],label="y")
   for (i, idx) in enumerate(surface_species)
-    plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
+    PyPlot.plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
   end
   PyPlot.ylim(-0.5,1.1)
   PyPlot.xlim(-0.01*plotted_length, plotted_length)
@@ -61,8 +61,8 @@ function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
   PyPlot.legend(loc="best")
   PyPlot.grid()
   
-  subplot(212)
-  plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
+  PyPlot.subplot(212)
+  PyPlot.plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
   PyPlot.xlim(-0.01*plotted_length, plotted_length)
   PyPlot.xlabel(x_label)
   PyPlot.legend(loc="best")
@@ -205,13 +205,14 @@ function run_new(;physical_model_name="",
     control.damp_growth=1.3
 
 ##### used for diplaying initial conditions vs steady state    
-#     figure(111)
-#     plot_solution(inival, X, 10^9)
-#     
-#     steadystate = unknowns(sys)
-#     solve!(steadystate, inival, sys, control=control)
-#     plot_solution(steadystate, X, 10^9)
-#     return
+# #     figure(111)
+# #     plot_solution(inival, X, 10^9)
+# #     
+# #     steadystate = unknowns(sys)
+# #     solve!(steadystate, inival, sys, control=control)
+# #     plot_solution(steadystate, X, 10^9)
+# #     println(sum(steadystate))
+# #     return
 ################
 
     @show parameters.phi_eq
@@ -308,6 +309,7 @@ function run_new(;physical_model_name="",
           throw(Exception)
         end
 
+        
         # Create impedance system
         isys=VoronoiFVM.ImpedanceSystem(sys,steadystate,excited_spec, excited_bc)
 
@@ -328,7 +330,8 @@ function run_new(;physical_model_name="",
 
         
         # Frequency loop
-        while w < 2*pi*f_range[2]            
+        while w < 2*pi*f_range[2]
+            
             print_bool && @show w
             push!(all_w,w)
             if EIS_IS
