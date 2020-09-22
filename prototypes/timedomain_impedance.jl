@@ -136,13 +136,6 @@ function timedomain_impedance(sys, # time domain system
         if t_settle>1.0e9 &&  measured_max* measured_min <0.0 && t_current*ω>4π
             relative_amplitude_mismatch=(abs(measured_max)-abs(measured_min))/(abs(measured_min)+abs(measured_max))
             if abs(relative_amplitude_mismatch)<tol_amplitude
-                
-                
-                
-                @show yeah = 666
-                
-                
-                
                 t_settle=t_current
                 settled_amplitude=measured_max
             end

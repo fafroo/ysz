@@ -255,7 +255,17 @@ ysz_fitting.simple_run(
                                           ,use_experiment=true);
 
                                           
-################ CORRECTED ######################## ysz_model_GAS_LoMA ############################
+                                          
+                                          
+                                          
+                                          
+                                          
+                                          
+                                          
+                                          
+                                          
+######################################################################################################                                          
+################ CORRECTED ######################## ysz_model_GAS_LoMA ###############################
 #  ! ! ! ! ! ! use     ysz_model_GAS_LoMA !!!!   ->>> all good... 4 EIS_and CV  -->>> capturing the non-monotony !!!
 ##### EXP
 ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
@@ -284,6 +294,7 @@ ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [40, 60, 80, 100], 0.0, da
                                    prms_values=(0.0, 0.0, 0.0, 24.115354988076593, 25.42144932757581, 22.139558838796805, -0.7999773681257123, -0.5118625772334413, -0.020915586937639292, 9.3e-11, 0.85, 0.5824816856107942)
                                    ,use_experiment=true);
 
+################# e_fac --------- PAR STUDY -------------- ###################                                   
 # e_fac ... R_ohm static ... example
 ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
                                    prms_names=["e_fac", "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
@@ -300,3 +311,18 @@ ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_
                                    prms_names=["e_fac", "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
                                    prms_values=([0.1, 0.2, 0.3, 0.4], 1.0, 1.0, 1.0, 21.8106, 27.898, 20.4851, -0.697806, -0.434529, 0.229967, 9.3e-11, 0.85, 3.04504)
                                    ,use_experiment=false);
+                                   
+
+##################### FINALL CORRECT MODEL #######################
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                                          prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC", "e_fac"     ], 
+                                          prms_values=(0.0, 1.0, 0.0, 24.4631, 21.7136, 21.5347, -0.0113085, -0.0926479, 0.179689, 9.3e-11, 0.85, 3.70135, 0.0)
+                                          ,use_experiment=true);
+                                          
+# EEL ... but pretty much the same as the above LEL                                          
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                                          prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC", "e_fac"     ], 
+                                          prms_values=(1.0, 1.0, 0.0, 24.1783, 21.7137, 21.5419, 0.0107187, -0.0862911, 0.185543, 9.3e-11, 0.85, 3.74939, 0.0)
+                                          ,use_experiment=true);                                      
+                    
+                                   

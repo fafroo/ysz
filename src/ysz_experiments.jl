@@ -24,8 +24,8 @@ using LinearAlgebra
 ##########################################
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
-#model_label = "ysz_model_GAS_LoMA"
-model_label = "ysz_model_GAS_LoMA_overvoltage"
+model_label = "ysz_model_GAS_LoMA"
+#model_label = "ysz_model_GAS_LoMA_shared"
 #model_label = "ysz_shn"
 #model_label = "ysz_shn_overvoltage"
 #model_label = "ysz_shn_overvoltage__TEMP"
@@ -188,6 +188,14 @@ function run_new(;physical_model_name="",
     # set boundary conditions
     model_symbol.set_typical_boundary_conditions!(sys, parameters)
     
+    
+    
+    
+    @show model_symbol.equilibrium_boundary_conditions(parameters)
+    
+    
+    
+    
     # get initial value of type unknows(sys) and initial voltage
     inival = model_symbol.get_typical_initial_conditions(sys, parameters)
     phi0 = parameters.phi_eq
@@ -197,7 +205,7 @@ function run_new(;physical_model_name="",
     control=VoronoiFVM.NewtonControl()
     control.verbose=false
     control.tol_linear=1.0e-4
-    control.tol_relative=1.0e-5
+    control.tol_relative=1.0e-8
     #control.tol_absolute=1.0e-4
     #control.max_iterations=200
     control.max_lureuse=0
@@ -333,6 +341,7 @@ function run_new(;physical_model_name="",
         while w < 2*pi*f_range[2]
             
             print_bool && @show w
+            #@show w
             push!(all_w,w)
             if EIS_IS
                 # Here, we use the derivatives of the measurement functional

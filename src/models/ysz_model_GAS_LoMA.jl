@@ -6,11 +6,11 @@ module ysz_model_GAS_LoMA
 #
 # [x] boundary conditions
 # [x] initial conditions
-# [x] equilibrium phi
+# [x] equilibrium quantities
 # [x] meas_tran & meas_stdy
 # [x] output species, names
-# [ ] function set_parameters
-# [ ] changed module name :)
+# [x] function set_parameters
+# [x] changed module name :)
 
 using Printf
 using VoronoiFVM
@@ -25,8 +25,15 @@ const surface_names = ("yAs", "yOs")
 
 const index_driving_species = iphi
 
+mutable struct reaction_struct
+  K
+  DG
+end
+
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
 
+    test::reaction_struct
+    
     # adsorption from YSZ
     A0::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
     DGA::Float64 # difference of gibbs free energy of adsorption  [ J ]
@@ -53,6 +60,9 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     
     # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
     OC::Float64
+    
+    # overvoltage influence - dimensionless number used as "supplied energy" = -e_fac*(e0)*\eta
+    e_fac::Float64
     
     
     
@@ -97,6 +107,8 @@ end
 
 function YSZParameters(this)
     
+    this.test = reaction_struct(1,2)
+    
     this.e0   = 1.602176565e-19  #  [C]
     this.eps0 = 8.85418781762e-12 #  [As/(Vm)]
     this.kB   = 1.3806488e-23  #  [J/K]
@@ -110,26 +122,29 @@ function YSZParameters(this)
     this.DGA= 0.0905748 * this.e0 # this.e0 = eV
     this.betaA = 0.5
     this.SA= 10^0.0
-    this.expA= 0
+    this.expA= 1
     
     # electron-transfer reaction
     this.R0= 10.0^22
     this.DGR= -0.708014 * this.e0
     this.betaR= 0.5
     this.SR= 10^0.0
-    this.expR = 0
+    this.expR = 1
     
     # oxygen adsorption from gas
     this.K0= 10.0^20
     this.DGO= 0.0905748 * this.e0 # this.e0 = eV
     this.betaO = 0.5
     this.SO= 10^0.0
-    this.expO=0
+    this.expO= 1
     
     this.L=2.3560245927364395e-6
     
     # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
     this.OC = 1/4
+    
+    #
+    e_fac = 0.0
     
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
@@ -182,8 +197,13 @@ function phi_to_y0(this::YSZParameters, phi)
 end
 
 function equilibrium_boundary_conditions(this::YSZParameters)
+    phi_eq =  (
+                (this.kB*this.T*log(sqrt(this.pO2)*((1-this.yB)/this.yB)) - this.DGO/2.0 - this.DGR + this.DGA)
+                /
+                ((+2*this.e_fac + 2)*this.e0)
+              )
     a_yOs = this.pO2^(1/2.0)*exp(-this.DGO/(2 * this.kB * this.T))
-    a_yAs = a_yOs*exp(-this.DGR/(this.kB * this.T))
+    a_yAs = a_yOs*exp(-(this.DGR + 2*this.e_fac*this.e0*phi_eq)/(this.kB * this.T))
     a_y0 = a_yAs*exp(this.DGA/(this.kB * this.T))
     
     #yOs = a_yOs/(1 + a_yOs)
@@ -193,7 +213,8 @@ function equilibrium_boundary_conditions(this::YSZParameters)
     #@show yOs
     #@show yAs
     #@show y0    
-    return y0_activity_to_phi(this, a_y0), (a_y0/(1 + a_y0))+0.0,  a_yAs/(1 + a_yAs), a_yOs/(1 + a_yOs)
+    
+    return phi_eq, a_y0/(1 + a_y0),  a_yAs/(1 + a_yAs), a_yOs/(1 + a_yOs)
 end
 
 # boundary conditions
@@ -257,13 +278,24 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
   found = false
   for (i,name_in) in enumerate(prms_names)
     found = false
+    # supposing there is at most one '.'
+    if occursin('.', name_in)
+      (name_in, attribute_name_in) = split(name_in, '.')
+    end
     for name in fieldnames(typeof(this))
       if name==Symbol(name_in)
         if name_in in ["A0", "R0", "K0", "SA", "SR", "SO"]
           setfield!(this, name, Float64(10.0^prms_values[i]))
         elseif name_in in ["DGA", "DGR", "DGO"]
           setfield!(this, name, Float64(prms_values[i]*this.e0))   #  [DGA] = eV
-        else 
+        elseif name_in in ["test"]
+          actual_struct = getfield(this, name)
+          for attribute_name in fieldnames(typeof(actual_struct))
+            if attribute_name==Symbol(attribute_name_in)
+              setfield!(actual_struct, attribute_name, prms_values[i])
+            end
+          end
+        else
           setfield!(this, name, Float64(prms_values[i]))
         end
         found = true
@@ -363,17 +395,7 @@ function exponential_oxide_adsorption(this::YSZParameters, u; debug_bool=false)
     end
     if debug_bool
       print("  A > ")
-      a_reac = (
-                  (u[iy]/(1-u[iy]))
-                  *
-                  ((1-u[iyAs])/u[iyAs])
-                )^(this.betaA*this.SA)
-      a_prod = (
-                  (u[iy]/(1-u[iy]))
-                  *
-                  ((1-u[iyAs])/u[iyAs])
-                )^(-(1 - this.betaA)*this.SA)
-      @show the_fac, rate, a_reac, a_prod
+      @show the_fac, rate, this.A0, this.DGA, this.betaA, this.SA, this.expA
     end
     return rate
 end
@@ -394,11 +416,19 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
         rate = (
             (this.R0/this.SR)*the_fac
             *(
-                exp(-this.betaR*this.SR*this.DGR/(this.kB*this.T))
+		exp(-this.betaR*this.SR*(
+                  this.DGR
+                  +
+                  this.e_fac*2*this.e0*u[iphi]
+                  )/(this.kB*this.T))
                 *(u[iyAs]/(1-u[iyAs]))^(-this.betaR*this.SR)
                 *(u[iyOs]/(1-u[iyOs]))^(this.betaR*this.SR)
                 - 
-                exp((1.0-this.betaR)*this.SR*this.DGR/(this.kB*this.T))
+                exp((1.0-this.betaR)*this.SR*(
+                  this.DGR
+                  +
+                  this.e_fac*2*this.e0*u[iphi]
+                  )/(this.kB*this.T))
                 *(u[iyAs]/(1-u[iyAs]))^((1.0-this.betaR)*this.SR)
                 *(u[iyOs]/(1-u[iyOs]))^(-(1.0-this.betaR)*this.SR)
             )
