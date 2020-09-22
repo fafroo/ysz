@@ -125,7 +125,7 @@ import Base.string
 
 include("../src/general_supporting_stuff.jl")
 include("../src/import_experimental_data.jl")
-include("../src/export_simulated_data.jl")
+#include("../src/export_simulated_data.jl")
 
 include("../src/simulations/general_simulation.jl")
 include("../src/simulations/CV_simulation.jl")
@@ -1128,57 +1128,50 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   
   
   
-  prms_names=["kappaA", "kappaR", "kappaO", 
-              "rA", "rR", "rO",         "rB", "rC",     
+  prms_names=["expA", "expR", "expO", 
+              "A0", "R0", "K0",              
               "DGA", "DGR", "DGO",     
-              "DD", "nu", "separate_vacancy",       "sites_Om0", "sites_Om1", "e_fac"  ]
+              "DD", "nu",      "OC", "e_fac"  ]
   
-  prms_lists = (0.0, 0.0, 0.0, 27.057187118792626, 25.13293375680216, 20.65779081447695, 0.0, 0.0, 0.1798575807353102, -0.006993821579013175, 0.0347866985461243, 9.0e-11, 0.85, true, 0.25, 0.5, 1.8e-6)
-  prms_lists = (0.0, 0.0, 0.0, 27.07872827199363, 27.221166964172173, 20.62519730240254, 0.0, 0.0, -0.08588173549154003, 0.03803129389532403, -0.09923645940221279, 9.0e-11, 0.85, true, 0.25, 0.5, 1.8e-6)
-  prms_lists = (0.0, 0.0, 0.0, 23.0, 23.0, 23.0, 0.0, 0.0, 0.1, 0.1, -0.3, 9.0e-11, 0.85, true, 0.25, 0.5, 1.8e-6)
-  prms_lists = (0.0, 0.0, 0.0, 21.72795464386497, 26.48447730617659, 16.48324414002768, 0.0, 0.0, 0.07220245585626828, 0.14297336797238616, -0.37994612943000317, 9.3e-11, 0.85, true, 1.3591318464628224, 0.5)
   
-#   prms_lists = (
-#     0.0, 0.0, 0.0,
-#     # rX
-#     collect(23.0 : 1.0 : 23.0),  
-#     collect(23.0 : 1.0 : 23.0),  
-#     collect(23.0 : 1.0 : 23.0), 
-#     0.0,
-#     0.0,
-#     # DGX
-#     collect(0.1 : 1.0 : 0.1), 
-#     collect(0.1 : 1.0 : 0.1),
-#     collect(0.1 : 1.0 : 0.1),
-#         
-#     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
-#     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9., 12.3)e-11 for "OLD_MONO_100"
-#     [9.3e-11], 
-#     0.85, 
-#     false, 
-#     0.25, 
-#     0.5,
-#     0.0
-#   )  
+   prms_lists = (
+     1.0, 1.0, 0.0,
+     # rX
+     collect(21.5 : 1.0 : 21.5),  
+     collect(21.5 : 1.0 : 21.5),  
+     collect(21.5 : 1.0 : 21.5), 
+     # DGX
+     collect(-0.5 : 0.1 : 0.5), 
+     collect(-0.5 : 0.1 : 0.5),
+     collect(-0.5 : 0.1 : 0.5),
+         
+     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
+     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9.3, 12.3)e-11 for "OLD_MONO_100"
+     [9.3e-11], 
+     0.85, 
+     
+     0.25, 
+     0.0
+   )  
   
   
   mask          =(0, 0, 0,
-                  1, 1, 1,        0, 0,
                   1, 1, 1,
-                  0, 0,     0,        0, 0, 	0)
+                  1, 1, 1,
+                  0, 0,       1, 0)
   lower_bounds=(0.0, 0.0, 0.0,
-                15.5, 15.9, 15.7,        5, 5,       
-                -0.8, -0.8, -0.8,     
-                [1]*1.0e-13, 0.01, true,       0.0, 0.0,     0.0     )
+                15.5, 15.9, 15.7,       
+                -0.8, -0.8, -0.8,
+                [1]*1.0e-13, 0.01,     0.0, 0.0)
   upper_bounds=(1.0, 1.0, 1.0,
-                27.5, 27.9, 27.7,        25, 25,        
-                0.8, 0.8, 0.8,     
-                [1]*1.0e-8, 0.99, true,       Inf, Inf,      3.0)
+                27.5, 27.9, 27.7,              
+                0.8, 0.8, 0.8,
+                [1]*1.0e-8, 0.99,       Inf, Inf)
                 
   scripted_tuple =(1, 1, 1,
-                  1, 1, 1,        1, 1,
+                  1, 1, 1,       
                   1, 1, 1,
-                  1, 1,     1,        1, 1,    	1)
+                  1, 1,           1, 1)
 # # # # # #   prms_names = ["rA", "rR", "rO", "DGA", "DGR", "DGO", "DD"]
 # # # # # #   # BE CAREFUL! data are saved to files only with TWO digits after comma!
 # # # # # #   prms_lists = (
@@ -1193,11 +1186,11 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
 # # # # # #     [12.3e-11]
 # # # # # #   )  
   TC = 800
-  pO2 = [100]
+  pO2 = [40, 60, 80, 100]
   bias = 0.0
 
   data_set = "OLD_MONO_100"
-  simulations = ["CV"]
+  simulations = ["EIS"]
   
   
   
@@ -1205,13 +1198,13 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   #######################################################  
   # preparing bash output ###############################
   
-  # if true, no script is called! Just direclty run_par_study_script_wrap()
-  direct_bool = true
+  ### if true, no script is called! Just direclty run_par_study_script_wrap()
+  direct_bool = false
   
             SIM_fitting_mode = true    #!#!#!#!#!#!#!#!#!#!
   
-  #bash_command = "sbatch"
-  bash_command = "echo"
+  bash_command = "sbatch"
+  #bash_command = "echo"
   #bash_command = "julia"
   
   #mode = "test_one_prms"

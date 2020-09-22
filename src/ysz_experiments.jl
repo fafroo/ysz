@@ -24,8 +24,8 @@ using LinearAlgebra
 ##########################################
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
-model_label = "ysz_model_GAS_LoMA"
-#model_label = "ysz_model_GAS_LoMA_shared"
+#model_label = "ysz_model_GAS_LoMA"
+model_label = "ysz_model_GAS_LoMA_shared"
 #model_label = "ysz_shn"
 #model_label = "ysz_shn_overvoltage"
 #model_label = "ysz_shn_overvoltage__TEMP"
@@ -187,13 +187,6 @@ function run_new(;physical_model_name="",
 
     # set boundary conditions
     model_symbol.set_typical_boundary_conditions!(sys, parameters)
-    
-    
-    
-    
-    @show model_symbol.equilibrium_boundary_conditions(parameters)
-    
-    
     
     
     # get initial value of type unknows(sys) and initial voltage
