@@ -39,7 +39,7 @@ function string(SIM::CV_simulation)
   return "CV_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CV_simulation(TC, pO2; data_set="MONO_110", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=10.0, plot_legend=true)
+function CV_simulation(TC, pO2; data_set="MONO_110", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=1.0, plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -71,7 +71,7 @@ function CV_simulation(TC, pO2; data_set="MONO_110", upp_bound=1.0, low_bound=-1
   return output
 end
 
-function CV_simulation(TC, pO2, bias; data_set="MONO_110", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=10.0, plot_legend=true)
+function CV_simulation(TC, pO2, bias; data_set="MONO_110", upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=1.0, plot_legend=true)
     CV_simulation(TC, pO2; data_set=data_set, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size, fitness_factor=fitness_factor, plot_legend=plot_legend)
 end
 

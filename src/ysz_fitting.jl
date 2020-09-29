@@ -1128,69 +1128,55 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   
   
   
-  prms_names=["expA", "expR", "expO", 
-              "A0", "R0", "K0",              
-              "DGA", "DGR", "DGO",     
-              "DD", "nu",      "OC", "e_fac"  ]
+  prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"]
+  #prms_lists=(1.0, 1.0, 1.0, 23.8528, 21.6247, 20.8442, 0.322754, -0.120249, -0.0687233, 9.3e-11, 0.85, 1.75728, 8.9117, 0.0)
+  prms_lists=(1.0, 1.0, 1.0, 21.94051183287039, 21.553329968593776, 20.965273571151613, 0.09841737344413018, -0.091875316601428, 0.04652480321433385, 9.3e-11, 0.85, 6.478278331551995, 7.546431173856936, 0.0)
   
-  
-   prms_lists = (
-     1.0, 1.0, 0.0,
-     # rX
-     collect(21.5 : 1.0 : 21.5),  
-     collect(21.5 : 1.0 : 21.5),  
-     collect(21.5 : 1.0 : 21.5), 
-     # DGX
-     collect(-0.5 : 0.1 : 0.5), 
-     collect(-0.5 : 0.1 : 0.5),
-     collect(-0.5 : 0.1 : 0.5),
-         
-     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
-     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9.3, 12.3)e-11 for "OLD_MONO_100"
-     [9.3e-11], 
-     0.85, 
-     
-     0.25, 
-     0.0
-   )  
+#   prms_lists = (
+#      1.0, 1.0, 0.0,
+#      # rX
+#      collect(21.5 : 1.0 : 21.5),  
+#      collect(21.5 : 1.0 : 21.5),  
+#      collect(21.5 : 1.0 : 21.5), 
+#      # DGX
+#      collect(-0.5 : 0.1 : 0.5), 
+#      collect(-0.5 : 0.1 : 0.5),
+#      collect(-0.5 : 0.1 : 0.5),
+#          
+#      # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
+#      # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9.3, 12.3)e-11 for "OLD_MONO_100"
+#      [9.3e-11], 
+#      0.85, 
+#      
+#      0.25, 
+#      0.0
+#    )  
   
   
   mask          =(0, 0, 0,
                   1, 1, 1,
                   1, 1, 1,
-                  0, 0,       1, 0)
+                  0, 0,       1, 1, 0)
   lower_bounds=(0.0, 0.0, 0.0,
                 15.5, 15.9, 15.7,       
                 -0.8, -0.8, -0.8,
-                [1]*1.0e-13, 0.01,     0.0, 0.0)
+                [1]*1.0e-13, 0.01,     0.0, 0.1, 0.0)
   upper_bounds=(1.0, 1.0, 1.0,
                 27.5, 27.9, 27.7,              
                 0.8, 0.8, 0.8,
-                [1]*1.0e-8, 0.99,       Inf, Inf)
+                [1]*1.0e-8, 0.99,       Inf, 10.0, Inf)
                 
   scripted_tuple =(1, 1, 1,
                   1, 1, 1,       
                   1, 1, 1,
-                  1, 1,           1, 1)
-# # # # # #   prms_names = ["rA", "rR", "rO", "DGA", "DGR", "DGO", "DD"]
-# # # # # #   # BE CAREFUL! data are saved to files only with TWO digits after comma!
-# # # # # #   prms_lists = (
-# # # # # #     collect(21.0 : 1.0 : 21.0),  
-# # # # # #     collect(21.0 : 1.0 : 21.0),  
-# # # # # #     collect(21.0 : 1.0 : 21.0), 
-# # # # # #     collect(-0.0 : 1.0 : 0.0), 
-# # # # # #     collect(-0.0 : 1.0 : 0.0), 
-# # # # # #     collect(-0.0 : 1.0 : 0.0),
-# # # # # #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.92, 5.35, 9.05)e-13
-# # # # # #     # hint: TC = (700, 750, 800, 850)  => DD = ( ??, ??, 9.18, 12.3)e-11
-# # # # # #     [12.3e-11]
-# # # # # #   )  
+                  1, 1,           1, 1, 1)
+ 
   TC = 800
-  pO2 = [40, 60, 80, 100]
+  pO2 = [100]
   bias = 0.0
 
   data_set = "OLD_MONO_100"
-  simulations = ["EIS"]
+  simulations = ["EIS", "CV"]
   
   
   
@@ -1199,7 +1185,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   # preparing bash output ###############################
   
   ### if true, no script is called! Just direclty run_par_study_script_wrap()
-  direct_bool = false
+  direct_bool = true
   
             SIM_fitting_mode = true    #!#!#!#!#!#!#!#!#!#!
   
@@ -1272,8 +1258,8 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
     return SIM_fitting
   end
                                     
-  pyplot = false
-  plot_each_x_th = 45
+  pyplot = true
+  plot_each_x_th = 50
   print_only_result = true
                                     
   #######################################################

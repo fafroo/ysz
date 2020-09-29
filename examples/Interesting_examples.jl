@@ -297,19 +297,19 @@ ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [40, 60, 80, 100], 0.0, da
 ################# e_fac --------- PAR STUDY -------------- ###################                                   
 # e_fac ... R_ohm static ... example
 ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
-                                   prms_names=["e_fac", "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                                   prms_names=["e_fac", "A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG",      "DD", "nu", "OC"     ], 
                                    prms_values=([0.0, 0.1, 0.2, 0.3, 0.4], 1.0, 1.0, 1.0, 20.8106, 27.898, 20.4851, -0.097806, -0.434529, 0.229967, 9.3e-11, 0.85, 3.04504)
                                    ,use_experiment=false);                                   
                                    
 # e_fac ... R_ohm varying !!!! 
 ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
-                                   prms_names=["e_fac", "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
+                                   prms_names=["e_fac", "A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG",      "DD", "nu", "OC"     ], 
                                    prms_values=([0.0, 0.1, 0.2, 0.3, 0.4], 1.0, 1.0, 1.0, 23.8106, 27.898, 20.4851, -0.097806, -0.434529, 0.229967, 9.3e-11, 0.85, 3.04504)
                                    ,use_experiment=false);
 # e_fac ... HF right turn
 ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_MONO_100"), pyplot=1,  
-                                   prms_names=["e_fac", "expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC"     ], 
-                                   prms_values=([0.1, 0.2, 0.3, 0.4], 1.0, 1.0, 1.0, 21.8106, 27.898, 20.4851, -0.697806, -0.434529, 0.229967, 9.3e-11, 0.85, 3.04504)
+                                   prms_names=["e_fac", "A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG",      "DD", "nu", "OC"     ], 
+                                   prms_values=([0.0, 0.1, 0.2, 0.3, 0.4], 1.0, 1.0, 1.0, 21.6106, 27.898, 20.4851, -0.497806, -0.234529, 0.229967, 9.3e-11, 0.85, 3.04504)
                                    ,use_experiment=false);
                                    
 
@@ -321,8 +321,58 @@ ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, d
                                           
 # EEL ... but pretty much the same as the above LEL                                          
 ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40, 60, 80, 100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
-                                          prms_names=["expA", "expR", "expO", "A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu", "OC", "e_fac"     ], 
-                                          prms_values=(1.0, 1.0, 0.0, 24.1783, 21.7137, 21.5419, 0.0107187, -0.0862911, 0.185543, 9.3e-11, 0.85, 3.74939, 0.0)
+                                          prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "e_fac"], 
+                                          prms_values=(1.0, 1.0, 0.0, 24.1783, 21.7137, 21.5419, -0.0107187, -0.0862911, 0.185543, 9.3e-11, 0.85, 3.74939, 0.0)
                                           ,use_experiment=true);                                      
                     
                                    
+                                   
+# # # # # # 3 peaks with ARO separate_vacancy
+ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false, plot_option="Nyq Bode Rtau RC"), pyplot=1,  
+                  prms_names=["separate_vacancy", "A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                   prms_values=(true,   
+                                1.0, 1.0, 1.0,   
+                                21.9783, 22.0137, 21.5419,    
+                                -0.107187, -0.02911, -0.085543,  
+                                9.3e-11, 0.85,      10., 15.,  0.0)
+                  ,use_experiment=false);
+           
+# # # # EXP -- A.DG variations makes bigger semiarc
+new = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+           prms_names=["separate_vacancy", "A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "nus", "e_fac"],
+            prms_values=(true,   
+                         1.0, 1.0, 1.0,   
+                         21.9783, 21.8137, 20.9419,    
+                         [0.0, 0.2, 0.4, 0.6, 0.7], 0.72911, 0.285543,  
+                         9.5e-11, 0.85, [8.0], [4.], 0.85, 0.0)
+           ,use_experiment=false);
+           
+###### overvoltage doing looping :D
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                  prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                   prms_values=(1.0, 1.0, 1.0, 21.9679, 21.5724, 20.9371, 0.293345, -0.241793, -0.05, 9.3e-11, 0.85, 6.1177, 27.7853, 0.3)
+                  ,use_experiment=true);
+                  
+# EEE EIS CV ... almost fit (manually translated from EEL fit)
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                         prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                          prms_values=(1.0, 1.0, 1.0, 21.8528, 21.6247, 20.8442, 0.322754, -0.120249, -0.0687233, 9.3e-11, 0.85, 1.75728, 10.9117, 0.0)
+                         ,use_experiment=true);
+                         
+# EEE EIS CV ... relatively good fit for both CV and EIS 
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                  prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                   prms_values=(1.0, 1.0, 1.0, 21.94051183287039, 21.553329968593776, 20.965273571151613, 0.09841737344413018, -0.091875316601428, 0.04652480321433385, 9.3e-11, 0.85, 6.478278331551995, 7.546431173856936, 0.0)
+                  ,use_experiment=true);
+                  
+# EEC EIS CV .. fitnes factos {1, 10} ... good fit for both ... only 2 peaks
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                  prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                   prms_values=(1.0, 1.0, 1.0, 24.383816208538917, 21.94866414517787, 20.68161992890677, 0.1380699169577035, -0.22933373067502555, -0.23743440380456354, 9.3e-11, 0.85, 2.7481343742171562, 2.930552174417333, 0.0)
+                  ,use_experiment=true);
+
+# EEC EIS CV ... fitness factors {1, 1} ... very good EIS fit ... 3 peaks
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                  prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                   prms_values=(1.0, 1.0, 1.0, 21.96912506564684, 21.569512049276458, 20.93977987957153, 0.1241112223034025, -0.10660629726868907, -0.006580383278506099, 9.3e-11, 0.85, 5.848806563958082, 8.27404376722011, 0.0)
+                  ,use_experiment=true);

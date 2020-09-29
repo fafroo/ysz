@@ -106,6 +106,12 @@ function make_array_from_string(input)
   end
 end
 
+export around
+function around(A, bias, count)
+  return collect(A-bias : 2.0*bias/(count-1) : A+bias)
+end
+       
+
 function printfields(this)
     for name in fieldnames(typeof(this))
         @printf("%8s = ",name)
