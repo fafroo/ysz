@@ -258,6 +258,13 @@ ysz_fitting.simple_run(
                                           
                                           
                                           
+# Hebb-Wagner 2 ... extended search... biases .... hm... 
+Hebb_new = ysz_fitting.run_EEC_fitting(TC=[800], pO2=[2], bias=collect(0.3 : 0.05 : 0.6), data_set="HebbWagner_110", 
+                      f_interval="auto", succes_fit_threshold=0.004,
+                      #init_values = [6.689345, 0.0, 20.0, 0.009169754, 0.99551207, 76.7828, 0.00026448714, 0.71030164],
+                      #fixed_prms_names=["L2"], fixed_prms_values=[0.0],
+                      save_file_bool=false, save_to_folder="../data/EEC/", file_name="testov.txt",
+                      plot_bool=true, plot_legend=false, plot_best_initial_guess=false, plot_fit=true, use_DRT=false);
                                           
                                           
                                           
@@ -365,14 +372,38 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [100
                    prms_values=(1.0, 1.0, 1.0, 21.94051183287039, 21.553329968593776, 20.965273571151613, 0.09841737344413018, -0.091875316601428, 0.04652480321433385, 9.3e-11, 0.85, 6.478278331551995, 7.546431173856936, 0.0)
                   ,use_experiment=true);
                   
-# EEC EIS CV .. fitnes factos {1, 10} ... good fit for both ... only 2 peaks
+# EEE EIS CV .. fitnes factos {1, 10} ... good fit for both ... only 2 peaks
 new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
                   prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
                    prms_values=(1.0, 1.0, 1.0, 24.383816208538917, 21.94866414517787, 20.68161992890677, 0.1380699169577035, -0.22933373067502555, -0.23743440380456354, 9.3e-11, 0.85, 2.7481343742171562, 2.930552174417333, 0.0)
                   ,use_experiment=true);
 
-# EEC EIS CV ... fitness factors {1, 1} ... very good EIS fit ... 3 peaks
+# EEE EIS CV ... fitness factors {1, 1} ... very good EIS fit ... 3 peaks
 new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
                   prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
                    prms_values=(1.0, 1.0, 1.0, 21.96912506564684, 21.569512049276458, 20.93977987957153, 0.1241112223034025, -0.10660629726868907, -0.006580383278506099, 9.3e-11, 0.85, 5.848806563958082, 8.27404376722011, 0.0)
                   ,use_experiment=true);
+
+# EEE EIS .... CV fitted automatically :) ... very good fit for .. with e_fac !!                  
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.CV_simulation(800, [100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                         prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                          prms_values=(1.0, 1.0, 1.0, 21.9445, 21.3697, 20.8594, 0.101682, -0.178855, 0.115187, 9.3e-11, 0.85, 6.22922, 5.75616, 0.138391)
+                         ,use_experiment=true);
+
+# EEL EIS .... CV hooked ... sensitive on pO2 ... 3 peaks... with 3_fac
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40,60,80, 100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                         prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                          prms_values=(1.0, 1.0, 0.0, 21.9258, 21.2852, 21.7927, 0.0277078, -0.280821, 0.362658, 9.3e-11, 0.85, 7.54141, 1.65368, 0.296044)
+                         ,use_experiment=true);
+                         
+# LEE EIS .... CV hooked
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40,60,80, 100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                                prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                                 prms_values=(0.0, 1.0, 1.0, 24.253505704719995, 27.895308798638613, 20.689058014097917, 0.5435406241193925, 0.2124972805439068, -0.025572361570387683, 9.3e-11, 0.85, 2.1001141086263937, 0.8016033006905938, 0.004387336514558263)
+                                ,use_experiment=true);
+
+# ELE EIS .... CV hooked ... the worse sensitivity to pO2 ... and the worse shape of Nyquisty
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40,60,80, 100], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+                                prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+                                 prms_values=(1.0, 0.0, 1.0, 22.004601154444064, 21.969771021412477, 20.64499552886603, -0.5553757496916619, -0.04999999999933978, 0.23448570623706932, 9.3e-11, 0.85, 5.925253670629901, 9.734714051365351, 0.7504653628307916)
+                                ,use_experiment=true);

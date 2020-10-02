@@ -25,51 +25,47 @@ using LinearAlgebra
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
 #model_label = "ysz_model_GAS_LoMA"
-model_label = "ysz_model_GAS_LoMA_shared"
+#model_label = "ysz_model_GAS_LoMA_shared"
 #model_label = "ysz_shn"
 #model_label = "ysz_shn_overvoltage"
 #model_label = "ysz_shn_overvoltage__TEMP"
 
-include("../src/models/$(model_label).jl")
+#include("../src/models/$(model_label).jl")
+
+include("../src/models/ysz_model_GAS_LoMA.jl")
+include("../src/models/ysz_model_GAS_LoMA_shared.jl")
+
 include("../prototypes/timedomain_impedance.jl")
 
-model_symbol = eval(Symbol(model_label))
-bulk_species = model_symbol.bulk_species
-surface_species = model_symbol.surface_species
-surface_names = model_symbol.surface_names
-iphi = model_symbol.iphi
-iy = model_symbol.iy
-iyAs = model_symbol.iyAs
-iyOs = model_symbol.iyOs
-index_driving_species = model_symbol.index_driving_species
+
 
 # --------- end of YSZ import ---------- #
 ##########################################
 
-function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
-  point_marker_size = 5
-  
-  
-  PyPlot.subplot(211)
-  PyPlot.plot((x_factor)*X[:],U[iy,:],label="y")
-  for (i, idx) in enumerate(surface_species)
-    PyPlot.plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
-  end
-  PyPlot.ylim(-0.5,1.1)
-  PyPlot.xlim(-0.01*plotted_length, plotted_length)
-  PyPlot.xlabel(x_label)
-  PyPlot.legend(loc="best")
-  PyPlot.grid()
-  
-  PyPlot.subplot(212)
-  PyPlot.plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
-  PyPlot.xlim(-0.01*plotted_length, plotted_length)
-  PyPlot.xlabel(x_label)
-  PyPlot.legend(loc="best")
-  PyPlot.grid()
-end
+# function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
+#   point_marker_size = 5
+#   
+#   
+#   PyPlot.subplot(211)
+#   PyPlot.plot((x_factor)*X[:],U[iy,:],label="y")
+#   for (i, idx) in enumerate(surface_species)
+#     PyPlot.plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
+#   end
+#   PyPlot.ylim(-0.5,1.1)
+#   PyPlot.xlim(-0.01*plotted_length, plotted_length)
+#   PyPlot.xlabel(x_label)
+#   PyPlot.legend(loc="best")
+#   PyPlot.grid()
+#   
+#   PyPlot.subplot(212)
+#   PyPlot.plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
+#   PyPlot.xlim(-0.01*plotted_length, plotted_length)
+#   PyPlot.xlabel(x_label)
+#   PyPlot.legend(loc="best")
+#   PyPlot.grid()
+# end
 
-function run_new(;physical_model_name="",
+function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 test=false, test_from_above=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
@@ -91,6 +87,19 @@ function run_new(;physical_model_name="",
                 )
 
     
+    
+    #model_symbol = eval(Symbol(model_label))
+    model_symbol = eval(Symbol(physical_model_name))
+    
+    bulk_species = model_symbol.bulk_species
+    surface_species = model_symbol.surface_species
+    surface_names = model_symbol.surface_names
+    iphi = model_symbol.iphi
+    iy = model_symbol.iy
+    iyAs = model_symbol.iyAs
+    iyOs = model_symbol.iyOs
+    index_driving_species = model_symbol.index_driving_species
+
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
     # Geometry of the problem
