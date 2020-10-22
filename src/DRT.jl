@@ -214,6 +214,7 @@ function plot_DRT_Rtau(DRT::DRT_struct, to_standard_figure=true, print_bool=fals
   xlabel("log10(\$\\tau\$ [s])")
   ylabel("R [Ohm]")
   xlim(log10.([DRT.tau_range[1], DRT.tau_range[end]])...)
+  ylim(0, max(peaks_df.R))
   plot(log10.(peaks_df.C.*peaks_df.R), peaks_df.R, "o")
   grid(true)
 

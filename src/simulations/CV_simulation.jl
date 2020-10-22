@@ -193,6 +193,7 @@ end
 
 function CV_view_experimental_data(;TC, pO2, data_set, use_checknodes=false, fig_num=11)    
     figure(fig_num)
+    CV_exp = DataFrame()
     for TC_item in TC, pO2_item in pO2, data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
       if use_checknodes
         checknodes =  CV_get_shared_checknodes()
@@ -200,8 +201,9 @@ function CV_view_experimental_data(;TC, pO2, data_set, use_checknodes=false, fig
       else
         CV_exp = import_CVtoDataFrame(TC=TC_item, pO2=pO2_item, data_set=data_set_item)
       end
-      typical_plot_exp(CV_simulation(TC_item, pO2_item, data_set_item)..., CV_exp, "", false)
+      typical_plot_exp(CV_simulation(TC_item, pO2_item, data_set=data_set_item)..., CV_exp, "", false)
     end
+    return CV_exp
 end
 
 function fitness_error_report(SIM::CV_simulation, plot_prms_string, CV_exp, CV_sim)

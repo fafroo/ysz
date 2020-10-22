@@ -50,7 +50,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", model_name=EIS_default_model_name, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC", plot_legend=true)
+function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", model_name=EIS_default_model_name, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=0.2, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -119,8 +119,24 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     figure(SIM.fig_num, figsize=SIM.fig_size)
   end
 
+  if  (occursin("Rf", SIM.plot_option)) || 
+      (occursin("RC", SIM.plot_option)) ||
+      (occursin("DRT", SIM.plot_option)) ||
+      (occursin("Rtau", SIM.plot_option))
+    num_rows = 300
+  else
+    num_rows = 200
+  end
+  
+  if occursin("leg", SIM.plot_option)
+    sLEG = subplot(num_rows + 23)
+    plot([], marker_style, label = my_label)
+    PyPlot.axis("off") 
+    legend(loc="best")
+  end
+  
   if occursin("Nyq", SIM.plot_option)
-    s1 = subplot(221)
+    s1 = subplot(num_rows + 21)
     title("Nyquist plot")
     xlabel("Re\$(Z) \\ [\\Omega]\$")
     ylabel("-Im\$(Z) \\ [\\Omega]\$")
@@ -131,14 +147,16 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     grid(true)
     s1.set_aspect(1.0)
   end
+  
+
 
   if occursin("Bode", SIM.plot_option)
-    s2 = subplot(322)
+    s2 = subplot(num_rows + 22)
     title("Bode plot: Re vs log f \$(\$Hz\$)\$")
     ylabel("Re\$(Z) \\ [\\Omega]\$")
     plot(log10.(EIS_df.f), real(EIS_df.Z), marker_style, label = my_label)
       
-    s3 = subplot(324)
+    s3 = subplot(num_rows + 24)
     title("Bode plot: - Im vs log f \$(\$Hz\$)\$")
     ylabel("-Im\$(Z) \\ [\\Omega]\$")
     plot(log10.(EIS_df.f), -imag(EIS_df.Z), marker_style, label = my_label)
@@ -148,18 +166,18 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     DRT_actual = get_DRT(EIS_df, SIM.DRT_control)
     
     if occursin("DRT", SIM.plot_option)
-      s5 = subplot(325)
+      s5 = subplot(num_rows + 25)
       plot_DRT_h(DRT_actual, false)
     elseif occursin("Rtau", SIM.plot_option)
-      s5 = subplot(325)
+      s5 = subplot(num_rows + 25)
       plot_DRT_Rtau(DRT_actual, false)
     elseif occursin("Rf", SIM.plot_option)
-      s5 = subplot(325)
+      s5 = subplot(num_rows + 25)
       plot_DRT_Rf(DRT_actual, false)
     end
     
     if occursin("RC", SIM.plot_option) 
-      s4 = subplot(326)
+      s4 = subplot(num_rows + 26)
       plot_DRT_RC(DRT_actual, false)
     end
     
@@ -175,18 +193,18 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     end
   else    
     if occursin("DRT", SIM.plot_option)
-      s5 = subplot(325)
+      s5 = subplot(num_rows + 25)
       plot([])
     elseif occursin("Rtau", SIM.plot_option)
-      s5 = subplot(325)
+      s5 = subplot(num_rows + 25)
       plot([])
     elseif occursin("Rf", SIM.plot_option)
-      s5 = subplot(325)
+      s5 = subplot(num_rows + 25)
       plot([])
     end
     
     if occursin("RC", SIM.plot_option)
-      s4 = subplot(326)
+      s4 = subplot(num_rows + 26)
       plot([])
     end
   end
@@ -281,8 +299,9 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", use_checknodes=false, plot_legend=true, fig_num=12)    
-    
+function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", f_interval=Nothing, use_checknodes=false, plot_legend=true, fig_num=12)    
+  
+  EIS_exp = DataFrame()
   for TC_item in TC
     for pO2_item in pO2
       for bias_item in bias, data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
@@ -294,10 +313,12 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", use_che
           EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
         end
         figure(fig_num)
+        EIS_exp = f_interval_preprocessing(EIS_exp, f_interval)
         typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, data_set=data_set_item, plot_legend=plot_legend)..., EIS_exp, "", false)
       end
     end
   end
+  return EIS_exp
 end
 
 # function EIS_capacitance_test()
@@ -449,10 +470,6 @@ function EIS_get_checknodes_geometrical(start_n, end_n, n_fac)
     return w_list
 end
 
-function EIS_crop_to_f_interval(EIS_exp, f_interval)
-  return filter(row -> (f_interval[1] < row.f) && (row.f < f_interval[2]), EIS_exp)
-end
-
 function initialize_trend_tuples(SIM::EIS_simulation, EIS_ref::DataFrame)
   trend_tuples = DataFrame(prm_value=[])
   for i in 1:size(EIS_ref, 1)
@@ -476,6 +493,104 @@ end
 # function plot_trend_tuples(SIM::EIS_simulation, trend_tuples)
 #   
 # end
+
+
+
+function EIS_crop_to_f_interval(EIS_exp, f_interval)
+  return filter(row -> (f_interval[1] < row.f) && (row.f < f_interval[2]), EIS_exp)
+end
+
+function EIS_data_preprocessing(EIS_df)
+  
+  function get_lowest_freq_idx(EIS_df; find_at_least_negative=10)
+    lowest_freq_idx = -1
+    negative_counter = 0
+    for (i, Z) in enumerate(EIS_df.Z)
+      if imag(Z) < 0
+        negative_counter += 1
+      else
+        negative_counter = 0
+      end
+      if negative_counter == find_at_least_negative
+        lowest_freq_idx = i - find_at_least_negative + 1
+        break
+      end
+    end    
+    return lowest_freq_idx
+  end
+  
+  #ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, use_DRT=false)[1], EIS_df, "!EIS_data_preprocessing")
+  
+  #lowest frequency cut off
+  lowest_freq_idx = get_lowest_freq_idx(EIS_df, find_at_least_negative=10)
+  if lowest_freq_idx == -1
+    lowest_freq_idx = get_lowest_freq_idx(EIS_df, find_at_least_negative=4)
+  end
+  if lowest_freq_idx == -1
+    println("ERROR: lowest_freq_idx not found!")
+    return throw(Exception)
+  end
+  
+  # intersection with x axis
+  x_intersection_freq_idx = -1
+  positive_counter = 0
+  for i in (lowest_freq_idx + 5):length(EIS_df.f)
+    if imag(EIS_df.Z[i]) > 0
+      positive_counter += 1
+    else  
+      positive_counter = 0
+    end
+    if positive_counter == 8
+      x_intersection_freq_idx = i - 7
+      break
+    end
+  end
+  
+  #@show x_intersection_freq_idx
+  #@show lowest_freq_idx
+  
+  if x_intersection_freq_idx == -1
+    return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
+  else
+    # inductance cut off
+    accepted_inductance_real_axis_threshold = 0.00*real(EIS_df.Z[lowest_freq_idx]) + 1.00*real(EIS_df.Z[x_intersection_freq_idx])
+    highest_freq_idx = -1
+    for i in (x_intersection_freq_idx + 1 ):length(EIS_df.f)
+      if real(EIS_df.Z[i]) > accepted_inductance_real_axis_threshold
+        highest_freq_idx = i
+        break
+      end
+    end
+    if highest_freq_idx == -1
+      return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
+    end
+
+    return DataFrame(f = EIS_df.f[lowest_freq_idx:highest_freq_idx], Z = EIS_df.Z[lowest_freq_idx:highest_freq_idx])
+  end
+end
+
+function f_interval_preprocessing(EIS_exp::DataFrame, f_interval)
+  if f_interval!=Nothing
+    if f_interval == "auto"
+      #typical_plot_exp(SIM, EIS_exp, "! before")
+      return EIS_exp = EIS_data_preprocessing(EIS_exp)
+      #typical_plot_exp(SIM, EIS_exp, "! after")
+    else
+      return EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
+    end
+  else
+    return EIS_exp
+  end
+end
+
+function EIS_add_inductance(EIS_df::DataFrame, L)
+  EIS_out = deepcopy(EIS_df)
+  for (i, f) in enumerate(EIS_df.f)
+      EIS_out.Z[i] += im*2*pi*f*L
+  end
+  return EIS_out
+end
+
 
 
 

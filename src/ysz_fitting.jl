@@ -125,7 +125,7 @@ import Base.string
 
 include("../src/general_supporting_stuff.jl")
 include("../src/import_experimental_data.jl")
-#include("../src/export_simulated_data.jl")
+include("../src/export_simulated_data.jl")
 
 include("../src/simulations/general_simulation.jl")
 include("../src/simulations/CV_simulation.jl")
@@ -371,6 +371,34 @@ end
 #### Working space ########################################
 ###########################################################
 ###########################################################
+
+function plot_R_ohm_dependence(;
+        DD_list=[1].*1.0e-11, 
+        nu_list=collect(0.1 : 0.1 : 0.9),
+        TC=800)
+  
+  R_ohm_all = []  
+  for DD in DD_list
+    for nu in nu_list
+      sigma, R_ohm = ysz_experiments.run_new(;
+                pO2=1.0, T=TCtoT(TC), data_set="OLD_MONO_100",
+                prms_names_in=["DD","nu", "weird_DD"],
+                prms_values_in=(DD, nu, false),
+                
+                conductivity_fitting=true
+                ) 
+       push!(R_ohm_all, R_ohm)
+    end
+  end
+  
+  if length(nu_list) == 1
+    plot(DD_list, R_ohm_all)
+  else
+    plot(nu_list, R_ohm_all)
+  end
+  return R_ohm_all
+end
+
 
 function model_R1_from_TC_sim(x, TC; print_DD=false)
   DD =  1.0e-13*x[1]*exp((e0*x[2])/(kB*TCtoT(TC)))
@@ -1128,10 +1156,23 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   
   
   
-  prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"]
-  #prms_lists=(1.0, 1.0, 1.0, 23.8528, 21.6247, 20.8442, 0.322754, -0.120249, -0.0687233, 9.3e-11, 0.85, 1.75728, 8.9117, 0.0)
-  prms_lists=(1.0, 1.0, 1.0, 21.94051183287039, 21.553329968593776, 20.965273571151613, 0.09841737344413018, -0.091875316601428, 0.04652480321433385, 9.3e-11, 0.85, 6.478278331551995, 7.546431173856936, 0.0)
+  prms_names=["separate_vacancy", 
+              "A.exp", "R.exp", "O.exp", 
+              "A.r", "R.r", "O.r", 
+              "A.DG", "R.DG", "O.DG",      
+              "DD", "nu",       "OC", "ms_par", "e_fac"]
+#   prms_lists=(true, 0.0, 0.0, 0.0, 22.325513444696398, 22.100276559559344, 22.382691084143286, 0.04243114428504254, -0.22279524777844634, 0.5430896356175956, 1.05e-11, 0.35, 34.397339021979015, 4.503994521917953, 0.338333333916094)
   
+  prms_lists=(true, 0.0, 0.0, 0.0, 22.551514573009637, 22.221241593154982, 22.514061660138903, 0.03948393867277375, -0.03391657645569906, 0.6777921770403312, 1.05e-11, 0.35, 47.67570795526793, 3.363950713557616, 0.6107672677397736)
+
+  prms_lists=(true, 0.0, 0.0, 0.0, 22.519825220050315, 22.101114333751948, 22.537917125481112, 0.046779285103424426, -0.036495661417036834, 0.6645252416469626, 1.06e-11, 0.35, 66.81244689470016, 2.899812097038787, 0.7357178655306754)
+ 
+  prms_lists=(true, 1.0, 1.0, 1.0, 21.96912506564684, 21.569512049276458, 20.93977987957153, 0.1241112223034025, -0.10660629726868907, -0.006580383278506099, 9.3e-11, 0.85, 5.848806563958082, 8.27404376722011, 0.0)
+ 
+#   prms_names = ["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"]
+#   #prms_lists=(1.0, 1.0, 1.0, 23.8528, 21.6247, 20.8442, 0.322754, -0.120249, -0.0687233, 9.3e-11, 0.85, 1.75728, 8.9117, 0.0)
+#   prms_lists = (0.0, 0.0, 0.0, 22.576839213753235, 22.011902293420093, 27.69994335225577, 0.04823267858003028, -0.2710822686942347, 0.5656693158734294, 9.3e-11, 0.85, 0.21671402944207255, 9.144064551170423, 0.3033398196955781)
+#   
 #   prms_lists = (
 #      1.0, 1.0, 0.0,
 #      # rX
@@ -1153,30 +1194,35 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
 #    )  
   
   
-  mask          =(0, 0, 0,
+  mask          =(0,
+                  0, 0, 0,
                   1, 1, 1,
                   1, 1, 1,
                   0, 0,       1, 1, 0)
-  lower_bounds=(0.0, 0.0, 0.0,
+  lower_bounds=(0.0, 
+                0.0, 0.0, 0.0,
                 15.5, 15.9, 15.7,       
                 -0.8, -0.8, -0.8,
                 [1]*1.0e-13, 0.01,     0.0, 0.1, 0.0)
-  upper_bounds=(1.0, 1.0, 1.0,
+  upper_bounds=(1.0,
+                1.0, 1.0, 1.0,
                 27.5, 27.9, 27.7,              
                 0.8, 0.8, 0.8,
-                [1]*1.0e-8, 0.99,       Inf, 10.0, Inf)
+                [1]*1.0e-8, 0.99,       Inf, Inf, Inf)
                 
-  scripted_tuple =(1, 1, 1,
+
+  scripted_tuple =(1,
+                  1, 1, 1,
                   1, 1, 1,       
                   1, 1, 1,
                   1, 1,           1, 1, 1)
  
   TC = 800
-  pO2 = [100]
+  pO2 = [40]
   bias = 0.0
 
   data_set = "OLD_MONO_100"
-  simulations = ["EIS", "CV"]
+  simulations = ["CV", "EIS"]
   
   
   
@@ -1258,7 +1304,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
     return SIM_fitting
   end
                                     
-  pyplot = true
+  pyplot = false
   plot_each_x_th = 50
   print_only_result = true
                                     

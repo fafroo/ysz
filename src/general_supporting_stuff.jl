@@ -1,3 +1,4 @@
+using Printf
 
 kB = 1.3806488e-23
 N_A = 6.02214129e23
@@ -122,3 +123,47 @@ function printfields(this)
         end
     end
 end
+
+function convert_prms_values_to_LaTeX_format(;
+  prms_names=["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"],
+  prms_values,
+  prms_names_output=["kin", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "OC", "ms_par", "e_fac"])
+  
+  function etk(exp_string)
+    exp_id = findall(x -> x==exp_string, prms_names)
+    
+    return Bool(prms_values[exp_id]...) ? "E" : "L"
+  end
+  
+  found_item = false
+  output_string = ""
+  for name_out in prms_names_output
+    found_item = false
+    for (i, name_in) in enumerate(prms_names)
+      if name_out == name_in
+        output_string *= "$(@sprintf("%.3f",prms_values[i])) & "
+        found_item = true
+        break
+      end
+    end
+    if name_out == "kin"
+      output_string *= "$(etk("A.exp"))$(etk("R.exp"))$(etk("O.exp")) & "
+      found_item = true
+    end
+    
+    if !found_item
+      println("ERROR: name_out $(name_out) not found!")
+      throw(Exception)
+    end
+  end
+  if output_string == ""
+    return output_string
+  else
+    return output_string[1:end-3]
+  end
+end
+
+
+
+
+

@@ -417,74 +417,7 @@ function get_left_right_width_of_EIS(EIS_df, N_for_sum=2)
   return left, right, width
 end
 
-function EIS_data_preprocessing(EIS_df)
-  
-  function get_lowest_freq_idx(EIS_df; find_at_least_negative=10)
-    lowest_freq_idx = -1
-    negative_counter = 0
-    for (i, Z) in enumerate(EIS_df.Z)
-      if imag(Z) < 0
-        negative_counter += 1
-      else
-        negative_counter = 0
-      end
-      if negative_counter == find_at_least_negative
-        lowest_freq_idx = i - find_at_least_negative + 1
-        break
-      end
-    end    
-    return lowest_freq_idx
-  end
-  
-  #ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, use_DRT=false)[1], EIS_df, "!EIS_data_preprocessing")
-  
-  #lowest frequency cut off
-  lowest_freq_idx = get_lowest_freq_idx(EIS_df, find_at_least_negative=10)
-  if lowest_freq_idx == -1
-    lowest_freq_idx = get_lowest_freq_idx(EIS_df, find_at_least_negative=4)
-  end
-  if lowest_freq_idx == -1
-    println("ERROR: lowest_freq_idx not found!")
-    return throw(Exception)
-  end
-  
-  # intersection with x axis
-  x_intersection_freq_idx = -1
-  positive_counter = 0
-  for i in (lowest_freq_idx + 5):length(EIS_df.f)
-    if imag(EIS_df.Z[i]) > 0
-      positive_counter += 1
-    else  
-      positive_counter = 0
-    end
-    if positive_counter == 8
-      x_intersection_freq_idx = i - 7
-      break
-    end
-  end
-  
-  #@show x_intersection_freq_idx
-  #@show lowest_freq_idx
-  
-  if x_intersection_freq_idx == -1
-    return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
-  else
-    # inductance cut off
-    accepted_inductance_real_axis_threshold = 0.00*real(EIS_df.Z[lowest_freq_idx]) + 1.00*real(EIS_df.Z[x_intersection_freq_idx])
-    highest_freq_idx = -1
-    for i in (x_intersection_freq_idx + 1 ):length(EIS_df.f)
-      if real(EIS_df.Z[i]) > accepted_inductance_real_axis_threshold
-        highest_freq_idx = i
-        break
-      end
-    end
-    if highest_freq_idx == -1
-      return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
-    end
 
-    return DataFrame(f = EIS_df.f[lowest_freq_idx:highest_freq_idx], Z = EIS_df.Z[lowest_freq_idx:highest_freq_idx])
-  end
-end
 
 
 
@@ -1305,15 +1238,7 @@ function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=fal
     SIM = SIM_list[1]
     EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)    
     
-    if f_interval!=Nothing
-      if f_interval == "auto"
-        #typical_plot_exp(SIM, EIS_exp, "! before")
-        EIS_exp = EIS_data_preprocessing(EIS_exp)
-        #typical_plot_exp(SIM, EIS_exp, "! after")
-      else
-        EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
-      end
-    end
+    EIS_exp = f_interval_preprocessing(EIS_exp, f_interval)
     typical_plot_exp(SIM, EIS_exp)
     
     
