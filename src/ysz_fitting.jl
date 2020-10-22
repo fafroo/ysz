@@ -384,7 +384,7 @@ function plot_R_ohm_dependence(;
                 pO2=1.0, T=TCtoT(TC), data_set="OLD_MONO_100",
                 prms_names_in=["DD","nu", "weird_DD"],
                 prms_values_in=(DD, nu, false),
-                
+                  
                 conductivity_fitting=true
                 ) 
        push!(R_ohm_all, R_ohm)
@@ -1157,15 +1157,10 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   
   
   prms_names=["separate_vacancy", 
-              "A.exp", "R.exp", "O.exp", 
-              "A.r", "R.r", "O.r", 
-              "A.DG", "R.DG", "O.DG",      
-              "DD", "nu",       "OC", "ms_par", "e_fac"]
-#   prms_lists=(true, 0.0, 0.0, 0.0, 22.325513444696398, 22.100276559559344, 22.382691084143286, 0.04243114428504254, -0.22279524777844634, 0.5430896356175956, 1.05e-11, 0.35, 34.397339021979015, 4.503994521917953, 0.338333333916094)
-  
-  prms_lists=(true, 0.0, 0.0, 0.0, 22.551514573009637, 22.221241593154982, 22.514061660138903, 0.03948393867277375, -0.03391657645569906, 0.6777921770403312, 1.05e-11, 0.35, 47.67570795526793, 3.363950713557616, 0.6107672677397736)
-
-  prms_lists=(true, 0.0, 0.0, 0.0, 22.519825220050315, 22.101114333751948, 22.537917125481112, 0.046779285103424426, -0.036495661417036834, 0.6645252416469626, 1.06e-11, 0.35, 66.81244689470016, 2.899812097038787, 0.7357178655306754)
+	      "A.exp", "R.exp", "O.exp", 
+              "A.r", "R.r", "O.r",              
+              "A.DG", "R.DG", "O.DG",     
+              "DD", "nu",      "OC", "ms_par", "e_fac"  ]
  
   prms_lists=(true, 1.0, 1.0, 1.0, 21.96912506564684, 21.569512049276458, 20.93977987957153, 0.1241112223034025, -0.10660629726868907, -0.006580383278506099, 9.3e-11, 0.85, 5.848806563958082, 8.27404376722011, 0.0)
  
@@ -1208,7 +1203,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
                 1.0, 1.0, 1.0,
                 27.5, 27.9, 27.7,              
                 0.8, 0.8, 0.8,
-                [1]*1.0e-8, 0.99,       Inf, Inf, Inf)
+                [1]*1.0e-8, 0.99,      Inf, Inf, 5.0)
                 
 
   scripted_tuple =(1,
@@ -1231,7 +1226,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   # preparing bash output ###############################
   
   ### if true, no script is called! Just direclty run_par_study_script_wrap()
-  direct_bool = true
+  direct_bool = false
   
             SIM_fitting_mode = true    #!#!#!#!#!#!#!#!#!#!
   

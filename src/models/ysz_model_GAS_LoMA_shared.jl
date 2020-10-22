@@ -51,6 +51,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     
     # fixed
     DD::Float64   # diffusion coefficient [m^2/s]
+    conductivity::Float64 # choosen_R_ohm
     pO2::Float64 # O2 partial pressure [bar]\z
     T::Float64      # Temperature [K]
     nu::Float64    # ratio of immobile ions, \nu [1]
@@ -132,6 +133,7 @@ function YSZParameters(this)
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
     #this.DD=9.5658146540360312e-10  # some value  <<<< nearly the BEST hand-guess
     this.DD=4.35e-13  # testing value
+    this.conductivity=-1.0  # Siemens
     this.pO2=1.0                   # O2 atmosphere 
     this.T=1073                     
     
@@ -271,7 +273,17 @@ function YSZParameters_update!(this::YSZParameters)
     this.yB  = -this.zL/(this.zA*this.m_par*(1-this.nu))
     this.ML  = (1-this.x_frac)/(1+this.x_frac)*this.mZr + 2*this.x_frac/(1+this.x_frac)*this.mY + this.m_par*this.nu*this.mO
     
+    
     this.phi_eq, this.y0_eq, this.yAs_eq, this.yOs_eq = equilibrium_boundary_conditions(this)
+
+    # the following block computes the right DD according to the right conductivity
+    if this.conductivity > 0.0
+      testing_DD = 1.06e-11    
+      this.DD = testing_DD
+      conductivity_test = get_conductivity(this, perform_update=false)
+      this.DD = testing_DD * (this.conductivity / conductivity_test)
+    end
+    
     return this
 end
 
@@ -341,12 +353,14 @@ function bstorage!(f,u,node, this::YSZParameters)
     end
 end
 
-function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu)
-  DD_orig = parameters.DD
-  nu_orig = parameters.nu
-  parameters.DD = DD
-  parameters.nu = nu
-  YSZParameters_update!(parameters)
+function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu, perform_update=true)
+  if perform_update
+    DD_orig = parameters.DD
+    nu_orig = parameters.nu
+    parameters.DD = DD
+    parameters.nu = nu
+    YSZParameters_update!(parameters)
+  end
   
   f = Array{Float64}(undef, 2)
   uk = Array{Float64}(undef, 2)
@@ -380,10 +394,11 @@ function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu)
   
   flux_core!(f, uk, ul, parameters)
   
-  parameters.DD = DD_orig
-  parameters.nu = nu_orig
-  YSZParameters_update!(parameters)
-  
+  if perform_update
+    parameters.DD = DD_orig
+    parameters.nu = nu_orig
+    YSZParameters_update!(parameters)
+  end
   return abs( 2 * parameters.e0 * f[iy] / parameters.mO)
 end
 

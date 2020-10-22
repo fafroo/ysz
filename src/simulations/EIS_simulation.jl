@@ -50,7 +50,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", model_name=EIS_default_model_name, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=0.2, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
+function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", model_name=EIS_default_model_name, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
