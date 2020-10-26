@@ -41,7 +41,7 @@ function string(SIM::CV_simulation)
   return "CV_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CV_simulation(TC, pO2; data_set="MONO_110", model_name=CV_default_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=1.0, plot_legend=true)
+function CV_simulation(TC, pO2; data_set="MONO_110", model_name=CV_default_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -61,7 +61,7 @@ function CV_simulation(TC, pO2; data_set="MONO_110", model_name=CV_default_model
       #
       this.fig_size = fig_size
       #
-      this.checknodes = get_shared_checknodes(this)
+      this.checknodes = checknodes
       this.fitness_factor = fitness_factor
       #
       this.plot_legend = plot_legend
@@ -75,8 +75,8 @@ function CV_simulation(TC, pO2; data_set="MONO_110", model_name=CV_default_model
   return output
 end
 
-function CV_simulation(TC, pO2, bias; data_set="MONO_110", model_name=CV_default_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), fitness_factor=1.0, plot_legend=true)
-    CV_simulation(TC, pO2; data_set=data_set, model_name=model_name, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size, fitness_factor=fitness_factor, plot_legend=plot_legend)
+function CV_simulation(TC, pO2, bias; data_set="MONO_110", model_name=CV_default_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
+    CV_simulation(TC, pO2; data_set=data_set, model_name=model_name, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size, checknodes=checknodes, fitness_factor=fitness_factor, plot_legend=plot_legend)
 end
 
 
@@ -101,7 +101,11 @@ end
 
 
 function apply_checknodes(sim::CV_simulation, CV_in, checknodes)
+  if checknodes == Nothing
+    return deepcopy(CV_in)
+  else
     DataFrame( U = checknodes[:,1], I = CV_get_I_values(CV_in, checknodes))
+  end
 end
 
 

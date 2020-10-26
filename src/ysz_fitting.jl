@@ -1156,50 +1156,68 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   
   
   
-  prms_names=["separate_vacancy", 
-	      "A.exp", "R.exp", "O.exp", 
+  prms_names=["separate_vacancy",
+              "A.beta", "R.beta", "O.beta",
+              "A.S", "R.S", "O.S",
+              "A.exp", "R.exp", "O.exp", 
               "A.r", "R.r", "O.r",              
               "A.DG", "R.DG", "O.DG",     
-              "DD", "nu",      "OC", "ms_par", "e_fac"  ]
+              "conductivity", "nu",      "OC", "ms_par", "e_fac"  ]
  
   prms_lists=(true, 1.0, 1.0, 1.0, 21.96912506564684, 21.569512049276458, 20.93977987957153, 0.1241112223034025, -0.10660629726868907, -0.006580383278506099, 9.3e-11, 0.85, 5.848806563958082, 8.27404376722011, 0.0)
+  
+  prms_lists=(1, 
+              0.5, 0.5, 0.5,
+              0, 0, 0,
+              0.0, 0.0, 0.0, 21.9464, 21.5159, 21.4928, 0.0032943, 0.0277383, -0.0838499, 1.02, 0.811907, 10.472, 6.00553, 0.0718344)
+  
+  prms_lists=(1, 0.0, 0.0, 0.0, 22.4569, 22.1153, 23.7591, -0.0321725, -0.0408594, 0.600798, 3.58, 0.23498, 40.5525, 20.8275, 0.414237)
  
-#   prms_names = ["A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "DD", "nu", "OC", "ms_par", "e_fac"]
-#   #prms_lists=(1.0, 1.0, 1.0, 23.8528, 21.6247, 20.8442, 0.322754, -0.120249, -0.0687233, 9.3e-11, 0.85, 1.75728, 8.9117, 0.0)
-#   prms_lists = (0.0, 0.0, 0.0, 22.576839213753235, 22.011902293420093, 27.69994335225577, 0.04823267858003028, -0.2710822686942347, 0.5656693158734294, 9.3e-11, 0.85, 0.21671402944207255, 9.144064551170423, 0.3033398196955781)
-#   
-#   prms_lists = (
-#      1.0, 1.0, 0.0,
-#      # rX
-#      collect(21.5 : 1.0 : 21.5),  
-#      collect(21.5 : 1.0 : 21.5),  
-#      collect(21.5 : 1.0 : 21.5), 
-#      # DGX
-#      collect(-0.5 : 0.1 : 0.5), 
-#      collect(-0.5 : 0.1 : 0.5),
-#      collect(-0.5 : 0.1 : 0.5),
-#          
-#      # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
-#      # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9.3, 12.3)e-11 for "OLD_MONO_100"
-#      [9.3e-11], 
-#      0.85, 
-#      
-#      0.25, 
-#      0.0
-#    )  
+#     prms_lists = (
+#       true,
+#       0.0, 0.0, 0.0,
+#       # rX
+#       collect(21.5 : 1.0 : 21.5),
+#       collect(21.5 : 1.0 : 21.5),
+#       collect(21.5 : 1.0 : 21.5),
+#       # DGX
+#       collect(-0.25 : 0.05 : 0.25),
+#       collect(-0.25 : 0.05 : 0.25),
+#       collect(-0.25 : 0.05 : 0.25),
+# 
+#       # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
+#       # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9.3, 12.3)e-11 for "OLD_MONO_100"
+#       # hint: conductivity OLD_MONO_100 -> TC = [700, 750, 800, 850] = [1.02, 2.07,  3.58, 5.85]
+# 
+#       1.02,
+#       0.65,
+# 
+#       20.0,
+#       20.0,
+#       0.0
+#     )
   
   
   mask          =(0,
+                  1,1,1,
+                  1,1,1,
+  
                   0, 0, 0,
-                  1, 1, 1,
-                  1, 1, 1,
-                  0, 0,       1, 1, 0)
+                  0, 0, 0,
+                  0, 0, 0,
+                  0, 0,       0, 0, 0)
   lower_bounds=(0.0, 
+                0.0, 0.0, 0.0,
+                -3, -3, -3,
+               
                 0.0, 0.0, 0.0,
                 15.5, 15.9, 15.7,       
                 -0.8, -0.8, -0.8,
                 [1]*1.0e-13, 0.01,     0.0, 0.1, 0.0)
   upper_bounds=(1.0,
+                1, 1, 1,
+                3, 3, 3,
+  
                 1.0, 1.0, 1.0,
                 27.5, 27.9, 27.7,              
                 0.8, 0.8, 0.8,
@@ -1207,17 +1225,20 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
                 
 
   scripted_tuple =(1,
+                  1,1,1,
+                  1,1,1,
+    
                   1, 1, 1,
                   1, 1, 1,       
                   1, 1, 1,
                   1, 1,           1, 1, 1)
  
-  TC = 800
+  TC = 700
   pO2 = [40]
   bias = 0.0
 
   data_set = "OLD_MONO_100"
-  simulations = ["CV", "EIS"]
+  simulations = ["CV"]
   
   
   
@@ -1226,7 +1247,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   # preparing bash output ###############################
   
   ### if true, no script is called! Just direclty run_par_study_script_wrap()
-  direct_bool = false
+  direct_bool = true
   
             SIM_fitting_mode = true    #!#!#!#!#!#!#!#!#!#!
   
@@ -1292,15 +1313,15 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
                                     file_name="SIM_fitting_default.txt",
                                     #
                                     bboptimize_bool=false, 
-                                    iteration_count=500,
+                                    iteration_count=100,
                                     )
 
   if only_return_SIM_fitting
     return SIM_fitting
   end
                                     
-  pyplot = false
-  plot_each_x_th = 50
+  pyplot = true
+  plot_each_x_th = 20
   print_only_result = true
                                     
   #######################################################

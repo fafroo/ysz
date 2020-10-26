@@ -225,7 +225,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
 # #     return
 ################
 
-    @show parameters.phi_eq
+    #@show parameters.phi_eq
     
 
 
