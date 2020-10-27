@@ -225,9 +225,15 @@ end
 
 
 # useful wrap
-function simple_run(;TC=800, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=Array{String}(undef, 0), pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+function simple_run(;TC=800, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=Array{String}(undef, 0), fitness_factors=Nothing, physical_model_name="ysz_model_GAS_LoMA_shared", pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
                          test=false)
-    simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
+    if fitness_factors == Nothing
+      aux_array = zeros(length(simulations))
+      aux_array .= 1
+      fitness_factors = aux_array
+    end
+    @show fitness_factors
+    simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
                         test=false)
 end
 
@@ -490,6 +496,8 @@ mutable struct SIM_fitting_struct
   bias
   data_set
   simulations
+  fitness_factors
+  physical_model_name
   #
   SIM_list
   #
@@ -510,7 +518,8 @@ mutable struct SIM_fitting_struct
   SIM_fitting_struct() = new()
 end
 
-function build_SIM_fitting(;TC=850, pO2=80, bias=0.0, data_set="MONO_110", simulations=["EIS"],  
+function build_SIM_fitting(;TC=850, pO2=80, bias=0.0, data_set="MONO_110", simulations=["EIS"], fitness_factors=[1.0],
+                      physical_model_name="ysz_model_GAS_LoMA_shared",
                       #                      
                       prms_names=["kappaA", "kappaR", "kappaO", 
                                   "rA", "rR", "rO",         "rB", "rC",     
@@ -541,7 +550,8 @@ function build_SIM_fitting(;TC=850, pO2=80, bias=0.0, data_set="MONO_110", simul
   SIM_fitting.bias = bias
   SIM_fitting.data_set = data_set
   SIM_fitting.simulations = simulations
-
+  SIM_fitting.fitness_factors = fitness_factors
+  SIM_fitting.physical_model_name = physical_model_name
   #
   SIM_fitting.prms_names = prms_names
   #@show typeof(x0)
@@ -557,7 +567,7 @@ function build_SIM_fitting(;TC=850, pO2=80, bias=0.0, data_set="MONO_110", simul
   SIM_fitting.save_dir = save_dir
   SIM_fitting.file_name = file_name
   
-  SIM_fitting.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations)
+  SIM_fitting.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name)
 
   return SIM_fitting
 end
@@ -568,6 +578,8 @@ function run_SIM_fitting_script_wrap(
                     bias_string,
                     data_set,
                     simulations_string,
+                    physical_model_name,
+                    fitness_factors_string,
                     #                    
                     prms_names_string,
                     x0_string,            
@@ -593,6 +605,7 @@ function run_SIM_fitting_script_wrap(
   TC = eval(Meta.parse(TC_string))
   pO2 = eval(Meta.parse(pO2_string))
   bias = eval(Meta.parse(bias_string))
+  fitness_factors = eval(Meta.parse(fitness_factors_string))
   simulations = eval(Meta.parse(simulations_string))
   #
   SIM_fitting.TC = TC
@@ -600,8 +613,10 @@ function run_SIM_fitting_script_wrap(
   SIM_fitting.bias = bias
   SIM_fitting.data_set = data_set
   SIM_fitting.simulations = simulations
+  SIM_fitting.fitness_factors = fitness_factors
+  SIM_fitting.physical_model_name = physical_model_name
   #
-  SIM_fitting.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations)
+  SIM_fitting.SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name)
   #
   SIM_fitting.prms_names = eval(Meta.parse(prms_names_string))
   SIM_fitting.x0 = eval(Meta.parse(x0_string))
@@ -626,9 +641,9 @@ function run_SIM_fitting_script_wrap(
                   )
 end
 
-function SIM_fitting_save_to_file(SIM_fitting::SIM_fitting_struct, )
-  
-end
+# function SIM_fitting_save_to_file(SIM_fitting::SIM_fitting_struct, )
+#   
+# end
 
 
 function SIM_fitting_show_EIS(SIM_fitting::SIM_fitting_struct, pyplot=1, use_experiment=true, use_fitted_values=false)
@@ -920,6 +935,9 @@ function partial_meta_run_SIM_fitting(;SIM_fitting::SIM_fitting_struct=build_SIM
                 $(string(SIM_fitting.bias))
                 $(string(SIM_fitting.data_set))
                 $(string(SIM_fitting.simulations))
+                $(string(SIM_fitting.fitness_factors))
+                $(string(SIM_fitting.physical_model_name))
+                
                                     
                 $(string(SIM_fitting.prms_names))
                 $(string(SIM_fitting.x0))
@@ -1057,18 +1075,45 @@ end
 
 
 
-function meta_run_par_study(;only_return_SIM_fitting=false)  
+
+function meta_run_par_study(;only_return_SIM_fitting=false,
+                            prms_lists,
+                            name="default_name",
+                            pyplot=false,
+                            plot_each_x_th=20,
+                            print_only_result=true,
+                            SIM_fitting=Nothing,
+                            scripted_tuple,
+                            
+                              ### if true, no script is called! Just direclty run_par_study_script_wrap()
+                              direct_bool = true,
+  
+                            SIM_fitting_mode = true,    #!#!#!#!#!#!#!#!#!#!
+                  
+                            bash_command = "sbatch",
+                            #bash_command = "echo",
+                            #bash_command = "julia",
+                            
+                            #mode = "test_one_prms",
+                            #mode = "only_print",
+                            mode = "go",
+                            
+                            express3_bool = true
+                            )  
+                            
   function recursive_bash_call(output_prms_lists, active_idx)
     if active_idx > size(scripted_tuple,1)
       scripted_tuple_string = string(scripted_tuple)
       output_prms_lists_string = string(output_prms_lists)
-      prms_names_string = string(prms_names)
+      prms_names_string = string(SIM_fitting.prms_names)
 
-      TC_string = string(TC)
-      pO2_string = string(pO2)
-      bias_string = string(bias) 
-      data_set = data_set
-      simulations_string = string(simulations)
+      TC_string = string(SIM_fitting.TC)
+      pO2_string = string(SIM_fitting.pO2)
+      bias_string = string(SIM_fitting.bias) 
+      data_set = SIM_fitting.data_set
+      simulations_string = string(SIM_fitting.simulations)
+      fitness_factors_string = string(SIM_fitting.fitness_factors)
+      #physical_model_name = physical_model_name
       
       ### nasty merge ...... <<<<<<<<<<<<< TODO TODO TODO !!!!!!!!!!!!!!!! >>> make separate function for SIM_fitting
       if SIM_fitting_mode
@@ -1126,14 +1171,14 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
           recursive_bash_call(push!(deepcopy(output_prms_lists),i), active_idx + 1)
         end
       else
-        recursive_bash_call(push!(deepcopy(output_prms_lists),prms_lists[active_idx]), active_idx + 1)
+        recursive_bash_call(push!(deepcopy(output_prms_lists), prms_lists[active_idx]), active_idx + 1)
       end
     end
   end
   
   function consistency_check()
-    if (size(prms_names,1) != size(scripted_tuple,1) || 
-        size(prms_names,1) != size(prms_lists,1))
+    if (size(SIM_fitting.prms_names,1) != size(scripted_tuple,1) || 
+        size(SIM_fitting.prms_names,1) != size(prms_lists,1))
       return false
     end
     
@@ -1145,121 +1190,6 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
     
     return true
   end
-  
-  #######################################################
-  #######################################################
-  #######################################################
-  ########### par_study definition ######################
-  
-  name = "GAS_LoMA_ULTRA_level_2"
-  
-  
-  
-  
-  prms_names=["separate_vacancy",
-              "A.beta", "R.beta", "O.beta",
-              "A.S", "R.S", "O.S",
-              "A.exp", "R.exp", "O.exp", 
-              "A.r", "R.r", "O.r",              
-              "A.DG", "R.DG", "O.DG",     
-              "conductivity", "nu",      "OC", "ms_par", "e_fac"  ]
- 
-  prms_lists=(true, 1.0, 1.0, 1.0, 21.96912506564684, 21.569512049276458, 20.93977987957153, 0.1241112223034025, -0.10660629726868907, -0.006580383278506099, 9.3e-11, 0.85, 5.848806563958082, 8.27404376722011, 0.0)
-  
-  prms_lists=(1, 
-              0.5, 0.5, 0.5,
-              0, 0, 0,
-              0.0, 0.0, 0.0, 21.9464, 21.5159, 21.4928, 0.0032943, 0.0277383, -0.0838499, 1.02, 0.811907, 10.472, 6.00553, 0.0718344)
-  
-  prms_lists=(1, 0.0, 0.0, 0.0, 22.4569, 22.1153, 23.7591, -0.0321725, -0.0408594, 0.600798, 3.58, 0.23498, 40.5525, 20.8275, 0.414237)
- 
-#     prms_lists = (
-#       true,
-#       0.0, 0.0, 0.0,
-#       # rX
-#       collect(21.5 : 1.0 : 21.5),
-#       collect(21.5 : 1.0 : 21.5),
-#       collect(21.5 : 1.0 : 21.5),
-#       # DGX
-#       collect(-0.25 : 0.05 : 0.25),
-#       collect(-0.25 : 0.05 : 0.25),
-#       collect(-0.25 : 0.05 : 0.25),
-# 
-#       # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
-#       # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9.3, 12.3)e-11 for "OLD_MONO_100"
-#       # hint: conductivity OLD_MONO_100 -> TC = [700, 750, 800, 850] = [1.02, 2.07,  3.58, 5.85]
-# 
-#       1.02,
-#       0.65,
-# 
-#       20.0,
-#       20.0,
-#       0.0
-#     )
-  
-  
-  mask          =(0,
-                  1,1,1,
-                  1,1,1,
-  
-                  0, 0, 0,
-                  0, 0, 0,
-                  0, 0, 0,
-                  0, 0,       0, 0, 0)
-  lower_bounds=(0.0, 
-                0.0, 0.0, 0.0,
-                -3, -3, -3,
-               
-                0.0, 0.0, 0.0,
-                15.5, 15.9, 15.7,       
-                -0.8, -0.8, -0.8,
-                [1]*1.0e-13, 0.01,     0.0, 0.1, 0.0)
-  upper_bounds=(1.0,
-                1, 1, 1,
-                3, 3, 3,
-  
-                1.0, 1.0, 1.0,
-                27.5, 27.9, 27.7,              
-                0.8, 0.8, 0.8,
-                [1]*1.0e-8, 0.99,      Inf, Inf, 5.0)
-                
-
-  scripted_tuple =(1,
-                  1,1,1,
-                  1,1,1,
-    
-                  1, 1, 1,
-                  1, 1, 1,       
-                  1, 1, 1,
-                  1, 1,           1, 1, 1)
- 
-  TC = 700
-  pO2 = [40]
-  bias = 0.0
-
-  data_set = "OLD_MONO_100"
-  simulations = ["CV"]
-  
-  
-  
-  save_dir = "../data/par_studies/"
-  #######################################################  
-  # preparing bash output ###############################
-  
-  ### if true, no script is called! Just direclty run_par_study_script_wrap()
-  direct_bool = true
-  
-            SIM_fitting_mode = true    #!#!#!#!#!#!#!#!#!#!
-  
-  bash_command = "sbatch"
-  #bash_command = "echo"
-  #bash_command = "julia"
-  
-  #mode = "test_one_prms"
-  #mode = "only_print"
-  mode = "go"
-  
-  express3_bool = true
 
   
   
@@ -1283,51 +1213,6 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   ####################################################### 
   #######################################################
   #######################################################
-          
-  
-  ### be careful, this has no impact on real included model ... yet  ... :)
-  physical_model_name = "blbost jak svina"
-  ###
-  
-  
-  #######################################################
-  ###############  SIM_fitting definition ###############
-  #######################################################
-  #######################################################
-  
-  SIM_fitting = build_SIM_fitting(
-                                    TC=TC,
-                                    pO2=pO2,
-                                    bias=bias,
-                                    data_set=data_set,
-                                    simulations=simulations,
-                                    #
-                                    prms_names=prms_names,
-                                    #x0=output_prms_lists,
-                                    mask=mask,
-                                    lower_bounds=lower_bounds,
-                                    upper_bounds=upper_bounds,
-                                    #
-                                    print_to_file=false,
-                                    save_dir="../data/EEC/temp/log/", 
-                                    file_name="SIM_fitting_default.txt",
-                                    #
-                                    bboptimize_bool=false, 
-                                    iteration_count=100,
-                                    )
-
-  if only_return_SIM_fitting
-    return SIM_fitting
-  end
-                                    
-  pyplot = true
-  plot_each_x_th = 20
-  print_only_result = true
-                                    
-  #######################################################
-  #######################################################
-  #######################################################
-  #######################################################                                    
   
   if mode == "test_one_prms"
     prms_lists = [list[Int64(ceil(end/2.0))] for list in prms_lists]
@@ -1338,9 +1223,9 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
   per_node_count = 1
   for (i, byte) in enumerate(scripted_tuple)
     if byte == 1
-      nodes_count *= size(prms_lists[i],1)
+      nodes_count *= size((prms_lists)[i],1)
     else
-      per_node_count *= size(prms_lists[i],1)
+      per_node_count *= size((prms_lists)[i],1)
     end 
   end
   
@@ -1349,22 +1234,23 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
 
   metafile_string = "-----------  METAFILE for par_study  -------------\n"
   metafile_string = string(metafile_string,"name=", name,"\n")
-  metafile_string = string(metafile_string,"physical_model_name=", physical_model_name,"\n")
+  metafile_string = string(metafile_string,"physical_model_name=", SIM_fitting.physical_model_name,"\n")
   prms_strings = [string(item) for item in prms_lists]
   for (i,str) in enumerate(prms_strings)
-    metafile_string = string(metafile_string, prms_names[i],"_list=",str,"\n")
+    metafile_string = string(metafile_string, SIM_fitting.prms_names[i],"_list=",str,"\n")
   end
   
   metafile_string = string(metafile_string,"#### nodes / pernode_count  =  ", nodes_count," / ",per_node_count," ( = ",per_node_count*3.0/60.0,"m)  #### \n")
-  metafile_string = string(metafile_string,"prms_names=", prms_names,"\n")
+  metafile_string = string(metafile_string,"prms_names=", SIM_fitting.prms_names,"\n")
   metafile_string = string(metafile_string,"scripted_tuple=", scripted_tuple,"\n")
-  metafile_string = string(metafile_string,"TC=", TC,"\n")
-  metafile_string = string(metafile_string,"pO2=", pO2,"\n")
-  metafile_string = string(metafile_string,"bias=", bias,"\n")
-  metafile_string = string(metafile_string,"data_set=", data_set,"\n")
-  metafile_string = string(metafile_string,"simulations=", simulations,"\n")
+  metafile_string = string(metafile_string,"TC=", SIM_fitting.TC,"\n")
+  metafile_string = string(metafile_string,"pO2=", SIM_fitting.pO2,"\n")
+  metafile_string = string(metafile_string,"bias=", SIM_fitting.bias,"\n")
+  metafile_string = string(metafile_string,"data_set=", SIM_fitting.data_set,"\n")
+  metafile_string = string(metafile_string,"simulations=", SIM_fitting.simulations,"\n")
   #metafile_string = string(metafile_string,"string(SIM_list)=", string(SIM_list),"\n") 
-  metafile_string = string(metafile_string,"save_dir=", save_dir,"\n")
+  metafile_string = string(metafile_string,"save_dir=", SIM_fitting.save_dir,"\n")
+  
   metafile_string = string(metafile_string,"mode=", mode,"\n")
   metafile_string = string(metafile_string,"bash_command=", bash_command,"\n")
   metafile_string = string(metafile_string,"run_file_name=", run_file_name,"\n")
@@ -1378,7 +1264,7 @@ function meta_run_par_study(;only_return_SIM_fitting=false)
     return
   end
   
-  meta_file_path = string(save_dir, name, "/")
+  meta_file_path = string(SIM_fitting.save_dir, name, "/")
   run(`mkdir -p $(meta_file_path)`)
   write("$(meta_file_path)__metafile_par_study.txt", metafile_string)
   

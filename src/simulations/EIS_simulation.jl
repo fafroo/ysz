@@ -5,7 +5,7 @@ using PyPlot
 
 
 const EIS_standard_figure_num = 6
-const EIS_default_model_name = "ysz_model_GAS_LoMA_shared"
+const EIS_default_physical_model_name = "ysz_model_GAS_LoMA_shared"
 
 include("../DRT.jl")
 
@@ -19,7 +19,7 @@ mutable struct EIS_simulation <: abstract_simulation
   bias::Float64
   data_set::String
   #
-  model_name::String
+  physical_model_name::String
   #
   dx_exp::Float64
   f_range::Tuple
@@ -50,7 +50,7 @@ function string(SIM::EIS_simulation)
   return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", model_name=EIS_default_model_name, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
+function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_name=EIS_default_physical_model_name, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -62,7 +62,7 @@ function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", model_name=EIS_d
         this.bias = bias_item
         this.data_set = data_set
         #
-        this.model_name=model_name
+        this.physical_model_name=physical_model_name
         #
         this.dx_exp = dx_exp
         this.f_range = f_range
@@ -286,7 +286,7 @@ function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in,
-      physical_model_name=SIM.model_name
+      physical_model_name=SIM.physical_model_name
   )
 end
 

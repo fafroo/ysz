@@ -5,7 +5,7 @@ using PyPlot
 
 
 const  CV_standard_figure_num = 5
-const  CV_default_model_name = "ysz_model_GAS_LoMA_shared"
+const  CV_default_physical_model_name = "ysz_model_GAS_LoMA_shared"
 
 
 ######################################
@@ -16,7 +16,7 @@ mutable struct CV_simulation <: abstract_simulation
   pO2::Float32
   data_set::String
   #
-  model_name::String
+  physical_model_name::String
   #
   upp_bound::Float32
   low_bound::Float32
@@ -41,7 +41,7 @@ function string(SIM::CV_simulation)
   return "CV_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CV_simulation(TC, pO2; data_set="MONO_110", model_name=CV_default_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
+function CV_simulation(TC, pO2; data_set="MONO_110", physical_model_name=CV_default_physical_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -51,7 +51,7 @@ function CV_simulation(TC, pO2; data_set="MONO_110", model_name=CV_default_model
       this.pO2 = pO2_item 
       this.data_set = data_set
       #
-      this.model_name = model_name
+      this.physical_model_name = physical_model_name
       #
       this.upp_bound = upp_bound
       this.low_bound = low_bound
@@ -75,8 +75,8 @@ function CV_simulation(TC, pO2; data_set="MONO_110", model_name=CV_default_model
   return output
 end
 
-function CV_simulation(TC, pO2, bias; data_set="MONO_110", model_name=CV_default_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
-    CV_simulation(TC, pO2; data_set=data_set, model_name=model_name, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size, checknodes=checknodes, fitness_factor=fitness_factor, plot_legend=plot_legend)
+function CV_simulation(TC, pO2, bias; data_set="MONO_110", physical_model_name=CV_default_physical_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
+    CV_simulation(TC, pO2; data_set=data_set, physical_model_name=physical_model_name, upp_bound=upp_bound, low_bound=low_bound, dx_exp=dx_exp, sample=sample, voltrate=voltrate, fig_size=fig_size, checknodes=checknodes, fitness_factor=fitness_factor, plot_legend=plot_legend)
 end
 
 
@@ -187,7 +187,7 @@ function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_i
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in,
-      physical_model_name=SIM.model_name
+      physical_model_name=SIM.physical_model_name
   )
 end
 
