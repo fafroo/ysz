@@ -1,4 +1,4 @@
-module ysz_model_GAS_LoMA_shared
+module ysz_model_GAS_LoMA_Temperature
 
 #############################################
 # WHILE CREATING NEW MODEL                  #
@@ -9,7 +9,7 @@ module ysz_model_GAS_LoMA_shared
 # [x] equilibrium quantities                #
 # [x] meas_tran & meas_stdy                 #
 # [x] output species, names                 #
-# [x] function set_parameters               #
+# [ ] function set_parameters               #
 # [x] changed module name :)                #
 #                                           #
 #############################################
@@ -29,10 +29,18 @@ const index_driving_species = iphi
 
 mutable struct reaction_struct
   r::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
+  r_A::Float64
+  r_B::Float64
+  r_C::Float64
   DG::Float64 # difference of gibbs free energy of adsorption  [ J ]
+  DG_A::Float64
+  DG_B::Float64
+  DG_C::Float64
   beta::Float64 # symmetry of the adsorption    
   S::Float64 # stechiometry compensatoin of the adsorption
   exp::Float64 # bool deciding if EXP should be used instead of LoMA
+  #
+  
 end
 
 mutable struct YSZParameters <: VoronoiFVM.AbstractData
@@ -55,14 +63,26 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     pO2::Float64 # O2 partial pressure [bar]\z
     T::Float64      # Temperature [K]
     nu::Float64    # ratio of immobile ions, \nu [1]
-    nus::Float64    # ratio of immobile ions on surface, \nu_s [1]
+    nu_A::Float64
+    nu_B::Float64
+    nu_C::Float64
     numax::Float64  # max value of \nu 
-    nusmax::Float64  # max value of  \nu_s
     x_frac::Float64 # Y2O3 mol mixing, x [%] 
     chi::Float64    # dielectric parameter [1]
     m_par::Float64
-    ms_par::Float64
   
+    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
+    CO::Float64
+    CO_A::Float64
+    CO_B::Float64
+    CO_C::Float64
+    COmm::Float64
+    COmm_A::Float64
+    COmm_B::Float64
+    COmm_C::Float64
+    
+    # overvoltage influence - dimensionless number used as "supplied energy" = -e_fac*(e0)*\eta
+    e_fac::Float64
 
     # known
     vL::Float64     # volume of one FCC cell, v_L [m^3]
@@ -87,12 +107,6 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     
     ML::Float64   # averaged molar mass [kg]
     
-    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
-    OC::Float64
-    
-    # overvoltage influence - dimensionless number used as "supplied energy" = -e_fac*(e0)*\eta
-    e_fac::Float64
-    
     #
     YSZParameters()= YSZParameters( new())
 end
@@ -103,26 +117,39 @@ function YSZParameters(this)
     this.separate_vacancy = true
     this.weird_DD = true
     
+    # experimental conditions
+    this.pO2=1.0                   # O2 atmosphere 
+    this.T=1073   
+    
     # oxide adsorption from YSZ
-    this.A = reaction_struct(1,1,1,1,1)
-    this.A.r= 10.0^21
-    this.A.DG= 0.0905748 * this.e0 # this.e0 = eV
+    this.A = reaction_struct(1,1,1,1,1, 1,1,1,1,1, 1)
+    this.A.r= -Inf
+    this.A.r_A =0.0
+    this.A.DG= -Inf
+    this.A.DG_A = 0.0
+    
     this.A.beta = 0.5
     this.A.S= 10^0.0
     this.A.exp= 1
     
     # electron-transfer reaction
-    this.R = reaction_struct(1,1,1,1,1)
-    this.R.r= 10.0^22
-    this.R.DG= -0.708014 * this.e0
+    this.R = reaction_struct(1,1,1,1,1, 1,1,1,1,1, 1)
+    this.R.r= -Inf
+    this.R.r_A =0.0
+    this.R.DG= -Inf
+    this.R.DG_A = 0.0
+    
     this.R.beta= 0.5
     this.R.S= 10^0.0
     this.R.exp = 1
     
     # oxygen adsorption from gas
-    this.O = reaction_struct(1,1,1,1,1)
-    this.O.r= 10.0^20
-    this.O.DG= 0.0905748 * this.e0 # this.e0 = eV
+    this.O = reaction_struct(1,1,1,1,1, 1,1,1,1,1, 1)
+    this.O.r= -Inf
+    this.O.r_A =0.0
+    this.O.DG= -Inf
+    this.O.DG_A = 0.0
+    
     this.O.beta = 0.5
     this.O.S= 10^0.0
     this.O.exp= 1
@@ -132,19 +159,28 @@ function YSZParameters(this)
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
     #this.DD=9.5658146540360312e-10  # some value  <<<< nearly the BEST hand-guess
-    this.DD=4.35e-13  # testing value
-    this.conductivity=-1.0  # Siemens
-    this.pO2=1.0                   # O2 atmosphere 
-    this.T=1073                     
+    this.DD=-Inf
+    this.conductivity=-Inf  # Siemens                  
     
-    this.nu=0.85                     # assumption
-    this.nus=0.85                    # assumption
+    this.nu=-Inf                 
+    this.nu_A= 0.0
+    this.nu_B=-Inf
+    this.nu_C=-Inf
     this.x_frac=0.13                # 13% YSZ
     this.chi=27.0                  # from relative permitivity e_r = 6 = (1 + \chi) ... TODO reference
     this.m_par =  2                 
-    this.ms_par = 0.05        
-    this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
-    this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)
+        
+    this.CO = -Inf             # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
+    this.CO_A= 0.0
+    this.CO_B=-Inf
+    this.CO_C=-Inf
+    this.COmm = -Inf           # oxidw adsorption sites coverage w.r.t. one surface YSZ cell
+    this.COmm_A= 0.0
+    this.COmm_B=-Inf
+    this.COmm_C=-Inf
+    #
+    this.e_fac = 0.0
+    
 
     # known
     this.e0   = 1.602176565e-19  #  [C]
@@ -163,13 +199,9 @@ function YSZParameters(this)
     #this.ML  = (1-this.x_frac)/(1+this.x_frac)*this.mZr + 2*this.x_frac/(1+this.x_frac)*this.mY + this.m_par*this.nu*this.mO
     # this.zL=1.8182
     # this.yB=0.9
-    # this.ML=1.77e-25   
-    
-    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
-    this.OC = this.ms_par*(1.0-this.nus)
-    
-    #
-    this.e_fac = 0.0
+    # this.ML=1.77e-25
+  
+    this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     
     return this
 end
@@ -263,12 +295,58 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
     return inival
 end
 
-#function temperature_dependence
+
+# Temperature parametrization
+# function Arrhenius_template(T, E, p)
+#   return p*exp(-E/(1.380649e-23 * T))
+# end
+
+function quadratic_template(T, A, B, C)
+  return A*((T-973.15)/50)^2 + B*((T-973.15)/50) + C
+end
+
+function get_conductivity_from_T(T)
+  TC_list = [700, 750, 800, 850]
+  # conductivity values for "OLD_MONO_110"
+  conductivity_list = [1.02, 2.07,  3.72, 5.85]
+  #
+  for (i, T_test) in enumerate(TC_list.+273.15)
+    if abs(T_test - T) < 0.5
+      return conductivity_list[i]
+    end
+  end
+  
+  
+  #
+  #  TODO !! interpolace pro ostatni teploty
+  #
+  
+  
+  println("ERROR: T not found")
+  return throw(Exception)
+end
+
+function set_temperature_dependent_parameters_to_reaction(this::YSZParameters, X)
+  
+  ( X.r == -Inf ?  X.r = 10.0^quadratic_template(this.T, X.r_A, X.r_B, X.r_C) : true)
+  ( X.DG == -Inf ?    X.DG = this.e0*quadratic_template(this.T, X.DG_A, X.DG_B, X.DG_C) : true)
+end
+
+
 
 function YSZParameters_update!(this::YSZParameters)
+    # temperature dependet parameters
+    ( this.nu == -Inf ?    this.nu = quadratic_template(this.T, this.nu_A, this.nu_B, this.nu_C) : true)
+    ( this.CO == -Inf ?    this.CO = quadratic_template(this.T, this.CO_A, this.CO_B, this.CO_C) : true)
+    ( this.COmm == -Inf ?    this.COmm = quadratic_template(this.T, this.COmm_A, this.COmm_B, this.COmm_C) : true)
+    
+    set_temperature_dependent_parameters_to_reaction(this, this.A)
+    set_temperature_dependent_parameters_to_reaction(this, this.R)
+    set_temperature_dependent_parameters_to_reaction(this, this.O)
+    
+    
     this.areaL=(this.vL)^0.6666
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
-    this.nusmax = (2+this.x_frac)/this.ms_par/(1+this.x_frac)   
     
     this.zL  = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*this.m_par*this.nu
     this.yB  = -this.zL/(this.zA*this.m_par*(1-this.nu))
@@ -278,11 +356,15 @@ function YSZParameters_update!(this::YSZParameters)
     this.phi_eq, this.y0_eq, this.yAs_eq, this.yOs_eq = equilibrium_boundary_conditions(this)
 
     # the following block computes the right DD according to the right conductivity
+    if this.DD < 0.0 && this.conductivity < 0.0
+        this.conductivity = get_conductivity_from_T(this.T)
+    end
     if this.conductivity > 0.0
       testing_DD = 1.06e-11    
       this.DD = testing_DD
       conductivity_test = get_conductivity(this, perform_update=false)
       this.DD = testing_DD * (this.conductivity / conductivity_test)
+    else
     end
     
     return this
@@ -301,8 +383,18 @@ function set_parameters!(this::YSZParameters, prms_values, prms_names)
     found = false
     # supposing there is at most one '.'
     if occursin('.', name_in)
-      (name_in, attribute_name_in) = split(name_in, '.')
+        (name_in, attribute_name_in) = split(name_in, '.')
     end
+    
+    # this is here for backward compatibility .... COmm = ms_par*(1 - nus)
+    if name_in =="ms_par"
+      setfield!(this, Symbol("COmm"), convert(Float64, prms_values[i]*(1 - 0.85)))
+      continue
+    elseif name_in =="OC"
+      setfield!(this, Symbol("CO"), convert(Float64, prms_values[i]))
+      continue
+    end
+    
     for name in fieldnames(typeof(this))
       if name==Symbol(name_in)          
         if name_in in ["A", "R", "O"]
@@ -345,11 +437,11 @@ end
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
       if this.separate_vacancy
-        f[iyAs]=this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
-        f[iyOs]=this.mO*this.OC*u[iyOs]/this.areaL
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL
       else
-        f[iyAs]=this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
-        f[iyOs]=this.mO*this.ms_par*(1.0-this.nus)*u[iyOs]/this.areaL
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL
       end
     end
 end
@@ -666,7 +758,7 @@ function direct_capacitance(this::YSZParameters, PHI)
     #
     Y  = yB/(1-yB)*exp.(- this.DGA/this.kB/this.T .- this.zA*this.e0/this.kB/this.T*PHI);
     #
-    CS = this.zA^2*this.e0^2/this.kB/this.T*this.ms_par/this.areaL*(1-this.nus)*Y./((1.0.+Y).^2);
+    CS = this.zA^2*this.e0^2/this.kB/this.T/this.areaL*this.COmm*Y./((1.0.+Y).^2);
     CBL  = nF./F;
     return CBL, CS, y
 end
@@ -682,7 +774,7 @@ function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEll
     dphi_end = U[iphi, end] - U[iphi, end-1]
     dx_end = X[end] - X[end-1]
     dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.ms_par*(1-parameters.nus) # (e0*zA*nA_s)
+    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.COmm # (e0*zA*nA_s)
     meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
     return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
 end

@@ -769,7 +769,7 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
       print_only_result || (print_and_delete_buffer(output_buffer))
       
 #       println(" || ",err_string,": err =", err)
-
+      println(iteration_counter, " >> x =", round.(x, digits=3)," : err =", err)
       return err
   end
   

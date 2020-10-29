@@ -34,6 +34,7 @@ using LinearAlgebra
 
 include("../src/models/ysz_model_GAS_LoMA.jl")
 include("../src/models/ysz_model_GAS_LoMA_shared.jl")
+include("../src/models/ysz_model_GAS_LoMA_Temperature.jl")
 
 include("../prototypes/timedomain_impedance.jl")
 
