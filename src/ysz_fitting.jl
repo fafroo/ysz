@@ -179,7 +179,7 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
         end  
         if use_experiment
           if test
-            test_result+=fitnessFunction(SIM, SIM_exp, SIM_sim)
+            test_result+=fitnessFunction(SIM, SIM_sim, SIM_exp)
           else
             fitness_error_report(SIM, plot_prms_string, SIM_exp, SIM_sim)
           end
@@ -577,9 +577,9 @@ function run_SIM_fitting_script_wrap(
                     pO2_string,
                     bias_string,
                     data_set,
-                    simulations_string,
-                    physical_model_name,
+                    simulations_string,                    
                     fitness_factors_string,
+                    physical_model_name,
                     #                    
                     prms_names_string,
                     x0_string,            
@@ -693,19 +693,19 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
     return
   end
   
-  function prepare_prms(mask, x0, x)
-      prms = []
-      xi = 1
-      for i in collect(1 : 1 :length(mask))
-          if convert(Bool,mask[i])
-              append!(prms, x[xi])
-              xi += 1
-          else
-              append!(prms, x0[i])
-          end
-      end
-      return Tuple(prms)
-  end
+#   function prepare_prms(mask, x0, x)
+#       prms = []
+#       xi = 1
+#       for i in collect(1 : 1 :length(mask))
+#           if convert(Bool,mask[i])
+#               append!(prms, x[xi])
+#               xi += 1
+#           else
+#               append!(prms, x0[i])
+#           end
+#       end
+#       return Tuple(prms)
+#   end
   
   function to_optimize(x)
       #@show x
@@ -738,7 +738,7 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
             typical_plot_sim(SIM, SIM_sim)
           end
           
-          SIM_err = SIM.fitness_factor * fitnessFunction(SIM, SIM_exp[i], SIM_sim)
+          SIM_err = SIM.fitness_factor * fitnessFunction(SIM, SIM_sim, SIM_exp[i])
           err += SIM_err
         catch e
           if e isa InterruptException
@@ -973,49 +973,73 @@ end
 
 function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir="../snehurka/")
 
+  function SER_get_value(line, name; set_standard_failed=true)
+    error_split = split(line, '=')
+    if error_split[1] == name
+      return eval(Meta.parse(
+            error_split[2]
+            )
+          )
+    else
+      standard_failed = true
+      return ""
+    end    
+  end
+  
+  
   dir_items = cd(readdir, working_dir)
   
+  standard_failed = false
+  non_standard_success = false
   error_and_prms_values_dataframe = DataFrame(error = [], prms_values = [], x0 = [], file_name = [])
   for item in dir_items
     if (length(item) >= 5) && (item[1:5]=="slurm")
+      standard_failed = false
+      non_standard_success = false
+      
       buffer = readlines(working_dir*item)
       
       if length(buffer) > 3
+        error = SER_get_value(buffer[end-1], "err")
+        prms_values = SER_get_value(buffer[end-3], "prms_values")
+        x0 = SER_get_value(buffer[end-6], "x0")
         
-        error_split = split(buffer[end-1], '=')
-        if error_split[1] == "err"
-          error = eval(Meta.parse(
-                error_split[2]
-                )
-              )
-        else
-          continue
+        
+        if standard_failed 
+        
+          for line in buffer          
+            mask = SER_get_value(line, "mask", set_standard_failed=false)
+            x0 = SER_get_value(line, "x0", set_standard_failed=false)
+          end
+        
+          starting_line_number = max(length(buffer) - 200, 1)
+          for line in buffer[starting_line_number : end]
+            aux = split(line, '=')
+            
+            first_raw = split(aux[1], ">>")
+            if length(first_raw) > 1
+              x_str = first_raw[2]
+            else
+              continue
+            end
+            if x_str == " x "
+              x_values = eval(Meta.parse(split(aux[2], ':')[1]))
+              error = eval(Meta.parse(aux[3]))
+              non_standard_success = true
+            else
+              continue
+            end
+            prms_values = prepare_prms(mask, x0, x_values)
+          end
+          
         end
-        
-        prms_values_split = split(buffer[end-3], '=')
-        if prms_values_split[1] == "prms_values "
-          prms_values = eval(Meta.parse(
-                  prms_values_split[2]
-                  )
-                )
-        else
-          continue
+          
+        if !(standard_failed) || (non_standard_success)
+          push!(
+            error_and_prms_values_dataframe,
+            (error, prms_values, x0, item)
+          )
         end
-        
-        x0_split = split(buffer[end-6], '=')
-        if x0_split[1] == "x0 "
-          x0 = eval(Meta.parse(
-                  x0_split[2]
-                  )
-                )
-        else
-          continue
-        end
-        
-        push!(
-          error_and_prms_values_dataframe,
-          (error, prms_values, x0, item)
-        )
       end
     end
   end
@@ -1052,9 +1076,70 @@ function aux_save_SIM_fitting(res::DataFrame, name)
   file_path = "aux_slurm_data/"*name*"/"
   run(`mkdir -p $(file_path)`)
   
-  dir_items = cd(readdir, working_dir)
-  
+  dir_items = cd(readdir, working_dir)  
+  #
+  # TODO!!
+  #
 end
+
+function plot_temp_parameters(;TC_range=Nothing, prms_names, prms_values, 
+                              show_reactions=["A","R","O"], 
+                              show_parameters=["r", "DG", "nu", "CO", "COmm"],
+                              label="_set_1"
+                              )
+  #
+  # TODO !! ->> common file visible from MODEL_FILE and also from ysz_fitting.jl  -->> for interpolation for example
+  #
+  TC_range = [700, 850]
+  
+  fig_num = 135
+  suptitle("Temperature dependent parameters")
+  
+    
+  function gv(prm_name)
+    return prms_values[findall(x->x==prm_name, prms_names)][1]
+  end
+  
+  function get_X_range(prm_name, TC_range)
+    X_B = gv(prm_name*"_B")
+    X_C = gv(prm_name*"_C")
+    
+    return [X_C, X_B*3 + X_C]
+  end
+  
+  function plot_X(prm_name, special_y_label=Nothing, special_legend=Nothing)
+    xlabel("TC (°C)")
+    special_y_label == Nothing ? ylabel(prm_name) : ylabel(special_y_label)
+    #subplots_adjust(hspace = 0.5)
+    plot(TC_range, get_X_range(prm_name, TC_range), 
+      label= (special_legend==Nothing ? prm_name*label : special_legend)
+      )  
+    legend(loc="best")
+    grid(true)
+  end
+    
+  for (i, reaction_name) in enumerate(show_reactions)
+    for (j, attribute_name) in enumerate(["r", "DG"])
+      prm_name = reaction_name*"."*attribute_name      
+      
+      subplot(2, 2, j)
+      plot_X(prm_name, (attribute_name=="r" ? "log_10 r" : "DG [eV]"), reaction_name*label)    
+    end  
+  end  
+  
+  subplot(3, 3, 6 + 1)
+  plot_X("nu")
+  
+  subplot(3, 3, 6 + 2)
+  plot_X("CO")
+  
+  subplot(3, 3, 6 + 3)
+  plot_X("COmm")
+  
+  return
+end
+
+
 
 ###########################################################
 ###########################################################

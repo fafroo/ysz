@@ -308,7 +308,8 @@ end
 function get_conductivity_from_T(T)
   TC_list = [700, 750, 800, 850]
   # conductivity values for "OLD_MONO_110"
-  conductivity_list = [1.02, 2.07,  3.72, 5.85]
+  #conductivity_list = [1.02, 2.07,  3.72, 5.85]
+  conductivity_list = [1.015, 2.06,  3.63, 5.93]
   #
   for (i, T_test) in enumerate(TC_list.+273.15)
     if abs(T_test - T) < 0.5
@@ -316,10 +317,13 @@ function get_conductivity_from_T(T)
     end
   end
   
-  
   #
   #  TODO !! interpolace pro ostatni teploty
   #
+  
+  # fitted Arrhenius realtion
+  return 346897*exp(-12321.8*(1/T))
+  
   
   
   println("ERROR: T not found")

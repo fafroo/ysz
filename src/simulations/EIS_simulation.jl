@@ -128,7 +128,7 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     num_rows = 200
   end
   
-  if occursin("leg", SIM.plot_option)
+  if occursin("leg", SIM.plot_option) || SIM.plot_legend
     sLEG = subplot(num_rows + 23)
     plot([], marker_style, label = my_label)
     PyPlot.axis("off") 
@@ -141,9 +141,9 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     xlabel("Re\$(Z) \\ [\\Omega]\$")
     ylabel("-Im\$(Z) \\ [\\Omega]\$")
     plot(real(EIS_df.Z), -imag(EIS_df.Z), marker_style, label = my_label)
-    if !(my_label == "") && SIM.plot_legend
-        legend(loc="best")
-    end
+#     if !(my_label == "") && SIM.plot_legend
+#         legend(loc="best")
+#     end
     grid(true)
     s1.set_aspect(1.0)
   end
@@ -232,7 +232,7 @@ function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
-  println("EIS fitness error $(setting_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, EIS_exp, EIS_sim))
+  println("EIS fitness error $(setting_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, EIS_sim, EIS_exp))
 end
 
 
@@ -299,7 +299,7 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", f_interval=Nothing, use_checknodes=false, plot_legend=true, fig_num=12)    
+function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", f_interval=Nothing, use_checknodes=false, plot_legend=true, fig_num=12)    
   
   EIS_exp = DataFrame()
   for TC_item in TC
@@ -314,7 +314,7 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", f_inter
         end
         figure(fig_num)
         EIS_exp = f_interval_preprocessing(EIS_exp, f_interval)
-        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, data_set=data_set_item, plot_legend=plot_legend)..., EIS_exp, "", false)
+        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, data_set=data_set_item, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp, "", false)
       end
     end
   end
@@ -379,32 +379,37 @@ function biliComb(SIM::EIS_simulation, Q11,Q12,Q21,Q22,x,y)
     end
 end
 
+function real_Bode_get_normalization_factor(a, b, A, B=1)
+  # a, A is LF value of experimental and the reference Bode, respectively.
+  # b, B is HF value of experimental and the reference Bode, respectively.
+  # the following formula comes from the problem:
+  #
+  #               min_alpha ( (alpha*a - A)^2 + (alpha*b - B)^2 )
+  return (a*A + b*B)/(a*a + b*b)
+end
 
-function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataFrame)
+function fitnessFunction(SIM::EIS_simulation, sim_EIS::DataFrame, exp_EIS::DataFrame; relative_error=false)
         err = 0.0
         
-#         max_err_imag = -1
-#         max_err_real = -1
-#         diff_imag = 0
-#         diff_real = 0
+        min_imag = Inf     
+        
+        sum_err_real = 0.0
+        sum_err_imag = 0.0        
         
         if  exp_EIS.f == sim_EIS.f
                 
                 for row = 1:size(exp_EIS,1)
-                    err += (
-                      (
-                        (imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))
-                        #/
-                        #(imag(exp_EIS.Z[row]) + imag(sim_EIS.Z[row]))/2
-                      )^2 
-                      +
-                      (
-                        (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
-                        #/
-                        #(real(exp_EIS.Z[row]) + real(sim_EIS.Z[row]))/2
-                      )^2
-                    )
+                    if (act_imag = imag(exp_EIS.Z[row])) < min_imag                      
+                      min_imag = act_imag
+                    end            
                     
+                    sum_err_real += (
+                                      (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
+                                    )^2
+                    sum_err_imag += (                        
+                                      (act_imag - imag(sim_EIS.Z[row]))
+                                    )^2 
+
 #                     diff_real = abs(imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))
 #                     diff_imag = abs(real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
 #                     
@@ -413,6 +418,21 @@ function fitnessFunction(SIM::EIS_simulation, exp_EIS::DataFrame, sim_EIS::DataF
 #                     
 #                     err +=( diff_real^2 + diff_imag^2)
                 end
+                
+                # normalization                
+                real_factor = (
+                                  real_Bode_get_normalization_factor(
+                                                      real(exp_EIS.Z[1]), 
+                                                      real(exp_EIS.Z[end]),
+                                                      6   # LF value of the real reference EIS
+                                                      )
+                              )
+                imag_factor = 1/(min_imag)    # EIS normalized such that the highest peak has height = 1
+                #
+                sum_err_imag *= imag_factor^2
+                sum_err_real *= real_factor^2                              
+                #
+                err = sum_err_imag + sum_err_real 
         else
                 println("ERROR: EIS_fitnesFunction: shape mismatch or different *.f values")
                 return Exception()

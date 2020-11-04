@@ -687,7 +687,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         fixed_prms_names=[], fixed_prms_values=[],
                         init_values=Nothing, alpha_low=0.2, alpha_upp=1, #fitting_mask=Nothing,
                         EEC_structure="R-L-RCPE-RCPE",
-                        plot_bool=false, plot_legend=true, plot_best_initial_guess=false, plot_fit=true, 
+                        plot_bool=false, plot_legend=true, plot_best_initial_guess=false, plot_fit=true, plot_exp=true,
                         show_all_initial_guesses=false,
                         with_errors=false, which_initial_guess="both",
                         use_DRT=false, DRT_draw_semicircles=false,
@@ -863,7 +863,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     
     mask = get_fitting_mask_and_apply_fixed_prms_values!(EEC_actual, init_values_list, fixed_prms_names, fixed_prms_values)
     
-    plot_bool && ysz_fitting.typical_plot_exp(SIM, EIS_exp)
+    plot_bool && plot_exp && ysz_fitting.typical_plot_exp(SIM, EIS_exp)
             
     best_error = Inf
     best_prms_values = []

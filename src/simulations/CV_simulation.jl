@@ -211,7 +211,7 @@ function CV_view_experimental_data(;TC, pO2, data_set, use_checknodes=false, fig
 end
 
 function fitness_error_report(SIM::CV_simulation, plot_prms_string, CV_exp, CV_sim)
-  println("CV fitness error $(setting_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, CV_exp, CV_sim))
+  println("CV fitness error $(setting_legend(SIM, latex=false)) $(plot_prms_string)  => ", fitnessFunction(SIM, CV_sim, CV_exp))
 end
 
 function CV_get_I_values(CVraw, checknodes)
@@ -272,18 +272,25 @@ function biliComb(SIM::CV_simulation, Q12,Q21,Q22,x,y)
     end
 end
 
-function fitnessFunction(SIM::CV_simulation, exp_CV::DataFrame, sim_CV::DataFrame)
+function fitnessFunction(SIM::CV_simulation, sim_CV::DataFrame, exp_CV::DataFrame)
+        max_of_CV = -Inf
+        aux = 0
+        
         if (count=size(exp_CV,1)) == size(sim_CV,1)
                 err = 0.0
+                
                 for row = 1:count
-                        err += (exp_CV.I[row] - sim_CV.I[row])^2
+                  if (aux = exp_CV.I[row]) > max_of_CV
+                    max_of_CV = aux
+                  end
+                        err += (aux - sim_CV.I[row])^2
                 end
         else
                 println("ERROR: fitnesFunction: shape mismatch")
                 return Exception()
         end
         # returns average error per checknode
-        return sqrt(err)/Float32(count)
+        return sqrt(err)/Float32(count)/max_of_CV
 end
 
 function CV_get_checknodes(start_n,upper_n,lower_n,end_n,step_n)

@@ -1,4 +1,4 @@
-using Printf
+# using Printf
 
 kB = 1.3806488e-23
 N_A = 6.02214129e23
@@ -11,6 +11,19 @@ mutable struct prms_struct
   values
 end
 
+function prepare_prms(mask, x0, x)
+    prms = []
+    xi = 1
+    for i in collect(1 : 1 :length(mask))
+        if convert(Bool,mask[i])
+            append!(prms, x[xi])
+            xi += 1
+        else
+            append!(prms, x0[i])
+        end
+    end
+    return Tuple(prms)
+end
 
 function consistency_check(prms::prms_struct)
   if prms.names == Nothing && prms.values == Nothing

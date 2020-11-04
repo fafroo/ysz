@@ -44,6 +44,154 @@
 # # # # # #   return snehurka_control
 # # # # # # end
 
+
+function assemble_meta_SIM_fitting_snehurka(;only_return_SIM_fitting=false)  
+  #######################################################
+  #######################################################
+  #######################################################
+  ########### SIM_fitting definition ######################
+ 
+ 
+  TC = 800
+  pO2 = [40, 60]
+  bias = 0.0
+
+  data_set = "OLD_MONO_100"
+  simulations = ["EIS"]
+  fitness_factors = [1.0]
+  
+  physical_model_name = "ysz_model_GAS_LoMA_shared"
+  
+  #####
+  
+  prms_names=["separate_vacancy",
+              "A.exp", "R.exp", "O.exp", 
+              "A.r", "R.r", "O.r",              
+              "A.DG", "R.DG", "O.DG",     
+              "conductivity", "nu",      "OC", "ms_par", "e_fac"  ]
+    
+                                           
+   prms_lists = (
+      true,
+      0.0, 0.0, 0.0,
+      # rX
+      collect(22. : 10.0 : 23.3),  
+      collect(22. : 10.0 : 23.3),  
+      collect(22. : 10.0 : 23.3), 
+      # DGX
+      collect(-0.3 : 10.20 : 0.3), 
+      collect(-0.3 : 10.15 : 0.3),
+      collect(-0.3 : 10.15 : 0.3),
+
+      # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
+      # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9.3, 12.3)e-11 for "OLD_MONO_100"
+      # hint: conductivity OLD_MONO_100 -> TC = [700, 750, 800, 850] = [1.02, 2.07,  3.72, 5.85]
+      # hint: conductivity OLD_MONO_100 -> TC = [700, 750, 800, 850] = [1.015, 2.06,  3.63, 5.93]   # new version :) 
+      1.02,
+      0.65,
+
+      20.0,
+      20.0,
+      0.0
+    )
+  
+  
+  mask          =(0,
+                  0, 0, 0,
+                  1, 1, 1,
+                  1, 1, 1,
+                  0, 1,       1, 1, 0)
+  lower_bounds=(0.0, 
+                0.0, 0.0, 0.0,
+                15.5, 15.9, 15.7,       
+                -0.8, -0.8, -0.8,
+                5.71, 0.7,     0.0, 0.1, 0.0)
+  upper_bounds=(1.0,
+                1.0, 1.0, 1.0,
+                27.5, 27.9, 27.7,              
+                0.8, 0.8, 0.8,
+                5.99, 0.94,      100, 100, 2.00)
+                
+
+  scripted_tuple =(1,
+                  1, 1, 1,
+                  1, 1, 1,       
+                  1, 1, 1,
+                  1, 1,           1, 1, 1)
+                  
+  
+  #######################################################
+  
+  name = "cosi_kdesi"
+  
+  #######################################################
+  #############  SIM_fitting construction ###############
+  #######################################################
+  #######################################################
+  
+  SIM_fitting = ysz_fitting.build_SIM_fitting(
+                                    TC=TC,
+                                    pO2=pO2,
+                                    bias=bias,
+                                    data_set=data_set,
+                                    simulations=simulations,
+                                    fitness_factors=fitness_factors,
+                                    physical_model_name=physical_model_name,
+                                    #
+                                    prms_names=prms_names,
+                                    #x0=output_prms_lists,
+                                    mask=mask,
+                                    lower_bounds=lower_bounds,
+                                    upper_bounds=upper_bounds,
+                                    #
+                                    print_to_file=false,
+                                    save_dir="../data/SIM_fitting/temp/"*name*"/", 
+                                    file_name="SIM_fitting_default.txt",
+                                    #
+                                    bboptimize_bool=false, 
+                                    iteration_count=1000,
+                                    )
+                                    
+  pyplot = false
+  plot_each_x_th = 20
+  print_only_result = true
+  
+  # 
+  if only_return_SIM_fitting
+    return SIM_fitting
+  else
+    return ysz_fitting.meta_run_par_study(only_return_SIM_fitting=false,
+                            prms_lists=prms_lists,
+                            pyplot=pyplot,
+                            plot_each_x_th=plot_each_x_th,
+                            print_only_result=print_only_result,
+                            SIM_fitting=SIM_fitting,
+                            scripted_tuple=scripted_tuple,
+                          
+                              ### if true, no script is called! Just direclty run_par_study_script_wrap()
+                              direct_bool = false,
+  
+                            SIM_fitting_mode = true,    #!#!#!#!#!#!#!#!#!#!
+                  
+                            #bash_command = "sbatch",
+                            #bash_command = "echo",
+                            bash_command = "julia",
+                            
+                            #mode = "test_one_prms",
+                            #mode = "only_print",
+                            mode = "go",
+                            
+                            express3_bool = true
+                            ) 
+  
+  
+    return SIM_fitting
+  end
+end
+
+
+
+
 function assemble_meta_SIM_fitting_no_beta_S(;only_return_SIM_fitting=false)  
   #######################################################
   #######################################################
@@ -96,7 +244,7 @@ function assemble_meta_SIM_fitting_no_beta_S(;only_return_SIM_fitting=false)
 #       # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 7.27, 12.3)e-11 for "MONO_110"
 #       # hint: TC = (700, 750, 800, 850)  => DD = ( ??, 2.97, 9.3, 12.3)e-11 for "OLD_MONO_100"
 #       # hint: conductivity OLD_MONO_100 -> TC = [700, 750, 800, 850] = [1.02, 2.07,  3.72, 5.85]
-# 
+#       # hint: conductivity OLD_MONO_100 -> TC = [700, 750, 800, 850] = [1.015, 2.06,  3.63, 5.93]   # new version :) 
 #       1.02,
 #       0.65,
 # 
@@ -233,9 +381,9 @@ function assemble_meta_SIM_fitting_TEMPERATURE(;only_return_SIM_fitting=false)
  
  
   prms_lists=(1, 0.27, 0.0, 0.0, 0.0, 
-                   collect(-0.2 : 10.4 : 0.2), 21.92,            collect(-0.1 : 10.1 : 0.1), 0.055,
-                   collect(-0.2 : 10.4 : 0.2), 21.21,            collect(-0.1 : 10.1 : 0.1), 0.048,
-                   collect(-0.2 : 10.4 : 0.2), 21.809,           collect(-0.1 : 10.1 : 0.1), -0.04,
+                   collect(-0. : 10.4 : 0.2), 21.92,            collect(-0. : 10.1 : 0.1), 0.055,
+                   collect(-0. : 10.4 : 0.2), 21.21,            collect(-0. : 10.1 : 0.1), 0.048,
+                   collect(-0. : 10.4 : 0.2), 21.809,           collect(-0. : 10.1 : 0.1), -0.04,
                    -0.2, 0.76,       5.0, 37.97,      5.0, 5.56*0.15)
   
   
@@ -251,7 +399,7 @@ function assemble_meta_SIM_fitting_TEMPERATURE(;only_return_SIM_fitting=false)
                 -3, 20.5,         -0.5, -0.8, 
                 -0.3, 0.01,     -10, 0.05,    -10, 0.05)      
 
-                
+                  
   upper_bounds=(1.0, 0.5, 1.0, 1.0, 1.0,
                 3, 26.5,         0.5, 0.8, 
                 3, 26.5,         0.5, 0.8, 
@@ -295,11 +443,11 @@ function assemble_meta_SIM_fitting_TEMPERATURE(;only_return_SIM_fitting=false)
                                     file_name="SIM_fitting_default.txt",
                                     #
                                     bboptimize_bool=false, 
-                                    iteration_count=50,
+                                    iteration_count=1000,
                                     )
                                     
   pyplot = true
-  plot_each_x_th = 50
+  plot_each_x_th = 100
   print_only_result = true
   
   # 
@@ -319,9 +467,9 @@ function assemble_meta_SIM_fitting_TEMPERATURE(;only_return_SIM_fitting=false)
   
                             SIM_fitting_mode = true,    #!#!#!#!#!#!#!#!#!#!
                   
-                            bash_command = "sbatch",
+                            #bash_command = "sbatch",
                             #bash_command = "echo",
-                            #bash_command = "julia",
+                            bash_command = "julia",
                             
                             #mode = "test_one_prms",
                             #mode = "only_print",
@@ -334,8 +482,8 @@ function assemble_meta_SIM_fitting_TEMPERATURE(;only_return_SIM_fitting=false)
     return SIM_fitting
   end
 end
-
-
+  
+  
 
 
 
