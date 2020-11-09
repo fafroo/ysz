@@ -500,23 +500,80 @@ function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu, perfor
 end
 
 function flux_core!(f, uk, ul, this::YSZParameters)
-  f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
-  
-  bp,bm=fbernoulli_pm(
-      (log(1-ul[iy]) - log(1-uk[iy]))
-      -
-      this.zA*this.e0/this.T/this.kB
-      *(ul[iphi] - uk[iphi])
-  )
-  f[iy]= (
-      this.DD
-      *
-      (this.weird_DD ? (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))^2 : 1)
-      *
-      this.mO*this.m_par*(1.0-this.nu)/this.vL
-      *
-      (bm*uk[iy]-bp*ul[iy])
-  )
+    # our standard flux
+    f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
+    
+    bp,bm=fbernoulli_pm(
+        (log(1-ul[iy]) - log(1-uk[iy]))
+        -
+        this.zA*this.e0/this.T/this.kB
+        *(ul[iphi] - uk[iphi])
+    )
+    f[iy]= (
+        this.DD
+        *
+        (this.weird_DD ? (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))^2 : 1)
+        *
+        this.mO*this.m_par*(1.0-this.nu)/this.vL
+        *
+        (bm*uk[iy]-bp*ul[iy])
+    )
+end
+
+
+function flux_core____ONLY_TESTING!(f, uk, ul, this::YSZParameters)
+  case = "II"
+  if case == "II"
+    # our standard flux
+    f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
+    
+    bp,bm=fbernoulli_pm(
+        (log(1-ul[iy]) - log(1-uk[iy]))
+        -
+        this.zA*this.e0/this.T/this.kB
+        *(ul[iphi] - uk[iphi])
+    )
+    f[iy]= (
+        this.DD
+        *
+        (this.weird_DD ? (1.0 + this.mO/this.ML*this.m_par*(1.0-this.nu)*0.5*(uk[iy]+ul[iy]))^2 : 1)
+        *
+        this.mO*this.m_par*(1.0-this.nu)/this.vL
+        *
+        (bm*uk[iy]-bp*ul[iy])
+    )
+  elseif case == "III"
+    # the other flux (III)
+    f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
+    
+    bp,bm=fbernoulli_pm(                
+        -this.zA*this.e0/this.T/this.kB
+        *(1.0 - (uk[iy] + ul[iy])/2)
+        *(ul[iphi] - uk[iphi])
+    )
+    f[iy]= (
+        this.DD
+        *
+        this.mO*this.m_par*(1.0-this.nu)/this.vL
+        *        
+        (bm*uk[iy]-bp*ul[iy])
+    )
+  elseif case == "I"
+    # NP (I)
+    f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
+    
+    bp,bm=fbernoulli_pm(                
+        -this.zA*this.e0/this.T/this.kB        
+        *(ul[iphi] - uk[iphi])
+    )
+    f[iy]= (
+        this.DD
+        *
+        this.mO*this.m_par*(1.0-this.nu)/this.vL
+        *        
+        (bm*uk[iy]-bp*ul[iy])
+    )
+  end
 end
 
 

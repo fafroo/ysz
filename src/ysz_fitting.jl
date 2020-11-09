@@ -391,6 +391,7 @@ function plot_R_ohm_dependence(;
                 prms_names_in=["DD","nu", "weird_DD"],
                 prms_values_in=(DD, nu, false),
                   
+                physical_model_name="ysz_model_GAS_LoMA_Temperature",
                 conductivity_fitting=true
                 ) 
        push!(R_ohm_all, R_ohm)

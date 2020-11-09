@@ -321,7 +321,16 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation([700, 75
                ,use_experiment=true); 
 
 
-
+### TC 700-750-850, pO2-20-40-60       ->>> finished ---- .. BUT !!! strange nu
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation([700, 750, 800, 850], [20, 60], 0.0, physical_model_name="ysz_model_GAS_LoMA_Temperature", data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
+               prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                   "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                   "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                   "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                   "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                 
+               prms_values=(0, 0.411, 0.0, 0.0, 0.0, 0.209, 22.366, -0.031, 0.174, 0.295, 20.997, -0.025, 0.227, 0.53, 21.859, 0.121, -0.19, 0.018, 0.387, 0.027, 57.057, -0.004, 1.925)
+               ,use_experiment=true);
 
                
                

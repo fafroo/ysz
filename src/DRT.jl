@@ -37,6 +37,18 @@ mutable struct DRT_struct
 end
 
 
+# 
+# function perform_KK_test(EIS_df::DataFrame, DRT::DRT_struct)
+#   EIS_copy = deepcopy(EIS_df)
+#   
+#   L = DRT.L
+#   # subtract inductance
+#   for (i, f) in enumerate(EIS_copy.f)
+#     EIS_copy.Z[i] += - im*2*pi*f*L
+#   end
+#   
+# end
+
 
 
 function get_R_C_from_DRT(tau_range=Nothing, h_tau=Nothing)

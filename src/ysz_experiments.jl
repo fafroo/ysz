@@ -154,6 +154,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     # update the "computed" values in parameters
     parameters = model_symbol.YSZParameters_update!(parameters)
     
+    #@show parameters.yB
+    #@show parameters.DD
+  
     # conductivity stuff
     if conductivity_fitting
       sigma = model_symbol.get_conductivity(parameters)
@@ -228,8 +231,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
 
     #@show parameters.phi_eq
     
-
-
+    
     ############################################
     ############################################
     ############################################

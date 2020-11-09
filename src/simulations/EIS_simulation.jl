@@ -299,7 +299,7 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", f_interval=Nothing, use_checknodes=false, plot_legend=true, fig_num=12)    
+function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", f_interval=Nothing, use_checknodes=false, plot_legend=true, fig_num=12, L=0.0)  
   
   EIS_exp = DataFrame()
   for TC_item in TC
@@ -313,7 +313,8 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
           EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
         end
         figure(fig_num)
-        EIS_exp = f_interval_preprocessing(EIS_exp, f_interval)
+        EIS_exp = f_interval_preprocessing(EIS_exp, f_interval)        
+        EIS_exp = EIS_add_inductance(EIS_exp, L)
         typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, data_set=data_set_item, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp, "", false)
       end
     end
@@ -610,9 +611,5 @@ function EIS_add_inductance(EIS_df::DataFrame, L)
   end
   return EIS_out
 end
-
-
-
-
 
 
