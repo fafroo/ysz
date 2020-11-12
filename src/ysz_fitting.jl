@@ -139,8 +139,9 @@ include("../src/EEC_module.jl")
 
 
 function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
-                        test=false)
+                        test=false, save_files=false, save_dir="default")
   # here starts the true body
+  save_path="../data/simple_run/"*save_dir
   if test
     test_result = 0
   end
@@ -176,7 +177,10 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
         
         if pyplot > 0
             typical_plot_sim(SIM, SIM_sim, plot_prms_string)
-        end  
+        end
+        if save_files
+          save_file_prms(SIM, SIM_sim, save_path, plot_values, plot_names, [], mode="sim")
+        end
         if use_experiment
           if test
             test_result+=fitnessFunction(SIM, SIM_sim, SIM_exp)
@@ -212,8 +216,13 @@ function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experime
       if (pyplot > 0)
         typical_plot_exp(SIM, SIM_exp)
       end
+      if save_files
+        save_file_prms(SIM, SIM_exp, save_path, [], [], [], mode="exp")
+      end
     end
-    recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
+    if prms_names!=Nothing
+      recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
+    end
   end
   
   if test
@@ -225,16 +234,15 @@ end
 
 
 # useful wrap
-function simple_run(;TC=800, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=Array{String}(undef, 0), fitness_factors=Nothing, physical_model_name="ysz_model_GAS_LoMA_shared", pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
-                         test=false)
+function simple_run(;TC=800, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=Array{String}(undef, 0), fitness_factors=Nothing, physical_model_name="ysz_model_GAS_LoMA_Temperature", pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+                         test=false, save_files=false, save_dir="default")
     if fitness_factors == Nothing
       aux_array = zeros(length(simulations))
       aux_array .= 1
       fitness_factors = aux_array
-    end
-    @show fitness_factors
+    end    
     simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
-                        test=false)
+                        test=test, save_files=save_files, save_dir=save_dir)
 end
 
 
@@ -520,7 +528,7 @@ mutable struct SIM_fitting_struct
 end
 
 function build_SIM_fitting(;TC=850, pO2=80, bias=0.0, data_set="MONO_110", simulations=["EIS"], fitness_factors=[1.0],
-                      physical_model_name="ysz_model_GAS_LoMA_shared",
+                      physical_model_name="ysz_model_GAS_LoMA_Temperature",
                       #                      
                       prms_names=["kappaA", "kappaR", "kappaO", 
                                   "rA", "rR", "rO",         "rB", "rC",     

@@ -5,7 +5,7 @@ using PyPlot
 
 
 const  CV_standard_figure_num = 5
-const  CV_default_physical_model_name = "ysz_model_GAS_LoMA_shared"
+const  CV_default_physical_model_name = "ysz_model_GAS_LoMA_Temperature"
 
 
 ######################################
@@ -38,7 +38,7 @@ mutable struct CV_simulation <: abstract_simulation
 end
 
 function string(SIM::CV_simulation)
-  return "CV_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
+  return "CV_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
 function CV_simulation(TC, pO2; data_set="MONO_110", physical_model_name=CV_default_physical_model_name, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
@@ -134,8 +134,22 @@ function load_file_prms(sim::CV_simulation; save_dir, prms, prms_names=("A0", "R
     return df_out
 end
 
-function save_file_prms(sim::CV_simulation, df_out, save_dir, prms, prms_names, scripted_tuple)
-    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="CV", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
+function save_file_prms(SIM::CV_simulation, df_out, save_dir, prms, prms_names, scripted_tuple; mode="")
+    if mode=="exp"
+      prefix = "$(string(SIM))_experiment"
+      scripted_tuple = Array{Int16}(undef, length(prms_names))
+      scripted_tuple .= 0
+      prms = []
+      prms_names = []
+    elseif mode=="sim"
+      prefix = "$(string(SIM))_"
+      scripted_tuple = Array{Int16}(undef, length(prms_names))
+      scripted_tuple .= 0
+    else
+      prefix="CV"
+    end
+    
+    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix=prefix, prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
     mkpath(out_path)
 
     CSV.write(

@@ -87,7 +87,7 @@ function get_SIM_list_rectangle(TC,pO2, bias, data_set, simulations::Array{Strin
 end
 
 
-function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple)
+function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=Nothing, scripted_tuple)
 
   function consistency_check()
     if (size(prms_names,1) != size(scripted_tuple,1) || 

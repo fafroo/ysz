@@ -5,7 +5,7 @@ using PyPlot
 
 
 const EIS_standard_figure_num = 6
-const EIS_default_physical_model_name = "ysz_model_GAS_LoMA_shared"
+const EIS_default_physical_model_name = "ysz_model_GAS_LoMA_Temperature"
 
 include("../DRT.jl")
 
@@ -47,7 +47,7 @@ mutable struct EIS_simulation <: abstract_simulation
 end
 
 function string(SIM::EIS_simulation)
-  return "EIS_sim_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
+  return "EIS_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
 function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_name=EIS_default_physical_model_name, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
@@ -250,7 +250,7 @@ function load_file_prms(SIM::EIS_simulation; save_dir, prms, prms_names=("A0", "
     df_out = DataFrame()
     try
       df = CSV.read(string(out_path, out_name))
-      df_out = DataFrame(f = df.f, Z = (df.Re .+ df.Im.*im))
+      df_out = DataFrame(f = df.f, Z = (df.ReZ .+ df.ImZ .*im))
     catch e
       if e isa InterruptException
         rethrow(e)
@@ -266,13 +266,27 @@ function load_file_prms(SIM::EIS_simulation; save_dir, prms, prms_names=("A0", "
     return df_out
 end
 
-function save_file_prms(sim::EIS_simulation, df_out, save_dir, prms, prms_names, scripted_tuple)
-    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix="EIS", prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
+function save_file_prms(SIM::EIS_simulation, df_out, save_dir, prms, prms_names, scripted_tuple; mode="")
+    if mode=="exp"
+      prefix = "$(string(SIM))_experiment"
+      scripted_tuple = Array{Int16}(undef, length(prms_names))
+      scripted_tuple .= 0
+      prms = []
+      prms_names = []
+    elseif mode=="sim"
+      prefix = "$(string(SIM))_"
+      scripted_tuple = Array{Int16}(undef, length(prms_names))
+      scripted_tuple .= 0
+    else
+      prefix="EIS"
+    end
+    
+    (out_path, out_name) = filename_format_prms( save_dir=save_dir, prefix=prefix, prms=prms, prms_names=prms_names, scripted_tuple=scripted_tuple)
     mkpath(out_path)
 
     CSV.write(
         string(out_path,out_name),
-        DataFrame(f = df_out.f, Re = real(df_out.Z), Im = imag(df_out.Z))
+        DataFrame(f = df_out.f, ReZ = real(df_out.Z), ImZ = imag(df_out.Z))
     )
     return
 end
