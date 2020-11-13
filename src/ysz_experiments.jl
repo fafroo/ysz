@@ -1,6 +1,6 @@
 module ysz_experiments
 ### WHAT was done since last commit ###############
-# * phi_out = (phi_previous + phi)/2.0
+# * phi_out = (phi_prev + phi)/2.0
 # * AreaEllyt added to EIS current computation
 # 
 # TODO !!!
@@ -73,15 +73,17 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 pO2=1.0, T=1073, data_set=Nothing,
                 prms_names_in=[],
                 prms_values_in=[],
-                #
+                #### EIS ####
                 EIS_IS=false,  bias=0.0, f_range=(0.9, 1.0e+5, 1.1),
                 #
-                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, checknodes=[],
-                #
-                dlcap=false, dlcap_analytical=false,
-                #
                 EIS_TDS=false, tref=0,
-                #
+                #### CV #####
+                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, checknodes=[], 
+                #### CV(f) ##
+                fast_CV_mode=false,
+                #### CAP ####
+                dlcap=false, dlcap_analytical=false, 
+                #### STEP ####
                 STEP=false, dt_fac=1.5, dt_start=1.0e-5, t_end=0.01,
                 #
                 conductivity_fitting=false
@@ -520,6 +522,107 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     #########################################
     #########################################
     
+    # code for performing CV(f) ---- FAST cv MODE
+    
+    if voltammetry && fast_CV_mode                
+        tstep=Float64(((upp_bound-low_bound)/2)/voltrate/sample)
+        
+        if save_files || out_df_bool          
+            out_df = DataFrame(t = Float64[], U = Float64[], I = Float64[], Ir = Float64[], Is = Float64[], Ib = Float64[], Ibb = Float64[])          
+        end
+  
+        only_formal_meas = [0.0]  # to pass as an argument to set_meas_get_tran_I_contributions
+
+        U = unknowns(sys)        
+        U0 = deepcopy(inival)              
+              
+        # calculating directly steadystate ###############                  
+        sys.boundary_values[index_driving_species,1]=parameters.phi_eq
+        solve!(U0,inival,sys, control=control)
+        U_eq = deepcopy(U0)
+
+        if save_files || out_df_bool
+          push!(out_df, (0, 0, 0, 0, 0, 0, 0))
+        end            
+        
+        # compute the positive half
+        istep = 1
+        dir = 1
+        phi = parameters.phi_eq + voltrate*tstep*dir        
+        while phi <= (upp_bound + parameters.phi_eq) + upp_bound/100.
+          sys.boundary_values[index_driving_species,1]=phi
+          solve!(U, U0, sys, control=control)
+          
+          # Steady part of measurement functional        
+          I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+          #
+          Ir= I_contributions_stdy[1]          
+          if save_files || out_df_bool
+            push!(out_df,[istep*tstep,   phi - parameters.phi_eq,   Ir+0,  Ir,  0,  0,  0])
+          end
+          
+          # preparing for the next step
+          istep+=1
+          U0.=U
+          phi+=voltrate*tstep*dir       
+        end
+        
+        # complete the other direction 
+        for i in collect(size(out_df)[1]: -1 : 1)        
+          push!(out_df, (istep*tstep, Tuple(out_df[i, 2:end])...))          
+          istep+=1
+        end        
+        
+        
+        # compute the negative half
+        istep_negative = istep
+        U0 .= U_eq
+        dir = -1        
+        phi = parameters.phi_eq + voltrate*tstep*dir
+        while phi >= (low_bound + parameters.phi_eq) - upp_bound/100.
+          sys.boundary_values[index_driving_species,1]=phi
+          solve!(U, U0, sys, control=control)
+          
+          # Steady part of measurement functional        
+          I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+          #
+          Ir= I_contributions_stdy[1]          
+          if save_files || out_df_bool
+            push!(out_df,[istep*tstep,   phi - parameters.phi_eq,   Ir+0,  Ir,  0,  0,  0])
+          end
+          
+          # preparing for the next step
+          istep+=1
+          U0.=U
+          phi+=voltrate*tstep*dir     
+        end
+
+        # complete the other direction 
+        for i in collect(size(out_df)[1] : -1 : istep_negative)   
+          push!(out_df, (istep*tstep, Tuple(out_df[i, 2:end])...))          
+          istep+=1
+        end 
+        
+        if out_df_bool
+          return out_df
+        else
+          return
+        end      
+    end
+    
+    
+    
+    
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    
+    
     
     # code for performing CV
     if voltammetry
@@ -586,16 +689,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
             U .= inival
         end
         
+              
         if true
-          # calculating directly steadystate ###############
-          #state = "cv_is_on"
-          state = "relaxation"
-          relaxation_length = 2*2.0/sample
-          istep_cv_start = 0
-          phi=parameters.phi_eq
-          dir=1 
-          
-          
+          # calculating directly steadystate ###############                  
+          sys.boundary_values[index_driving_species,1]=parameters.phi_eq
           solve!(U0,inival,sys, control=control)
           if save_files || out_df_bool
             push!(out_df, (0, 0, 0, 0, 0, 0, 0))
@@ -619,7 +716,15 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
           #
           append!(time_range,0)
           
-          phi_prev = phi
+          
+          # preparing fist step          
+          istep_cv_start = 0          
+          dir=1
+          state = "relaxation"
+          phi=parameters.phi_eq
+          relaxation_length = 2*2.0/sample
+          
+          phi_prev = parameters.phi_eq
           #phi = phi + voltrate*dir*tstep
           phi_out = (phi_prev + phi)/2.0
           ##################################################
@@ -669,15 +774,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
             
             # tstep to potential phi
             sys.boundary_values[index_driving_species,1]=phi
-            
-            #@show parameters.phi_eq, phi
-            
+                        
             control.Δt = tstep
+
             evolve!(U, U0, sys, [0, tstep], control=control)
-          
-#             solve!(U, U0, sys, control=control, tstep=tstep)  
-            
-            
             
             # Transient part of measurement functional
             I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
@@ -693,10 +793,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
             Is  = (I_contributions_tran[1] - I_contributions_tran_0[1])/tstep                
             Ib  = (I_contributions_tran[2] - I_contributions_tran_0[2])/tstep 
             Ibb = (I_contributions_tran[3] - I_contributions_tran_0[3])/tstep
-
             
- 
-
+          
+          
             #@show state
             #@show Ir+Is+Ib+Ibb
             if false && !(test || test_from_above)
@@ -741,9 +840,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                     end
                 end
             end
-            
-            
-            
+                      
             # plotting                  
             if pyplot && istep%2 == 0
                 

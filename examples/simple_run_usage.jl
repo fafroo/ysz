@@ -13,6 +13,9 @@
 #         WARNING: pO2 < 1.0e-5 => pO2 = 1.0e-5 ... regularization treashold
 #   simulations     >>> =["EIS"] or =["CV"] or =["EIS", "CV"] for perform both methods for all experimental settings
 #                       or now also ["CAP"] means differential capacitance computed with R0 = 0
+#                       =["CV(f)"]   
+#                               \-------TODO !!!
+#                       
 #   pyplot          >>> 0 = plot nothing, 1 = finall plot of the experiment, 2 = plot details
 #   prms_names      >>> in array or tuple of strings specify, which parametr of the model should be changed
 #   prms_values     >>> spedify, to which value it will be changed
