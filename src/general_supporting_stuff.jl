@@ -177,6 +177,13 @@ function convert_prms_values_to_LaTeX_format(;
 end
 
 
+# Temperature parametrization
+# function Arrhenius_template(T, E, p)
+#   return p*exp(-E/(1.380649e-23 * T))
+# end
 
+function quadratic_template(T, A, B, C)
+  return A*((T-973.15)/50)^2 + B*((T-973.15)/50) + C
+end
 
 

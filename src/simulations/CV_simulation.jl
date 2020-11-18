@@ -198,7 +198,7 @@ function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_i
   ysz_experiments.run_new(
       out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false), 
       dx_exp=SIM.dx_exp, sample= (SIM.fast_mode ? fast_mode_sample : SIM.sample), 
-      upp_bound=SIM.upp_bound, low_bound=SIM.low_bound, voltrate=SIM.voltrate, fast_CV_mode=SIM.fast_mode,
+      upp_bound_eta=SIM.upp_bound, low_bound_eta=SIM.low_bound, voltrate=SIM.voltrate, fast_CV_mode=SIM.fast_mode,
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in,

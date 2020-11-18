@@ -294,9 +294,10 @@ end
 
 function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_in, pyplot::Int=0)
   EIS_df = ysz_experiments.run_new(
-      pyplot=(pyplot == 2 ? true : false), EIS_IS=true, out_df_bool=true, bias=SIM.bias, f_range=SIM.f_range,
-      dx_exp=SIM.dx_exp,
+      pyplot=(pyplot == 2 ? true : false), 
       EIS_TDS=(SIM.use_TDS > 0 ? true : false), tref=SIM.tref,
+      EIS_IS=(SIM.use_TDS > 0 ? false : true), out_df_bool=true, bias=SIM.bias, f_range=SIM.f_range,
+      dx_exp=SIM.dx_exp,      
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in,

@@ -1,5 +1,7 @@
 module ysz_model_GAS_LoMA_Temperature
 
+
+
 #############################################
 # WHILE CREATING NEW MODEL                  #
 # DO NOT FORGET TO CHECK                    #
@@ -26,6 +28,10 @@ const surface_species = (iyAs, iyOs) = (3, 4)
 const surface_names = ("yAs", "yOs")
 
 const index_driving_species = iphi
+
+
+include("../../src/general_supporting_stuff.jl")
+
 
 mutable struct reaction_struct
   r::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
@@ -66,6 +72,10 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     nu_A::Float64
     nu_B::Float64
     nu_C::Float64
+    nu_700::Float64
+    nu_750::Float64
+    nu_800::Float64
+    nu_850::Float64
     numax::Float64  # max value of \nu 
     x_frac::Float64 # Y2O3 mol mixing, x [%] 
     chi::Float64    # dielectric parameter [1]
@@ -166,6 +176,10 @@ function YSZParameters(this)
     this.nu_A= 0.0
     this.nu_B=-Inf
     this.nu_C=-Inf
+    this.nu_700=-Inf
+    this.nu_750=-Inf
+    this.nu_800=-Inf
+    this.nu_850=-Inf
     this.x_frac=0.13                # 13% YSZ
     this.chi=27.0                  # from relative permitivity e_r = 6 = (1 + \chi) ... TODO reference
     this.m_par =  2                 
@@ -296,15 +310,9 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
 end
 
 
-# Temperature parametrization
-# function Arrhenius_template(T, E, p)
-#   return p*exp(-E/(1.380649e-23 * T))
-# end
 
-function quadratic_template(T, A, B, C)
-  return A*((T-973.15)/50)^2 + B*((T-973.15)/50) + C
-end
 
+# temperature parametrization thing
 function get_conductivity_from_T(T)
   TC_list = [700, 750, 800, 850]
   # conductivity values for "OLD_MONO_110"
@@ -324,11 +332,30 @@ function get_conductivity_from_T(T)
   # fitted Arrhenius realtion
   return 346897*exp(-12321.8*(1/T))
   
-  
-  
   println("ERROR: T not found")
   return throw(Exception)
 end
+
+function get_nu_from_T(this::YSZParameters)
+  TC_list = [700, 750, 800, 850]
+  # conductivity values for "OLD_MONO_110"
+  #conductivity_list = [1.02, 2.07,  3.72, 5.85]
+  nu_list = [this.nu_700, this.nu_750,  this.nu_800, this.nu_850]
+  #
+  for (i, T_test) in enumerate(TC_list.+273.15)
+    if abs(T_test - this.T) < 0.5
+      return nu_list[i]
+    end
+  end
+  
+  #
+  #  TODO !! interpolace pro ostatni teploty
+  #
+
+  println("ERROR: T not found")
+  return throw(Exception)  
+end
+
 
 function set_temperature_dependent_parameters_to_reaction(this::YSZParameters, X)
   
@@ -340,7 +367,11 @@ end
 
 function YSZParameters_update!(this::YSZParameters)
     # temperature dependet parameters
-    ( this.nu == -Inf ?    this.nu = quadratic_template(this.T, this.nu_A, this.nu_B, this.nu_C) : true)
+    if this.nu_700 == -Inf
+      ( this.nu == -Inf ?    this.nu = quadratic_template(this.T, this.nu_A, this.nu_B, this.nu_C) : true)
+    else
+      this.nu = get_nu_from_T(this)
+    end
     ( this.CO == -Inf ?    this.CO = quadratic_template(this.T, this.CO_A, this.CO_B, this.CO_C) : true)
     ( this.COmm == -Inf ?    this.COmm = quadratic_template(this.T, this.COmm_A, this.COmm_B, this.COmm_C) : true)
     
@@ -349,6 +380,7 @@ function YSZParameters_update!(this::YSZParameters)
     set_temperature_dependent_parameters_to_reaction(this, this.O)
     
     
+    # the rest stuff
     this.areaL=(this.vL)^0.6666
     this.numax = (2+this.x_frac)/this.m_par/(1+this.x_frac)
     
@@ -475,9 +507,12 @@ function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu, perfor
   ### sigma = (1/R)*(l/S)    [S/m^2]
   ###       = (I/U)*(l/S)      
   ###       = I
-  ###       = abs( 2 * e0 * f[iy] / mO) 
+  ###       = abs( 2 * e0 * f[iy] / mO)    /  (1 + zeta)   !!!!!
   ###        
-  ###  R = (1/simga)*(l/S)      
+  ###  !!!! The zeta factor is very unclear, but should be there to let EIS have constant R_Ohm
+  ###
+  ### 
+  ### R = (1/simga)*(l/S)      
   
 
   # unit gradient of electrical potential
@@ -496,7 +531,7 @@ function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu, perfor
     parameters.nu = nu_orig
     YSZParameters_update!(parameters)
   end
-  return abs( 2 * parameters.e0 * f[iy] / parameters.mO)
+  return abs( 2 * parameters.e0 * f[iy] / parameters.mO)   / (1 + parameters.e_fac)     # 1.3 is a zeta_correction
 end
 
 function flux_core!(f, uk, ul, this::YSZParameters)
@@ -829,6 +864,7 @@ end
 #
 # Transient part of measurement functional
 #
+
 
 function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
     Qb= - integrate(sys,reaction!,U) # \int n^F            

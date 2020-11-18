@@ -23,7 +23,7 @@ function timedomain_impedance(sys, # time domain system
 
     fit_window=0.0
     
-    # obtaine measurement of steady state
+    # obtain measurement of steady state
     # mstdy_steadystate=integrate(sys,measurement_testfunc,steadystate)[1]
     mstdy_steadystate=[0.0]
     meas_stdy(mstdy_steadystate,values(steadystate))
@@ -55,10 +55,10 @@ function timedomain_impedance(sys, # time domain system
         fit_window=fit_window_size/ω
     end
     
-    ########### TODO .. erease
-    actual_p=Plots.plot()
-    t_plot_decider = 0
-    ##########################
+# # # #     ########### TODO .. erease
+# # # #     actual_p=Plots.plot()
+# # # #     t_plot_decider = 0
+# # # #     ##########################
     
     # time loop: we loop until amplitude has settled. Optionally
     # append the fit window
@@ -68,7 +68,7 @@ function timedomain_impedance(sys, # time domain system
 
         # solve with  new excitation value
         excitation_val=sin(ω*t_current)*excitation_amplitude
-        sys.boundary_values[excited_spec,excited_bc]=excited_bcval+excitation_val
+        sys.boundary_values[excited_spec,excited_bc]=excited_bcval + excitation_val
         solve!(U,Uold,sys,tstep=tstep)
         
         
@@ -153,16 +153,16 @@ function timedomain_impedance(sys, # time domain system
         measured_prev=measured_val
         
         
-        ###### TODO ... erease ########
-        t_plot_decider += 1
-        if plot_amplitude && t_plot_decider == 100 
-            t_plot_decider = 1
-            #Plots.plot!(actual_p,all_times,model(all_times,params), label="estimated")
-            
-            Plots.plot!(actual_p,all_times,all_measured)
-            gui(actual_p)
-        end
-        ###############################
+# # # #         ###### TODO ... erease ########
+# # # #         t_plot_decider += 1
+# # # #         if plot_amplitude && t_plot_decider == 100 
+# # # #             t_plot_decider = 1
+# # # #             #Plots.plot!(actual_p,all_times,model(all_times,params), label="estimated")
+# # # #             
+# # # #             Plots.plot!(actual_p,all_times,all_measured)
+# # # #             gui(actual_p)
+# # # #         end
+# # # #         ###############################
         
         # emergency abort
         if t_current>t_abort

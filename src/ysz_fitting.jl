@@ -980,7 +980,7 @@ end
 
 
 
-function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir="../snehurka/")
+function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir="../snehurka/", search_last_lines=400)
 
   function SER_get_value(line, name; set_standard_failed=true)
     error_split = split(line, '=')
@@ -1016,22 +1016,25 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir=
         
         if standard_failed 
           mask = []
-	  x0 = []
+          x0 = []
           x_values = []
 
-	  for line in buffer          
+          for line in buffer          
             pre_mask = SER_get_value(line, "mask", set_standard_failed=false)
             pre_mask=="" ? false : mask = pre_mask
-	    pre_x0 = SER_get_value(line, "x0", set_standard_failed=false)
+            pre_x0 = SER_get_value(line, "x0", set_standard_failed=false)
             pre_x0=="" ? false : x0 = pre_x0
+            if (length(mask) > 0) & (length(x0) > 0)
+              break
+            end
           end
-	  if (length(mask) < 1) || (length(x0) < 1)
-	    continue
-	  end
-           
-	  error = Inf
-	  actual_error = 0
-          starting_line_number = max(length(buffer) - 200, 1)
+          if (length(mask) < 1) || (length(x0) < 1)
+            continue
+          end
+                
+          error = Inf
+          actual_error = 0
+          starting_line_number = max(length(buffer) - search_last_lines, 1)
           for line in buffer[starting_line_number : end]
             aux = split(line, '=')
             
@@ -1042,26 +1045,25 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir=
               continue
             end
             if x_str == " x "
-	      try
+              try
                 x_values = eval(Meta.parse(split(aux[2], ':')[1]))
-	        actual_error = eval(Meta.parse(aux[3]))
+                actual_error = eval(Meta.parse(aux[3]))
                 if length(x_values) < 1 || length(actual_error) < 1
-		  continue
-		else
-		  non_standard_success = true
-		end
-	      catch
+                  continue
+                else
+                  non_standard_success = true
+                end
+              catch
                 continue
-	      end
+              end
             else
               continue
             end
-	    if actual_error < error
-	      error=actual_error
+            if actual_error < error
+              error=actual_error
               prms_values = prepare_prms(mask, x0, x_values)
             end
-	  end
-          
+          end        
         end
           
         if !(standard_failed) || (non_standard_success)

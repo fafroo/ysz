@@ -78,7 +78,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 #
                 EIS_TDS=false, tref=0,
                 #### CV #####
-                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, checknodes=[], 
+                voltammetry=false, voltrate=0.010, upp_bound_eta=1.0, low_bound_eta=-1.0, sample=30, checknodes=[], 
                 #### CV(f) ##
                 fast_CV_mode=false,
                 #### CAP ####
@@ -278,7 +278,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
 
         # Calculate steady state solution
         steadystate = unknowns(sys)
-        phi_steady = parameters.phi_eq + bias
+        phi_steady = parameters.phi_eq + bias/(1 + parameters.e_fac)
         
         excited_spec=index_driving_species
         excited_bc=1
@@ -354,7 +354,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 # Here, we use the derivatives of the measurement functional
                 zfreq=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval,dmeas_stdy, dmeas_tran)
                 inductance = im*parameters.L*w
-                push!(z_freqdomain, inductance + 1.0/zfreq)
+                push!(z_freqdomain, inductance + (1.0/zfreq)*(1 + parameters.e_fac))
                 print_bool && @show zfreq
             end
             
@@ -364,8 +364,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 ztime=timedomain_impedance(sys,w,steadystate,excited_spec,excited_bc,excited_bcval,meas_stdy, meas_tran,
                                     tref=tref, excitation_amplitude=1.0e-3,
                                     fit=true, tol_amplitude=1.0e-3, fit_window_size=20.0, plot_amplitude=true)
-                push!(z_timedomain,1.0/ztime)
+                inductance = im*parameters.L*w                        
+                push!(z_timedomain, inductance + 1.0/ztime*(1 + parameters.e_fac))
                 print_bool && @show ztime
+                @show w, z_timedomain[end]
             end
 
             
@@ -441,8 +443,13 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         end
         
         if out_df_bool
+          if EIS_IS
             EIS_df = DataFrame(f = all_w/(2*pi), Z = z_freqdomain)
             return EIS_df
+          elseif EIS_TDS
+            EIS_df = DataFrame(f = all_w/(2*pi), Z = z_timedomain)
+            return EIS_df
+          end
         end
         
 # # # # #         ###########
@@ -462,52 +469,53 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     # code for performing STEP
     
     if STEP
-      phi = parameters.phi_eq + bias
-      U = unknowns(sys)
-      U0 = unknowns(sys)
-      only_formal_meas = [0.0,0.1,0.1,0.1,0.1]
-      
-      # solving stationary state
-      sys.boundary_values[index_driving_species,1]=phi
-      solve!(U0,inival,sys, control=control)
-
-      I_contributions_tran_0 = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
-      I_contributions_stdy_0 = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
-      #plot_solution(U0, X)
-      #pause(2)
-      
-      # relaxation
-      total_charge = 0
-      
-      t = 0
-      dt = dt_start
-      phi = parameters.phi_eq
-      sys.boundary_values[index_driving_species,1]=phi
-      while t < t_end
-        t += dt
-        control.Δt = dt
-        evolve!(U, U0, sys, [0, dt], control=control)
-
-        #@show t
-        #plot_solution(U, X)
-        
-        I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
-        I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
-        I = (
-          sum((I_contributions_stdy .+ I_contributions_stdy_0)./2)
-          +
-          sum((I_contributions_tran .- I_contributions_tran_0)./dt)
-        )
-        
-        total_charge += I*dt
-        @show I*dt
-        
-        I_contributions_tran_0 = I_contributions_tran
-        I_contributions_stdy_0 = I_contributions_stdy
-        U0 .= U
-        dt *= dt_fac
-      end
-      return total_charge
+      return "implement zeta e_fac handeling"
+# # # #       phi = parameters.phi_eq + bias
+# # # #       U = unknowns(sys)
+# # # #       U0 = unknowns(sys)
+# # # #       only_formal_meas = [0.0,0.1,0.1,0.1,0.1]
+# # # #       
+# # # #       # solving stationary state
+# # # #       sys.boundary_values[index_driving_species,1]=phi
+# # # #       solve!(U0,inival,sys, control=control)
+# # # # 
+# # # #       I_contributions_tran_0 = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
+# # # #       I_contributions_stdy_0 = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
+# # # #       #plot_solution(U0, X)
+# # # #       #pause(2)
+# # # #       
+# # # #       # relaxation
+# # # #       total_charge = 0
+# # # #       
+# # # #       t = 0
+# # # #       dt = dt_start
+# # # #       phi = parameters.phi_eq
+# # # #       sys.boundary_values[index_driving_species,1]=phi
+# # # #       while t < t_end
+# # # #         t += dt
+# # # #         control.Δt = dt
+# # # #         evolve!(U, U0, sys, [0, dt], control=control)
+# # # # 
+# # # #         #@show t
+# # # #         #plot_solution(U, X)
+# # # #         
+# # # #         I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+# # # #         I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+# # # #         I = (
+# # # #           sum((I_contributions_stdy .+ I_contributions_stdy_0)./2)
+# # # #           +
+# # # #           sum((I_contributions_tran .- I_contributions_tran_0)./dt)
+# # # #         )
+# # # #         
+# # # #         total_charge += I*dt
+# # # #         @show I*dt
+# # # #         
+# # # #         I_contributions_tran_0 = I_contributions_tran
+# # # #         I_contributions_stdy_0 = I_contributions_stdy
+# # # #         U0 .= U
+# # # #         dt *= dt_fac
+# # # #       end
+# # # #       return total_charge
     end
     
     
@@ -524,8 +532,11 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     
     # code for performing CV(f) ---- FAST cv MODE
     
-    if voltammetry && fast_CV_mode                
-        tstep=Float64(((upp_bound-low_bound)/2)/voltrate/sample)
+    if voltammetry && fast_CV_mode   
+        upp_bound_phi = upp_bound_eta/(1 + parameters.e_fac)
+        low_bound_phi = low_bound_eta/(1 + parameters.e_fac)
+        
+        tstep=Float64(((upp_bound_phi-low_bound_phi)/2)/voltrate/sample)
         
         if save_files || out_df_bool          
             out_df = DataFrame(t = Float64[], U = Float64[], I = Float64[], Ir = Float64[], Is = Float64[], Ib = Float64[], Ibb = Float64[])          
@@ -549,7 +560,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         istep = 1
         dir = 1
         phi = parameters.phi_eq + voltrate*tstep*dir        
-        while phi <= (upp_bound + parameters.phi_eq) + upp_bound/100.
+        while phi <= (upp_bound_phi + parameters.phi_eq) + upp_bound_phi/100.
           sys.boundary_values[index_driving_species,1]=phi
           solve!(U, U0, sys, control=control)
           
@@ -558,7 +569,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
           #
           Ir= I_contributions_stdy[1]          
           if save_files || out_df_bool
-            push!(out_df,[istep*tstep,   phi - parameters.phi_eq,   Ir+0,  Ir,  0,  0,  0])
+            push!(out_df,[istep*tstep,   (1 + parameters.e_fac)*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
           end
           
           # preparing for the next step
@@ -579,7 +590,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         U0 .= U_eq
         dir = -1        
         phi = parameters.phi_eq + voltrate*tstep*dir
-        while phi >= (low_bound + parameters.phi_eq) - upp_bound/100.
+        while phi >= (low_bound_phi + parameters.phi_eq) - upp_bound_phi/100.
           sys.boundary_values[index_driving_species,1]=phi
           solve!(U, U0, sys, control=control)
           
@@ -588,7 +599,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
           #
           Ir= I_contributions_stdy[1]          
           if save_files || out_df_bool
-            push!(out_df,[istep*tstep,   phi - parameters.phi_eq,   Ir+0,  Ir,  0,  0,  0])
+            push!(out_df,[istep*tstep,   (1 + parameters.e_fac)*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
           end
           
           # preparing for the next step
@@ -626,7 +637,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     
     # code for performing CV
     if voltammetry
- 
+        upp_bound_phi = upp_bound_eta/(1 + parameters.e_fac)
+        low_bound_phi = low_bound_eta/(1 + parameters.e_fac)
+    
         istep=1
         phi=0
         phi_prev = 0
@@ -664,7 +677,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         end
         direction_switch_count = 0
 
-        tstep=Float64(((upp_bound-low_bound)/2)/voltrate/sample)
+        tstep=Float64(((upp_bound_phi-low_bound_phi)/2)/voltrate/sample)
         if print_bool
             @printf("tstep %g = \n", tstep)
         end
@@ -758,7 +771,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                     print("cv ~~~ direction switch: ")
                 end
             end                            
-            if state=="cv_is_on" && (phi <= low_bound-0.00000001+phi0 || phi >= upp_bound+0.00000001+phi0)
+            if state=="cv_is_on" && (phi <= low_bound_phi-0.00000001+phi0 || phi >= upp_bound_phi+0.00000001+phi0)
                 dir*=(-1)
                 # uncomment next line if phi should NOT go slightly beyond limits
                 #phi+=2*voltrate*dir*tstep
@@ -836,7 +849,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                           dir*Ib/voltrate,                            
                           dir*Ibb/voltrate])
                     else
-                        push!(out_df,[(istep-istep_cv_start)*tstep,   phi_out-phi0,   Ib+Is+Ir+Ibb,  Ir,  Is,  Ib,  Ibb])
+                        push!(out_df,[(istep-istep_cv_start)*tstep,   (1 + parameters.e_fac)*(phi_out-phi0),   Ib+Is+Ir+Ibb,  Ir,  Is,  Ib,  Ibb])
                     end
                 end
             end
@@ -990,10 +1003,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
             
             subplot(222)
             if dlcap  
-                cbl, cs = model_symbol.direct_capacitance(parameters, collect(float(low_bound):0.001:float(upp_bound)))
-                plot(collect(float(low_bound):0.001:float(upp_bound)), (cbl+cs), label="tot CG") 
-                plot(collect(float(low_bound):0.001:float(upp_bound)), (cbl), label="b CG") 
-                plot(collect(float(low_bound):0.001:float(upp_bound)), (cs), label="s CG") 
+                cbl, cs = model_symbol.direct_capacitance(parameters, collect(float(low_bound_phi):0.001:float(upp_bound_phi)))
+                plot(collect(float(low_bound_phi):0.001:float(upp_bound_phi)), (cbl+cs), label="tot CG") 
+                plot(collect(float(low_bound_phi):0.001:float(upp_bound_phi)), (cbl), label="b CG") 
+                plot(collect(float(low_bound_phi):0.001:float(upp_bound_phi)), (cs), label="s CG") 
                 # rescaled by voltrate
                 plot(phi_range[cv_range].-phi0, ((Is_range + Ib_range + Ir_range + Ibb_range)[cv_range])/voltrate ,label="rescaled total current")
             else
@@ -1038,8 +1051,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                     end
                 end
             end
-            parn = ["verbose" ,"pyplot", "width", "voltammetry", "voltrate", "low_bound", "upp_bound", "sample", "phi0"]
-            parv =[verbose ,pyplot, width, voltammetry, voltrate, low_bound, upp_bound, sample, @sprintf("%.6g",phi0)]
+            parn = ["verbose" ,"pyplot", "width", "voltammetry", "voltrate", "low_bound_phi", "upp_bound_phi", "sample", "phi0"]
+            parv =[verbose ,pyplot, width, voltammetry, voltrate, low_bound_phi, upp_bound_phi, sample, @sprintf("%.6g",phi0)]
             for ii in 1:length(parn)
                     linestring=string(parn[ii],": ",parv[ii])
                     PyPlot.text(0.01+shift, 0.95+height, linestring, fontproperties="monospace")
