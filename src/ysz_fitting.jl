@@ -992,38 +992,39 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir=
     else
       standard_failed = true
       return ""
-    end    
+    end
   end
-  
-  
+
+
   dir_items = cd(readdir, working_dir)
-  
+
   standard_failed = false
   non_standard_success = false
   error_and_prms_values_dataframe = DataFrame(error = [], prms_values = [], x0 = [], file_name = [])
   for item in dir_items
-    if (length(item) >= 5) && (item[1:5]=="slurm")       
+    if (length(item) >= 5) && (item[1:5]=="slurm")
       standard_failed = false
       non_standard_success = false
-      
+
       buffer = readlines(working_dir*item)
-      
+
       if length(buffer) > 3
         error = SER_get_value(buffer[end-1], "err")
         prms_values = SER_get_value(buffer[end-3], "prms_values")
         x0 = SER_get_value(buffer[end-6], "x0")
-        
-        
-        if standard_failed 
+
+
+        if standard_failed
           mask = []
           x0 = []
           x_values = []
 
-          for line in buffer          
+          for line in buffer
             pre_mask = SER_get_value(line, "mask", set_standard_failed=false)
             pre_mask=="" ? false : mask = pre_mask
             pre_x0 = SER_get_value(line, "x0", set_standard_failed=false)
             pre_x0=="" ? false : x0 = pre_x0
+
             if (length(mask) > 0) & (length(x0) > 0)
               break
             end
@@ -1031,13 +1032,13 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir=
           if (length(mask) < 1) || (length(x0) < 1)
             continue
           end
-                
+
           error = Inf
           actual_error = 0
           starting_line_number = max(length(buffer) - search_last_lines, 1)
           for line in buffer[starting_line_number : end]
             aux = split(line, '=')
-            
+
             first_raw = split(aux[1], ">>")
             if length(first_raw) > 1
               x_str = first_raw[2]
@@ -1063,9 +1064,10 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir=
               error=actual_error
               prms_values = prepare_prms(mask, x0, x_values)
             end
-          end        
+          end
+
         end
-          
+
         if !(standard_failed) || (non_standard_success)
           push!(
             error_and_prms_values_dataframe,
@@ -1075,7 +1077,7 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir=
       end
     end
   end
-  
+
   sort!(error_and_prms_values_dataframe, :error)
   if print_bool
     if !show_x0
@@ -1086,6 +1088,7 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir=
   end
   return error_and_prms_values_dataframe
 end
+
 
 
 function SIM_fitting_evaluate(SIM_fitting, fitted_values)
