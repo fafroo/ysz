@@ -354,7 +354,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 # Here, we use the derivatives of the measurement functional
                 zfreq=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval,dmeas_stdy, dmeas_tran)
                 inductance = im*parameters.L*w
-                push!(z_freqdomain, inductance + (1.0/zfreq)*(1 + parameters.e_fac))
+                push!(z_freqdomain, inductance + (1.0/zfreq))
                 print_bool && @show zfreq
             end
             
@@ -363,9 +363,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 
                 ztime=timedomain_impedance(sys,w,steadystate,excited_spec,excited_bc,excited_bcval,meas_stdy, meas_tran,
                                     tref=tref, excitation_amplitude=1.0e-3,
-                                    fit=true, tol_amplitude=1.0e-3, fit_window_size=20.0, plot_amplitude=true)
+                                    fit=true, tol_amplitude=1.0e-3, fit_window_size=20.0, plot_amplitude=false)
                 inductance = im*parameters.L*w                        
-                push!(z_timedomain, inductance + 1.0/ztime*(1 + parameters.e_fac))
+                push!(z_timedomain, inductance + (1.0/ztime)/(1 + parameters.e_fac))
                 print_bool && @show ztime
                 @show w, z_timedomain[end]
             end
@@ -635,7 +635,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     
     
     
-    # code for performing CV
+    # code for performing CV    
     if voltammetry
         upp_bound_phi = upp_bound_eta/(1 + parameters.e_fac)
         low_bound_phi = low_bound_eta/(1 + parameters.e_fac)
@@ -666,6 +666,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         end
         
         cv_cycles = 1
+        sinus_mode = false
+        
         relax_counter = 0
         istep_cv_start = -1
         time_range = zeros(0)  # [s]
@@ -761,16 +763,23 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 if print_bool
                     println("relaxation ... ")
                 end
-            end            
+            end  
             if state=="relaxation" && relax_counter >= sample*relaxation_length
                 relax_counter += 1
-                state="cv_is_on"
+                if sinus_mode
+                  state="sinus_mode"
+                else
+                  state="cv_is_on"
+                end
                 istep_cv_start = istep
                 dir=1
                 if print_bool
                     print("cv ~~~ direction switch: ")
                 end
-            end                            
+            end
+            if state=="sinus_mode" && istep > 100
+              state = "cv_is_off"
+            end
             if state=="cv_is_on" && (phi <= low_bound_phi-0.00000001+phi0 || phi >= upp_bound_phi+0.00000001+phi0)
                 dir*=(-1)
                 # uncomment next line if phi should NOT go slightly beyond limits
@@ -830,14 +839,19 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
             end
             surface_species_range = hcat(surface_species_range, surface_species_to_append)
             
-            append!(phi_range,phi_out)
-            #
-            append!(Ib_range,Ib)
-            append!(Is_range,Is)
-            append!(Ibb_range,Ibb)
-            append!(Ir_range, Ir)
-            #
+            append!(phi_range,phi_out)              
             append!(time_range,tstep*istep)
+            if istep > 2              
+              append!(Ib_range,Ib)
+              append!(Is_range,Is)
+              append!(Ibb_range,Ibb)
+              append!(Ir_range, Ir)              
+            else              
+              append!(Ib_range,0)
+              append!(Is_range,0)
+              append!(Ibb_range,0)
+              append!(Ir_range, 0)                            
+            end
             
             if state=="cv_is_on"
                 if save_files || out_df_bool
@@ -939,7 +953,11 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 #println("relaxation ... ",relax_counter/sample*100,"%")
             else
                 phi_prev = phi
-                phi+=voltrate*dir*tstep
+                if sinus_mode
+                  phi = parameters.phi_eq + sin(voltrate*tstep*istep)
+                else
+                  phi+=voltrate*dir*tstep
+                end
                 phi_out = (phi_prev + phi)/2.0
             end
         end

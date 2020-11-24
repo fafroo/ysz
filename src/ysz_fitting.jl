@@ -1,105 +1,84 @@
 module ysz_fitting
-#######################
-####### TODO ##########
+################################################################################################
+####### TODO ###################################################################################
 # [x] better ramp ... starting directly from steadystate :)
 # [x] general global search using projection to each variable
 # [x] compute EIS exacly on checknodes and therefore remove plenty of "EIS_apply_checknodes"
 # [x] put appropriate and finished stuff into "CV_fitting_supporting_stuff"
-# [x] spoustet run_new() v ruznych procedurach stejnou funkci "EIS_default_run_new( ... )"
-# [o] implement LM algorithm
-# [x] sjednotit, co znamena pO2, jeslti jsou to procenta a jak se prenasi do simulace!  a taky T .. Celsia a Kelvina
-# [x] srovnat vodivost elektrolytu s experimentem CV i EIS naraz
-# [x] vymyslet novy relevantni vektor parametru
-# [?] aplikovat masku pro fitting pro scan_2D_recursive
-# [x] snehurka, velke objemy dat, maska a metafile
-# ---[x] save_dir preposilany parametrem a odlisit scripted_dir
-# ---[x] sneh - zadavani i jinych parametru nez prms
-# ---[x] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
-# ---[ ] mozna pouzit precompile
-# ---[ ] nechat meta_run_par_study() vytvorit skriptovaci soubor (dle poctu parametru, module, pocet experimentu)
-# ------[ ] spis bude lepsi skriptovaci soubor nechat stejny a prohanet pres nej jen ARGS bez cisel
-# [!] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI" -> JUERGEN
-# ---[!] zadavani modulu by melo byt v hlavicce meta_run_par_study()
-# ------[!] mozna by se include mel vykonavat na vyssi urovni a do ysz_experiments preposilat uz hotovy modul
+# [x] postarat se o modularitu ysz_model_COSI, at se nemusi vytvaret znovu "experiments_COSI"
 # [x] vymyslet lepe zadavani parametru pro ruzne modely s ruznymi parametry 
 # [x] opravdu promyslet to objektove programovatni ... CV_sim, EIS_sim ... prms_lists ...
 # ---[x] pridat treba dalsi experiment s dalsimi daty, vuci kterym se da srovnavat (kapacitance)
 # ---[x] udelat tridu par_study
-# [x] PAR_STUDY vyhodnoceni ... soubory do slozky dane studie .. automatizovane
-# ---[ ] pri zobrazovani dat udelat clustery dle chyby/prms a pak zobrazit (prms ci Nyquist) 1 reprezentanta z kazde
-# ---[ ] automatizovat ukladani souboru vysledku par_study.vyhodnoceni()
-# [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
-# [x] get rig of shared_prms and shared_add_prms !!!
-# [ ] snehurka by rada ./zabal.sh a pocitac zase ./rozbal_par_study.sh
 # [x] snehurkove fitovani by slo zrychlit, kdyz bych skriptoval EQ parametry a job by menil jen kineticke? ... chrm ...
 # ---[x] nejak si preposilat steadystate?! 
 # ------[x] zacina se ze steady_statu, ktery se pocita rychle
 # [N] simple_run by mohl vracet par_study
 # ---[N] par study by pak mohla mit funcki "uloz me"
+# [N] prms_names a prms_values dat do jedne tridy
+# ---[N] vlastne jakoby nevim, jestli je to dobry napad?
+# 
+# [ ] do experiments.jl pridat obecne zaznamenavani promennych od final_plot
+# [ ] f_range pouzivat jako Array frekvenci, nikoliv jako trojici cisel
+# [ ] konzistentne pridat "f_interval" do vsech EIS
+# [ ] zaradit jednoduchy vztah teplotni zavislosti na odporu
+# [x] dodelat v CV simulaci vse potrebne, co je v EIS. I importovani novych souboru.
+# [ ] f_interval pridat do SIM_fitting
+# [ ] fitness funkce s maximovou metrikou
+# [ ] zobrazovani plot_EEC_data_general(...) pro "R3 + R4"
+# [!!!] finally SEPARATE par_study and SIM_fitting meta function
+# [ ] lepe vymyslet zadavani v externim souboru SIM_fitting
+# [ ] plot slurm results -> spravne stridat barvy & styly cary
+#
+#
+#
+#
+#
+# ##### snehurka stuff ############################
+# [x] snehurka, velke objemy dat, maska a metafile
+# ---[x] save_dir preposilany parametrem a odlisit scripted_dir
+# ---[x] sneh - zadavani i jinych parametru nez prms
+# ---[x] sneh - pouzivat jen jeden soubor pro spouteni sbatch ... v hlavicce #!(..)/julia
+# ---[N] mozna pouzit precompile
+# ---[!!!!!] nechat meta_run_par_study() vytvorit skriptovaci soubor (dle poctu parametru, module, pocet experimentu)
+# 
+#
+#
+#
+####### TODO - less important ###################################################################################
+#
+# ##### I-V stacionarni krivky
+# [ ] zatim to modeluji jako CV s nizkym voltratem
+# [ ] make I-V simulation
+#
+# ##### CAP simulation ############################
+# [ ] add data_set and other features to CAP 
+#
+# ##### par-study #################################
+# [x] PAR_STUDY vyhodnoceni ... soubory do slozky dane studie .. automatizovane
+# ---[ ] pri zobrazovani dat udelat clustery dle chyby/prms a pak zobrazit (prms ci Nyquist) 1 reprezentanta z kazde
+# ---[ ] automatizovat ukladani souboru vysledku par_study.vyhodnoceni() 
 # [ ] promyslet velikost Floatu pri importu velkeho mnozstvi dat
 # [x] funkci pro par_study, aby umela zmenit sve info (redukovat pO2_list a tak) -> funkce par_study_filter()
 # [ ] par_study_plot_the_best() by mela vyhodit jeden figure s dvema subploty... asi ... 
-# [N] prms_names a prms_values dat do jedne tridy
-# ---[N] vlastne jakoby nevim, jestli je to dobry napad?
+# [ ] snehurka by rada ./zabal.sh a pocitac zase ./rozbal_par_study.sh
 # [ ] automaticke vybirani vhodne scripted_tuple
-# [ ] f_range pouzivat jako Array frekvenci, nikoliv jako trojici cisel
-# [x] zobrazovani jmena data_setu i v simple_run 
-# [x] obecne zavest data_set jako soucast definice experimentu v SIM
-# [ ] konzistentne pridat "f_interval" do vsech EIS
-# [x] plot_legend universalne pridat vsude
-# [ ] add data_set and other features to CAP
-# [ ] make I-V simulation
-# [ ] zaradit jednoduchy vztah teplotni zavislosti na odporu
-# [x] dodelat v CV simulaci vse potrebne, co je v EIS. I importovani novych souboru.
-# [x] plot_legend nechat jako volitelny parameter typical_plot ... asi
-#
-# ##### stacionarni krivky
-# [ ] zatim to modeluji jako CV s nizkym voltratem
-#
-# ##### interpolace ######
+# 
+# ##### interpolacni fitovani #####################
 # [x] vizualizace trendu chyby mezi interpolanty
 # ---[x] zobrazovat soucty odchylek
 # ------[x] obrazky po normalizaci vypadaji ruznorode
 # ---[x] zkusit vykoukat trend z nenormalizovanych dat
+# [?] aplikovat masku pro fitting pro scan_2D_recursive
 #
 #
-# #### od Affra ####
-# [ ] fitness funkce s maximovou metrikou
-# [ ] sdilene vakance nesmi byt nadruhou ... (chyba pri prechodu z separatnich vakanci) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# [ ] zobrazovani plot_EEC_data_general(...) pro "R3 + R4"
-# [ ] 
-# 
-# 
-# #### Fitting process
+# #### Fitting process ######
 # [x] prozkoumat experimentalni data (a udelat prislusne procedury)
-# [o] non-gas-ads-model
-# ---[ ] find best add_prms (from cap. fitting)
-# ---[ ] find best prms for both EIS and CV
-# ------[x] fing best prms for EIS
-# ------[ ] fing best prms for CV
-# ------[ ] the TRICK with SA ! .. R0 := R0/SA (exp .... - exp ...)
-# ---[o] try perturbate add prms by par_study
-# [ ] gas-exp-model
-# [ ] gas-LoMA-model
-# ---[ ] try to fit CV and EIS at once!
-# ------[ ] compute a lots of EIS, compute some CVs and interpolate
-# 
-# [ ] TEMPERATURE dependence shoud be automated
-# [!] fitting with one dominating SIM.fitness_factor, but also see the others with lower factor
-# [ ] get Fminbox() to work ! ... or do it by my own withing the to_optimize() function 
-#
-# [ ] f_interval pridat do SIM_fitting
-# [ ] ysz_experiments ... ellyt width for each data_set can be different !!!
-#######################
-#
-# [ ] HEY !!! the code is NOT working ... with reaction template! Fix it!
-# [ ] preskalovani erroru, aby se dobre dalo fitovat rozdilne velike objekty ---- relativni chyba!
-#
-#
-#
-###########################
+# [x] ysz_model_GAS_LoMA_Temperature
+# ---[x] find good fits for each TC -> 3 peaks, reasonable CV -> at least 700, 750
+# ---[ ] perform TEMP fitting with this initial guess
+#                   
+###################################################################################################
 
 
 
@@ -985,10 +964,15 @@ function slurm_evaluate_results(;print_bool=false, show_x0 = false, working_dir=
   function SER_get_value(line, name; set_standard_failed=true)
     error_split = split(line, '=')
     if occursin(name, error_split[1])
-      return eval(Meta.parse(
+      num = eval(Meta.parse(
             error_split[2]
             )
           )
+      if typeof(num)!=Nothing
+      	return num
+      else
+        return ""
+      end
     else
       standard_failed = true
       return ""
@@ -1117,61 +1101,158 @@ function aux_save_SIM_fitting(res::DataFrame, name)
   #
 end
 
-function plot_temp_parameters(;TC_range=Nothing, prms_names, prms_values, 
+
+
+function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800, 850],
                               show_reactions=["A","R","O"], 
                               show_parameters=["r", "DG", "nu", "CO", "COmm"],
-                              label="_set_1"
+                              label="_set_1",
+                              save_file=false, save_dir="../data/temp_prms/", file_name="temp_prms_$(label)",                              
+                              fig_num = 135,
+                              f_b_rates=true
                               )
-  #
-  # TODO !! ->> common file visible from MODEL_FILE and also from ysz_fitting.jl  -->> for interpolation for example
-  #
-  TC_range = [700, 850]
-  
-  fig_num = 135
-  suptitle("Temperature dependent parameters")
-  
+  line_styles = ["-", "--", ":"]
+  line_colors = ["r", "g", "b"]
     
-  function gv(prm_name)
-    return prms_values[findall(x->x==prm_name, prms_names)][1]
+    
+  function gv(prm_name; throw_error=false)
+    idx_tuple = findall(x->x==prm_name, prms_names)
+    if length(idx_tuple) == 0
+      if throw_error
+        println("ERROR: parameter $(prm_name) not found!")
+        return throw(Exception)
+      else
+        return Nothing
+      end
+    else
+      return prms_values[idx_tuple[1]]
+    end
   end
   
-  function get_X_range(prm_name, TC_range)
+  function get_X_list(prm_name, TC_list)
     X_B = gv(prm_name*"_B")
     X_C = gv(prm_name*"_C")
     
-    return [X_C, X_B*3 + X_C]
+    #
+    # TODO !!!!!!! >> use appropriate model and its interpretation of parameters
+    #
+    if X_B == Nothing || X_C == Nothing
+      return [gv(prm_name*"_$(TC)", throw_error=true) for TC in TC_list]
+    else
+      return [X_B*((TC-700)/50.) + X_C for TC in TC_list]
+    end
   end
   
   function plot_X(prm_name, special_y_label=Nothing, special_legend=Nothing)
     xlabel("TC (°C)")
     special_y_label == Nothing ? ylabel(prm_name) : ylabel(special_y_label)
     #subplots_adjust(hspace = 0.5)
-    plot(TC_range, get_X_range(prm_name, TC_range), 
+    
+    X_list = get_X_list(prm_name, TC_list)
+    if save_file
+      TC_prms_df[!, Symbol(prm_name)] = X_list
+    end 
+    
+    plot(TC_list, X_list, 
       label= (special_legend==Nothing ? prm_name*label : special_legend)
       )  
     legend(loc="best")
     grid(true)
+    return X_list
+  end
+  
+  figure(fig_num)
+  suptitle("Temperature dependent parameters")
+  
+  if save_file 
+   TC_prms_df = DataFrame(TC = TC_list)
   end
     
+  r_idx = 1
+  DG_idx = 2
+  
+  T_list = TC_list .+ 273.15
+
+  reactions_lists=[[],[]]
+  
   for (i, reaction_name) in enumerate(show_reactions)
     for (j, attribute_name) in enumerate(["r", "DG"])
       prm_name = reaction_name*"."*attribute_name      
       
       subplot(2, 2, j)
-      plot_X(prm_name, (attribute_name=="r" ? "log_10 r" : "DG [eV]"), reaction_name*label)    
+      push!(reactions_lists[j],
+        plot_X(prm_name, (attribute_name=="r" ? "log_10 r" : "DG [eV]"), reaction_name*"_"*label)    
+      )
     end  
-  end  
+  end
   
   subplot(3, 3, 6 + 1)
-  plot_X("nu")
+  nu_list = plot_X("nu")
   
   subplot(3, 3, 6 + 2)
-  plot_X("CO")
+  CO_list = plot_X("CO")
   
   subplot(3, 3, 6 + 3)
-  plot_X("COmm")
+  COmm_list = plot_X("COmm")
   
-  return
+  # plot forward and backward rates
+  if f_b_rates
+    figure(fig_num + 1)
+    suptitle("Derived quantities")
+    
+    
+    line_colors_idx = 3
+    subplot(2,2,2)
+    plot([], line_colors[line_colors_idx], label=label)
+    legend(loc="best")
+    
+    
+    
+    r_f_lists = []
+    r_b_lists = []
+    for (i, reaction_name) in enumerate(show_reactions)
+    #for (i, reaction_name) in enumerate(["A"])
+      push!(r_f_lists, 
+        10.0 .^ reactions_lists[r_idx][i] .* exp.(-reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
+      )
+      subplot(2,2,1)
+      
+# #       cm=get_cmap(:tab20)
+# #       cycler = pyimport("cycler")
+# #       PyPlot.rc("axes",prop_cycle=cycler.cycler(color=[cm(t/19) for t in 0:19]))
+
+      xlabel("TC (°C)")
+      ylabel("r_forward")
+      yscale("log")
+      plot( TC_list, r_f_lists[i], line_colors[line_colors_idx]*line_styles[i]
+        #, label=reaction_name
+        )
+      legend(loc="best")
+      
+      push!(r_b_lists, 
+        10.0 .^ reactions_lists[r_idx][i] .* exp.(reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
+      )
+      subplot(2,2,2)
+      xlabel("TC (°C)")
+      ylabel("r_backward")
+      yscale("log")
+      plot( TC_list, r_b_lists[i], line_colors[line_colors_idx]*line_styles[i]
+        #, label=reaction_name
+        )
+      #legend(false)
+      #legend(loc="best")
+    end
+  end
+  
+  
+  
+  
+  if save_file
+    mkpath(save_dir)
+    CSV.write(save_dir*file_name*".csv", TC_prms_df)
+  end
+  
+  return 
 end
 
 
@@ -1297,21 +1378,35 @@ function meta_run_par_study(;only_return_SIM_fitting=false,
   end
   
   function consistency_check()
-    if (size(SIM_fitting.prms_names,1) != size(scripted_tuple,1) || 
-        size(SIM_fitting.prms_names,1) != size(prms_lists,1))
-      return false
+    if  (size(SIM_fitting.prms_names,1) != size(prms_lists,1)) ||
+        (size(SIM_fitting.prms_names,1) != size(SIM_fitting.mask,1)) || 
+        (size(SIM_fitting.prms_names,1) != size(SIM_fitting.lower_bounds,1)) || 
+        (size(SIM_fitting.prms_names,1) != size(SIM_fitting.upper_bounds,1)) || 
+        (size(SIM_fitting.prms_names,1) != size(scripted_tuple,1))
+        
+      println("ERROR: shape mismatch: lengths of prms_lists, mask, lower_bounds, upper_bounds and scripted_tuple are NOT the same")
+      return throw(Exception)
     end
     
-    for i in 1:size(prms_lists,1)
-      if size(prms_lists[i],1) < 1
-        return false
+    my_eps = 1.0e-5
+    for (i, prms_lists_item) in enumerate(prms_lists)
+      if length(prms_lists_item) < 1
+        println("ERROR: empty list for \"$(SIM_fitting.prms_names[i])\" in prms_lists")
+        return throw(Exception)
       end
-    end
+      for (j, prm) in enumerate(prms_lists_item)
+        if  (prm < (SIM_fitting.lower_bounds[i] - my_eps)) || 
+            (prm > (SIM_fitting.upper_bounds[i] + my_eps))
+          println("ERROR: value $(prm) of parameter \"$(SIM_fitting.prms_names[i])\" is NOT in bounds [$(SIM_fitting.lower_bounds[i]), $(SIM_fitting.upper_bounds[i])]!")
+          return throw(Exception)        
+        end
+      end
+    end        
     
     return true
   end
 
-  
+
   
   ##### TODO!!!! tohle bych mohl udelat taky obecne, at skrz jeden skriptovaci soubor muze projit vse
   
@@ -1333,6 +1428,13 @@ function meta_run_par_study(;only_return_SIM_fitting=false,
   ####################################################### 
   #######################################################
   #######################################################
+  consistency_check()
+  if  (mode != "test_one_prms" &&
+      mode != "only_print" &&
+      mode != "go")
+    println("ERROR: unkonwn mode \"$(mode)\"")
+    return throw(Exception)
+  end
   
   if mode == "test_one_prms"
     prms_lists = [list[Int64(ceil(end/2.0))] for list in prms_lists]
@@ -1392,10 +1494,6 @@ function meta_run_par_study(;only_return_SIM_fitting=false,
   println(metafile_string)
   
   #setting jobs
-  if !consistency_check()
-    println("ERROR: meta_run_par_study(): shape mismatch (!consistency_check())")
-    return throw(Exception)
-  end 
   recursive_bash_call([], 1)
     
   println("ok :) ")

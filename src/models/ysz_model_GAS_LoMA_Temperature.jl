@@ -531,7 +531,7 @@ function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu, perfor
     parameters.nu = nu_orig
     YSZParameters_update!(parameters)
   end
-  return abs( 2 * parameters.e0 * f[iy] / parameters.mO)   / (1 + parameters.e_fac)     # 1.3 is a zeta_correction
+  return abs( 2 * parameters.e0 * f[iy] / parameters.mO)
 end
 
 function flux_core!(f, uk, ul, this::YSZParameters)

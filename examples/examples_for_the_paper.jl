@@ -411,7 +411,7 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.CV_simulation([700, 750
                       0.397, 21.171,              -0.027, 0.042, 
                       0.937, 21.858,               0.195, -0.001, 
                       -0.15, 0.65,      9.996, 30.591,       0.713, 0.878)
-                      ,use_experiment=true);               
+                      ,use_experiment=true);
                
                
 # ff EIS-CV = [1, inf] >>>>>>>> GOOD CV
@@ -436,6 +436,151 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.CV_simulation([700, 750
                
                
                
+############################# CORRECTED ZETA #####################################################
+##################################################################################################
+# ff EIS-CV = [1, 1] 
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100"                
+                , pyplot=1,  
+                prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                prms_values=(1, 0.45, 0, 0, 0, 0.275, 22.096, -0.035, 0.054, 0.351, 21.253, -0.05, 0.108, 0.336, 21.677, 0.163, -0.059, -0.144, 0.65, 2.615, 21.368, 0.202, 0.854)
+                                                 ,use_experiment=true);
+                                                 
+
+# ff EIS-CV = [1, 2] 
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100"                
+                , pyplot=1,  
+                prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                prms_values=(1, 0.45, 0, 0, 0, 0.31, 22.087, -0.021, 0.06, 0.337, 21.253, -0.017, 0.117, 0.797, 21.688, 0.162, -0.055, -0.15, 0.65, 22.577, 23.806, 0.868, 0.895)
+                                                 ,use_experiment=true);
+                                                 
+                                               
+
+# ff EIS-CV = [1, 3]
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100"                
+                , pyplot=1,  
+                prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                prms_values=(1, 0.45, 0, 0, 0, 0.301, 22.125, -0.035, 0.123, 0.328, 21.245, -0.018, 0.127, 0.823, 21.695, 0.157, -0.06, -0.15, 0.65, 29.986, 26.939, 0.794, 0.923)                            
+                                                 ,use_experiment=true);                                                 
+
+# ff EIS-CV = [1, 4] ->>> good.... could be taken ... but A peak is weird ... :(
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100"                
+                , pyplot=1,  
+                prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                prms_values=(1, 0.45, 0, 0, 0, 0.323, 22.054, -0.022, 0.101, 0.333, 21.243, -0.019, 0.104, 0.875, 21.707, 0.164, -0.051, -0.15, 0.65, 29.891, 32.197, 0.701, 0.977)                            
+                                                 ,use_experiment=true); 
+                  
+                  
+# ff EIS-CV = [1, 4 NONO] >> zeta = 0.35 !!!!!!!! NO NO NO NO 
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100"                
+                , pyplot=1,  
+                prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                prms_values=(1, 0.35, 0, 0, 0, 0.339, 21.981, -0.035, 0.065, 0.394, 21.271, -0.05, 0.051, 1.141, 21.894, 0.206, -0.011, -0.104, 0.65, 28.266, 99.877, 0.571, 1.199)
+                                                 ,use_experiment=true);                
+             
+# ff EIS-CV = [1, 5]
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100"                
+                , pyplot=1,  
+                prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                prms_values=(1, 0.45, 0, 0, 0, 0.356, 22.04, -0.009, 0.115, 0.35, 21.227, -0.022, 0.104, 0.932, 21.721, 0.18, -0.055, -0.15, 0.65, 29.993, 73.423, 0.612, 1.107)
+                                                 ,use_experiment=true);             
+               
+# ff EIS-CV = [1, 7]
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100"                
+                , pyplot=1,  
+                prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                prms_values=(1, 0.45, 0, 0, 0, 0.364, 22.027, -0.009, 0.121, 0.351, 21.22, -0.024, 0.11, 0.944, 21.724, 0.184, -0.064, -0.147, 0.65, 15.52, 99.965, 0.554, 1.2)
+                                                 ,use_experiment=true);
+         
+         
+         
+         
+         
+         
+         
+         
+###############  useable single_TC guesses ### >> zeta = 0.39
+# 700 
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700], pO2=[20, 60], data_set="OLD_MONO_100"          
+          , pyplot=1,  
+          prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp", 
+              "A.r",      "A.DG",        
+              "R.r",      "R.DG", 
+              "O.r",      "O.DG",                      
+              "nu",     "CO",     "COmm"],
+          prms_values=(1, 0.39, 0, 0, 0, 22.2557, 0.196224, 21.2795, 0.148953, 21.7135, -0.0663272, 0.3, 18.4293, 0.845544)
+          ,use_experiment=true);
+
+# 750                                                                                                      
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[750], pO2=[20, 60], data_set="OLD_MONO_100"          
+          , pyplot=1,  
+          prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp", 
+              "A.r",      "A.DG",        
+              "R.r",      "R.DG", 
+              "O.r",      "O.DG",                      
+              "nu",     "CO",     "COmm"],
+          prms_values=(1, 0.39, 0, 0, 0, 22.2426, 0.000406918, 21.636, 0.0284407, 22.6145, 0.165328, 0.317062, 149.999, 1.7805) 
+          ,use_experiment=true);                                                 
+                                                 
+               
+               
+# difference ->> (with corrected nu 0.3 -> 0.8)               
+prms_diff = (0, 0, 0, 0, 0, -0.013100000000001444, -0.195817082, 0.3565000000000005, -0.1205123, 0.9009999999999998, 0.2316552, 0.01706200000000002, 131.56969999999998, 0.934956)
+               
+## guess in the temperature framework ##               
+ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100"                
+                , pyplot=1,  
+                prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                prms_values=(1, 0.45, 0, 0, 0, 
+                              -0.0131, 22.2557,          -0.195817082, 0.196224, 
+                              0.3565, 21.2795,           -0.1205, 0.148953, 
+                              0.9, 21.7135,           0.2316, -0.0663272,
+                              0.017, 0.8,        20.00, 18.4293,         0.93, 0.845544)
+                                                 ,use_experiment=true);               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+
                
                
                
@@ -453,6 +598,70 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.CV_simulation([700, 750
                
                
                
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+               
+                                          
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
                
                
                

@@ -1,9 +1,10 @@
 # using Printf
 
-kB = 1.3806488e-23
-N_A = 6.02214129e23
-R = kB*N_A
-e0 = 1.602176565e-19
+const kB = 1.3806488e-23
+const N_A = 6.02214129e23
+const R = kB*N_A
+const e0 = 1.602176565e-19
+const eV = e0
 
 
 mutable struct prms_struct
