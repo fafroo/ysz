@@ -1109,7 +1109,8 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
                               label="_set_1",
                               save_file=false, save_dir="../data/temp_prms/", file_name="temp_prms_$(label)",                              
                               fig_num = 135,
-                              f_b_rates=true
+                              f_b_rates=true,
+                              line_color_idx = 1
                               )
   line_styles = ["-", "--", ":"]
   line_colors = ["r", "g", "b"]
@@ -1143,19 +1144,23 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     end
   end
   
-  function plot_X(prm_name, special_y_label=Nothing, special_legend=Nothing)
+  function plot_X(prm_name, special_y_label=Nothing, special_legend=Nothing; line_style=Nothing)
     xlabel("TC (°C)")
     special_y_label == Nothing ? ylabel(prm_name) : ylabel(special_y_label)
+    
     #subplots_adjust(hspace = 0.5)
     
     X_list = get_X_list(prm_name, TC_list)
     if save_file
       TC_prms_df[!, Symbol(prm_name)] = X_list
-    end 
+    end
     
     plot(TC_list, X_list, 
-      label= (special_legend==Nothing ? prm_name*label : special_legend)
-      )  
+      label= (special_legend==Nothing ? prm_name*"_"*label : 
+        (special_legend=="!none" ? "" : special_legend)
+      ),
+      (line_style == Nothing ? "-" : line_style)
+    )  
     legend(loc="best")
     grid(true)
     return X_list
@@ -1181,19 +1186,23 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
       
       subplot(2, 2, j)
       push!(reactions_lists[j],
-        plot_X(prm_name, (attribute_name=="r" ? "log_10 r" : "DG [eV]"), reaction_name*"_"*label)    
+        plot_X(
+            prm_name, 
+            (attribute_name=="r" ? "log_10 r" : "DG [eV]"), 
+            (line_color_idx == 1 ? reaction_name : "!none"), 
+            line_style=line_colors[line_color_idx]*line_styles[i])    
       )
     end  
   end
   
   subplot(3, 3, 6 + 1)
-  nu_list = plot_X("nu")
+  nu_list = plot_X("nu", line_style=line_colors[line_color_idx])
   
   subplot(3, 3, 6 + 2)
-  CO_list = plot_X("CO")
+  CO_list = plot_X("CO", line_style=line_colors[line_color_idx])
   
   subplot(3, 3, 6 + 3)
-  COmm_list = plot_X("COmm")
+  COmm_list = plot_X("COmm", line_style=line_colors[line_color_idx])
   
   # plot forward and backward rates
   if f_b_rates
@@ -1201,9 +1210,9 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     suptitle("Derived quantities")
     
     
-    line_colors_idx = 3
+
     subplot(2,2,2)
-    plot([], line_colors[line_colors_idx], label=label)
+    plot([], line_colors[line_color_idx], label=label)
     legend(loc="best")
     
     
@@ -1211,7 +1220,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     r_f_lists = []
     r_b_lists = []
     for (i, reaction_name) in enumerate(show_reactions)
-    #for (i, reaction_name) in enumerate(["A"])
+      # forward
       push!(r_f_lists, 
         10.0 .^ reactions_lists[r_idx][i] .* exp.(-reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
       )
@@ -1224,11 +1233,18 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
       xlabel("TC (°C)")
       ylabel("r_forward")
       yscale("log")
-      plot( TC_list, r_f_lists[i], line_colors[line_colors_idx]*line_styles[i]
-        #, label=reaction_name
+      plot( 
+        TC_list, r_f_lists[i], 
+        line_colors[line_color_idx]*line_styles[i], 
+        #label=reaction_name
+        label=(line_color_idx == 1 ? reaction_name : "")
         )
       legend(loc="best")
+      if save_file
+        TC_prms_df[!, Symbol("r_f_"*reaction_name)] = r_f_lists[end]
+      end
       
+      # backward
       push!(r_b_lists, 
         10.0 .^ reactions_lists[r_idx][i] .* exp.(reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
       )
@@ -1236,11 +1252,15 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
       xlabel("TC (°C)")
       ylabel("r_backward")
       yscale("log")
-      plot( TC_list, r_b_lists[i], line_colors[line_colors_idx]*line_styles[i]
+      plot( TC_list, r_b_lists[i], line_colors[line_color_idx]*line_styles[i]
         #, label=reaction_name
         )
       #legend(false)
       #legend(loc="best")
+      if save_file
+        TC_prms_df[!, Symbol("r_b_"*reaction_name)] = r_b_lists[end]
+      end
+      
     end
   end
   

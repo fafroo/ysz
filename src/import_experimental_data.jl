@@ -120,7 +120,7 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
     bias_mV = "0_1"
   end
   #
-  if data_set[end-3 : end-1] == "OCV"
+  if length(data_set) > 3 && (data_set[end-3 : end-1] == "OCV")
     bias_mv = "0_"*data_set[end]
   end
   #
@@ -151,6 +151,22 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
       ocp_token = ""
     end
     fNAME=string("../snehurka/experimental_data_PSS/K4/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")
+  
+  elseif data_set=="K06"
+    if bias == 0
+      ocp_token = "_ocp"
+    else
+      ocp_token = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/K06/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")
+  
+  elseif data_set=="K07"
+    if bias == 0
+      ocp_token = "_ocp"
+    else
+      ocp_token = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/K07/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")  
   else
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/$(data_set)")
   end
