@@ -83,15 +83,26 @@
 \def\ys{\us y}
 \newcommand{\ysV}{\us y_{\textrm{V}}}
 \newcommand{\yOmin}{\us y_{\ce{O-}}}
-\def\y0{y(0)}
-\def\yOs{\us y_\textrm{O}}
-\def\pO2{p\OO}
+\def\y0{{y(0)}}
+\def\yOs{{\us y_\textrm{O}}}
+\def\yAs{{\us y}}
+\def\pO2{{p\OO}}
+\def\yB{{y_\text{B}}}
+\def\e{{\textrm{e}^-}}
+
+\def\efac{\zeta}
+\def\OC{\us K_\Ox}
 
 \def\A0{A_0}
 \def\B0{B_0}
 \def\C0{C_0}
 \def\R0{R_0}
 \def\K0{O_0}
+\def\rA{r_\textrm{A}}
+\def\rB{r_\textrm{B}}
+\def\rC{r_\textrm{C}}
+\def\rR{r_\textrm{R}}
+\def\rO{r_\textrm{O}}
 \def\DGA{\Delta G_\textrm{A}  }
 \def\DGB{\Delta G_\textrm{B}  }
 \def\DGC{\Delta G_\textrm{C}  }
@@ -525,6 +536,260 @@ The equilibrium condition is
 \right).
 \end{align}
 \end{subequations}
+
+\subsection{model\_ysz\_GAS\_LoMA\_shared}
+Model including adsorption of oxygen \ce{O2(g)} from gas to the surface, overvoltage feature and switch between separate or shared vacancies for surface species. There are two kinetics templates: exponential (EXP) and law of mass action (LoMA). The complete reaction mechanism reads
+\begin{subequations}
+\begin{align}
+\mathrm{Oxide \ anion \ adorption \ from \ YSZ} \ (A) &: \quad 
+\ce{\Ox^{2-}(\Y) <=> \Ox^{2-}(\surf)}
+\\
+\mathrm{Electron \ transfer \ reaction}\ (R) &: \quad 
+\ce{\textrm{O}(\surf) +  2\textrm{e}^-(\surf) <=> \Ox^{2-}(\surf)}
+\\
+\mathrm{Oxygen \ adorption \ from \ gas}\  (O) &: \quad 
+\ce{\Ox_2({\gas}) <=> 2 \Ox(\surf)}
+\end{align} \label{eq:LoMA_shared_mechanism}
+\end{subequations}
+
+Chemical potentials differs for separate (SEP) and shared (SHA) vacancies. Electron potential includes a coefficient of overvoltage influence $\efac$.
+\begin{subequations}
+\begin{align}
+\mu_{\OO} &= \psi_{\OO}^\REF + \frac{\kB T}{2 m_\Ox}\ln 
+\left( 
+    \frac{\pO2}{p^\REF} 
+\right),
+\\
+\us \mu_{\Om} 
+&= 
+\us \psi_{\Om}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln a,
+\quad
+a^{\textrm{SEP}} = \frac{\yAs}{1-\yAs},
+\quad
+a^{\textrm{SHA}} = \frac{\yAs}{1- \yOs - \yAs},
+\\
+\us \mu_{\Ox} 
+&= 
+\us \psi_{\Ox}^\REF 
++ 
+\frac{\kB T}{m_\Ox} \ln a,
+\quad
+a^{\textrm{SEP}} = \frac{\yOs}{1-\yOs},
+\quad
+a^{\textrm{SHA}} = \frac{\yOs}{1- \yOs - \yAs},
+\\
+\us \mu_{\e} 
+&=
+\us \psi_{\e}^\REF
++
+\efac z_\e \text{e}_0 \eta. \label{eq:overvoltage_intro}
+\end{align}
+\end{subequations}
+
+The surface system with oxygen vacancy occurence coefficient $\OC$ reads
+\begin{subequations}
+\begin{align}
+\partial_t \frac{m_\Ox \us m (1- \us \nu)}{\aL} \ys
+&=
+m_\Ox \us A
++
+m_\Ox \us R,
+\\
+\partial_t \frac{m_\Ox \OC }{\aL} \yOs
+&=
+2 m_\Ox \us O
+-
+m_\Ox \us R,
+\end{align}
+\end{subequations}
+where the reaction rates incorporates activities of involved species and can take two different forms. Firstly, exponential (EXP) form is pretty straighforward and uses the activities in each reaction (without vacancies) described in (\ref{eq:LoMA_shared_mechanism}). Secondly, the law of mass action (LoMA) kinetics is listed below for shared vacancy case. Note there is also included the overvoltage feature introduced in (\ref{eq:overvoltage_intro}) for electron transfer reaction $R$.
+\begin{subequations}
+\begin{align}
+&\us A
+=
+\frac{\rA}{\SA}
+\left[
+    y(0) (1-y(0)) \ys \ysV  
+\right]^\kaA
+\Bigg[
+	\exp
+	\left(
+		{-\betaA \SA \frac{\DGA}{\kB T}}
+	\right)
+	\left(
+		\frac{\y0}{1 - \y0}
+		\frac{\ys}{\ysV}
+	\right)^{-\betaA \SA}
+\\ \nonumber
+	&\quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1-\betaA) \SA \frac{\DGA}{\kB T}}
+	\right)
+	\left(
+		\frac{\y0}{1 - \y0 }
+		\frac{\ys}{\ysV}
+	\right)^{(1-\betaA) \SA}
+\Bigg],
+\\ \nonumber
+\\
+&\us R
+=
+\frac{\rR}{\SR}
+\left[
+  \ys \yOs 
+\right]^\kaR
+\Bigg[
+	\exp
+	\left(
+		{-\betaR \SR \frac{\DGR + \efac 2 \text{e}_0 \eta}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{\yOs}
+	\right)^{-\betaR \SR}
+\\ \nonumber
+	& \quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1 - \betaR) \SR \frac{\DGR + \efac 2 \text{e}_0 \eta}{\kB T}}
+	\right)
+	\left(
+		\frac{\ys}{\yOs}
+	\right)^{(1-\betaR) \SR}
+\Bigg],
+\\ \nonumber
+\\
+&\us O
+=
+\frac{\rO}{\SO}
+\left[
+    \yOs^2 \ysV^2 \frac{p_\OO}{p^\REF}
+\right]^\kaO
+\Bigg[
+	\exp
+	\left(
+		{-\betaO \SO \frac{\DGO}{\kB T}}
+	\right)
+	\left(
+		\left(
+			\frac{\yOs}{\ysV}
+		\right)^2
+   \frac{p^\REF}{p_\OO}
+	\right)^{-\betaO \SO}
+\\ \nonumber
+	&\quad \quad \quad \quad	
+	-
+	\exp
+	\left(
+		{(1-\betaO) \SO \frac{\DGO}{\kB T}}
+	\right)
+	\left(
+		\left(
+			\frac{\yOs}{\ysV}
+		\right)^2
+    \frac{p^\REF}{p_\OO}
+	\right)^{(1 - \betaO) \SO}
+\Bigg],
+\end{align}
+\end{subequations}
+where shared vacancy concentration reads 
+$$ \ysV = \frac{1}{1 - \yAs - \yOs}$$
+\begin{subequations}
+
+\end{subequations}
+and we define
+\begin{subequations}
+\begin{align}
+\DGA
+&=
+m_\Ox
+\left(
+	\psi_{\textrm{Om}}^\REF
+	-
+	\us \psi_{\textrm{Om}}^\REF
+\right)
+\\
+\DGR
+&= 
+m_\Ox
+\left(
+	\us \psi_{\textrm{Om}}^\REF
+	-
+	\us \psi_{\Ox}^\REF
+\right)
+-
+2 m_\textrm{e} \psi_{\textrm{e}}^\REF.
+\\
+\DGO
+&= 
+m_\Ox
+\left(
+	\us \psi_{\Ox}^\REF
+	-
+	2 \psi_{\OO}^\REF
+\right).
+\end{align}
+\end{subequations}
+The equilibrium activities are
+\begin{subequations}
+\begin{align}
+a_{y(0)}^\eq 
+&= 
+a_\yAs^\eq  \text{exp}
+\left(
+	\frac{\DGA}{\kB T}
+\right),
+\\
+a_\yAs^\eq 
+&= 
+a_\yOs^\eq \ \text{exp}
+\left(
+	\frac{\DGR + \efac 2 \text{e}_0 \varphi^\eq}{\kB T}
+\right),
+\\
+a_\yOs^\eq 
+&= 
+\sqrt{a_{p\OO}^\eq} \ \text{exp}
+\left(
+	\frac{\DGO}{2 \kB T}
+\right),
+\\
+a_{\yB}^\eq
+&=
+a_{y(0)}^\eq \ \text{exp}
+\left(
+	\frac{z_\text{A} \text{e}_0 \varphi^\eq}{\kB T}
+\right),
+\end{align}
+\end{subequations}
+therefore the OCV potential reads
+\begin{subequations}
+\begin{align}
+\varphi^\eq 
+= 
+\frac{
+	\kB T 
+	\left(
+		\ln a_\yB^\eq
+		-
+		\ln \sqrt{a_\pO2^\eq} 
+	\right)
+	- 
+	\frac{\DGO}{2}
+	-
+	\DGR
+	-
+	\DGA
+}{
+	(2 \efac + 2) \text{e}_0
+}.
+\end{align}
+\end{subequations}
+
 
 \subsection{\texttt{model\_ysz\_shared\_vac.jl}}
 Free energy density
@@ -1058,4 +1323,5 @@ Especially, for the bulk case
     y(0) = \frac{\frac{y(0)}{1-y(0)}}{1+\frac{y(0)}{1-y(0)}} \quad\mbox{and}\quad    1-y(0) = \frac{1}{1+\frac{y(0)}{1-y(0)}}
     \label{}
     \end{align}
+
 \end{document}

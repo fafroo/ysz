@@ -1,6 +1,6 @@
 module ysz_experiments
 ### WHAT was done since last commit ###############
-# * phi_out = (phi_previous + phi)/2.0
+# * phi_out = (phi_prev + phi)/2.0
 # * AreaEllyt added to EIS current computation
 # 
 # TODO !!!
@@ -25,72 +25,104 @@ using LinearAlgebra
 # internal import of YSZ repo ############
 #model_label = "ysz_model_GAS_exp_ads"
 #model_label = "ysz_model_GAS_LoMA"
-model_label = "ysz_shn"
+#model_label = "ysz_model_GAS_LoMA_shared"
+#model_label = "ysz_shn"
+#model_label = "ysz_shn_overvoltage"
+#model_label = "ysz_shn_overvoltage__TEMP"
 
-include("../src/models/$(model_label).jl")
+#include("../src/models/$(model_label).jl")
+
+include("../src/models/ysz_model_GAS_LoMA.jl")
+include("../src/models/ysz_model_GAS_LoMA_shared.jl")
+include("../src/models/ysz_model_GAS_LoMA_Temperature.jl")
+
 include("../prototypes/timedomain_impedance.jl")
 
-model_symbol = eval(Symbol(model_label))
-bulk_species = model_symbol.bulk_species
-surface_species = model_symbol.surface_species
-surface_names = model_symbol.surface_names
-iphi = model_symbol.iphi
-iy = model_symbol.iy
-iyAs = model_symbol.iyAs
-iyOs = model_symbol.iyOs
-index_driving_species = model_symbol.index_driving_species
+
 
 # --------- end of YSZ import ---------- #
 ##########################################
 
-function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
-  point_marker_size = 5
-  
-  
-  subplot(211)
-  plot((x_factor)*X[:],U[iy,:],label="y")
-  for (i, idx) in enumerate(surface_species)
-    plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
-  end
-  PyPlot.ylim(-0.5,1.1)
-  PyPlot.xlim(-0.01*plotted_length, plotted_length)
-  PyPlot.xlabel(x_label)
-  PyPlot.legend(loc="best")
-  PyPlot.grid()
-  
-  subplot(212)
-  plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
-  PyPlot.xlim(-0.01*plotted_length, plotted_length)
-  PyPlot.xlabel(x_label)
-  PyPlot.legend(loc="best")
-  PyPlot.grid()
-end
+# function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
+#   point_marker_size = 5
+#   
+#   
+#   PyPlot.subplot(211)
+#   PyPlot.plot((x_factor)*X[:],U[iy,:],label="y")
+#   for (i, idx) in enumerate(surface_species)
+#     PyPlot.plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
+#   end
+#   PyPlot.ylim(-0.5,1.1)
+#   PyPlot.xlim(-0.01*plotted_length, plotted_length)
+#   PyPlot.xlabel(x_label)
+#   PyPlot.legend(loc="best")
+#   PyPlot.grid()
+#   
+#   PyPlot.subplot(212)
+#   PyPlot.plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
+#   PyPlot.xlim(-0.01*plotted_length, plotted_length)
+#   PyPlot.xlabel(x_label)
+#   PyPlot.legend(loc="best")
+#   PyPlot.grid()
+# end
 
-function run_new(;physical_model_name="",
+function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 test=false, test_from_above=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
-                pO2=1.0, T=1073,
+                pO2=1.0, T=1073, data_set=Nothing,
                 prms_names_in=[],
                 prms_values_in=[],
-                #
+                #### EIS ####
                 EIS_IS=false,  bias=0.0, f_range=(0.9, 1.0e+5, 1.1),
                 #
-                voltammetry=false, voltrate=0.010, upp_bound=1.0, low_bound=-1.0, sample=30, checknodes=[],
-                #
-                dlcap=false, dlcap_analytical=false,
-                #
                 EIS_TDS=false, tref=0,
+                #### CV #####
+                voltammetry=false, voltrate=0.010, upp_bound_eta=1.0, low_bound_eta=-1.0, sample=30, checknodes=[], 
+                #### CV(f) ##
+                fast_CV_mode=false,
+                #### CAP ####
+                dlcap=false, dlcap_analytical=false, 
+                #### STEP ####
+                STEP=false, dt_fac=1.5, dt_start=1.0e-5, t_end=0.01,
                 #
-                STEP=false, dt_fac=1.5, dt_start=1.0e-5, t_end=0.01
+                conductivity_fitting=false
                 )
 
     
+    
+    #model_symbol = eval(Symbol(model_label))
+    model_symbol = eval(Symbol(physical_model_name))
+    
+    bulk_species = model_symbol.bulk_species
+    surface_species = model_symbol.surface_species
+    surface_names = model_symbol.surface_names
+    iphi = model_symbol.iphi
+    iy = model_symbol.iy
+    iyAs = model_symbol.iyAs
+    iyOs = model_symbol.iyOs
+    index_driving_species = model_symbol.index_driving_species
+
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
-    AreaEllyt = 0.00011309724 * 0.7        # m^2 (geometrical area)*(1 - porosity)
+    
+    if data_set == Nothing
+      AreaEllyt == 1.0    # random value
+    else
+      if data_set == "OLD_MONO_100"
+        AreaEllyt = 0.00011309724 * 0.7       # m^2 (geometrical area)*(1 - porosity)
+      elseif data_set[1:4] == "MONO"
+        AreaEllyt = 0.00011309724 * 0.7       # m^2 (geometrical area)*(1 - porosity)
+      elseif data_set[1:4] == "POLY"
+        AreaEllyt = 0.000201 * 0.7            # m^2 (geometrical area)*(1 - porosity)
+      else
+        println("\nERROR: ysz_experiments.jl: data_set NOT RECOGNIZED !!!! \n")
+        return throw(Exception)
+      end
+    end
+    
     #width_Ellyt = 0.00045           # m     width of the half-cell
     #width_Ellyt = 0.0005           # m     width of the half-cell
 #     if dlcap
@@ -123,6 +155,16 @@ function run_new(;physical_model_name="",
     
     # update the "computed" values in parameters
     parameters = model_symbol.YSZParameters_update!(parameters)
+    
+    #@show parameters.yB
+    #@show parameters.DD
+  
+    # conductivity stuff
+    if conductivity_fitting
+      sigma = model_symbol.get_conductivity(parameters)
+      R_ohm = (1/sigma)*(width/AreaEllyt)
+      return sigma, R_ohm
+    end
 
 #     if debug_print_bool 
 #         println("NEW ---- ")
@@ -142,6 +184,7 @@ function run_new(;physical_model_name="",
         flux=model_symbol.flux!,
         reaction=model_symbol.reaction!,
         breaction=model_symbol.breaction!,
+        #generic=model_symbol.generic_operator!,
         bstorage=model_symbol.bstorage!
     )
     #
@@ -161,6 +204,7 @@ function run_new(;physical_model_name="",
     # set boundary conditions
     model_symbol.set_typical_boundary_conditions!(sys, parameters)
     
+    
     # get initial value of type unknows(sys) and initial voltage
     inival = model_symbol.get_typical_initial_conditions(sys, parameters)
     phi0 = parameters.phi_eq
@@ -170,7 +214,7 @@ function run_new(;physical_model_name="",
     control=VoronoiFVM.NewtonControl()
     control.verbose=false
     control.tol_linear=1.0e-4
-    control.tol_relative=1.0e-5
+    control.tol_relative=1.0e-8
     #control.tol_absolute=1.0e-4
     #control.max_iterations=200
     control.max_lureuse=0
@@ -178,17 +222,19 @@ function run_new(;physical_model_name="",
     control.damp_growth=1.3
 
 ##### used for diplaying initial conditions vs steady state    
-#     figure(111)
-#     plot_solution(inival, X, 10^9)
-#     
-#     steadystate = unknowns(sys)
-#     solve!(steadystate, inival, sys, control=control)
-#     plot_solution(steadystate, X, 10^9)
-#     return
+# #     figure(111)
+# #     plot_solution(inival, X, 10^9)
+# #     
+# #     steadystate = unknowns(sys)
+# #     solve!(steadystate, inival, sys, control=control)
+# #     plot_solution(steadystate, X, 10^9)
+# #     println(sum(steadystate))
+# #     return
 ################
 
-
-
+    #@show parameters.phi_eq
+    
+    
     ############################################
     ############################################
     ############################################
@@ -210,6 +256,7 @@ function run_new(;physical_model_name="",
     #####################################
     #####################################
     ######### EIS computation #############
+
     if EIS_IS || EIS_TDS
         #
         # Transient part of measurement functional 
@@ -232,7 +279,7 @@ function run_new(;physical_model_name="",
 
         # Calculate steady state solution
         steadystate = unknowns(sys)
-        phi_steady = parameters.phi_eq + bias
+        phi_steady = parameters.phi_eq + bias/(1 + parameters.e_fac)
         
         excited_spec=index_driving_species
         excited_bc=1
@@ -250,7 +297,7 @@ function run_new(;physical_model_name="",
           
           for phi_ramp in (ramp_nodes == 0 ? phi_steady : collect(0.0 : phi_steady/ramp_nodes : phi_steady))
             # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
-              try
+# #               try
                 
                 #@show phi_ramp
                 sys.boundary_values[excited_spec,1] = phi_ramp
@@ -259,15 +306,15 @@ function run_new(;physical_model_name="",
                 
                 ramp_isok = true
                 
-              catch e
-                if e isa InterruptException
-                  rethrow(e)
-                else
-                  #println("fail")
-                  ramp_isok=false
-                  break
-                end
-              end
+# #               catch e
+# #                 if e isa InterruptException
+# #                   rethrow(e)
+# #                 else
+# #                   #println("fail")
+# #                   ramp_isok=false
+# #                   break
+# #                 end
+# #               end
           end
           if ramp_isok
             break
@@ -278,6 +325,7 @@ function run_new(;physical_model_name="",
           throw(Exception)
         end
 
+        
         # Create impedance system
         isys=VoronoiFVM.ImpedanceSystem(sys,steadystate,excited_spec, excited_bc)
 
@@ -296,37 +344,49 @@ function run_new(;physical_model_name="",
 
         w = 2*pi*f_range[1]
 
+        
         # Frequency loop
         while w < 2*pi*f_range[2]
+            
             print_bool && @show w
+            #@show w
             push!(all_w,w)
             if EIS_IS
                 # Here, we use the derivatives of the measurement functional
                 zfreq=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval,dmeas_stdy, dmeas_tran)
                 inductance = im*parameters.L*w
-                push!(z_freqdomain, inductance + 1.0/zfreq)
+                push!(z_freqdomain, inductance + (1.0/zfreq))
                 print_bool && @show zfreq
             end
             
             if EIS_TDS
                 # Similar API, but use the the measurement functional themselves    
+                
                 ztime=timedomain_impedance(sys,w,steadystate,excited_spec,excited_bc,excited_bcval,meas_stdy, meas_tran,
-                                    tref=tref,
-                                    fit=true)
-                push!(z_timedomain,1.0/ztime)
+                                    tref=tref, excitation_amplitude=1.0e-3,
+                                    fit=true, tol_amplitude=1.0e-3, fit_window_size=20.0, plot_amplitude=false)
+                inductance = im*parameters.L*w                        
+                push!(z_timedomain, inductance + (1.0/ztime)/(1 + parameters.e_fac))
                 print_bool && @show ztime
+                @show w, z_timedomain[end]
             end
 
-
+            
+            
             
             # growth factor such that there are 10 points in every order of magnitude
             # (which is consistent with "freq" list below)
-            #w=w*1.25892           
+            #w=w*1.25892     
+            
             w = w*f_range[3]
+            
         end
-
-
+# # # # ##############################
+# # # #         pyplot = true 
+# # # #         ##########################################
         if pyplot
+            EIS_TDS_figure_num = 323
+            
             function positive_angle(z)
                 ϕ=angle(z)
                 if ϕ<0.0
@@ -367,22 +427,35 @@ function run_new(;physical_model_name="",
             PyPlot.grid()
             ax.set_aspect(aspect=1.0)
             if EIS_IS
-                plot(real(z_freqdomain),-imag(z_freqdomain),label="\$i\\omega\$", color=:red)
+                PyPlot.plot(real(z_freqdomain),-imag(z_freqdomain),label="\$i\\omega\$", color=:red)
             end
             if EIS_TDS
-                plot(real(z_timedomain),-imag(z_timedomain),label="\$\\frac{d}{dt}\$", color=:green)
+                PyPlot.plot(real(z_timedomain),-imag(z_timedomain),label="\$\\frac{d}{dt}\$", color=:green)
             end
             PyPlot.xlabel("Re")
             PyPlot.ylabel("Im")
             PyPlot.legend(loc="lower center")
             PyPlot.tight_layout()
             pause(1.0e-10)
+            
+            ###########################
+            pause(1000)
+            ###########################
         end
         
         if out_df_bool
+          if EIS_IS
             EIS_df = DataFrame(f = all_w/(2*pi), Z = z_freqdomain)
             return EIS_df
+          elseif EIS_TDS
+            EIS_df = DataFrame(f = all_w/(2*pi), Z = z_timedomain)
+            return EIS_df
+          end
         end
+        
+# # # # #         ###########
+# # # # #         pause(1000)
+# # # # #         ##########
     end
 
     #########################################
@@ -397,52 +470,156 @@ function run_new(;physical_model_name="",
     # code for performing STEP
     
     if STEP
-      phi = parameters.phi_eq + bias
-      U = unknowns(sys)
-      U0 = unknowns(sys)
-      only_formal_meas = [0.0,0.1,0.1,0.1,0.1]
-      
-      # solving stationary state
-      sys.boundary_values[index_driving_species,1]=phi
-      solve!(U0,inival,sys, control=control)
+      return "implement zeta e_fac handeling"
+# # # #       phi = parameters.phi_eq + bias
+# # # #       U = unknowns(sys)
+# # # #       U0 = unknowns(sys)
+# # # #       only_formal_meas = [0.0,0.1,0.1,0.1,0.1]
+# # # #       
+# # # #       # solving stationary state
+# # # #       sys.boundary_values[index_driving_species,1]=phi
+# # # #       solve!(U0,inival,sys, control=control)
+# # # # 
+# # # #       I_contributions_tran_0 = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
+# # # #       I_contributions_stdy_0 = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
+# # # #       #plot_solution(U0, X)
+# # # #       #pause(2)
+# # # #       
+# # # #       # relaxation
+# # # #       total_charge = 0
+# # # #       
+# # # #       t = 0
+# # # #       dt = dt_start
+# # # #       phi = parameters.phi_eq
+# # # #       sys.boundary_values[index_driving_species,1]=phi
+# # # #       while t < t_end
+# # # #         t += dt
+# # # #         control.Δt = dt
+# # # #         evolve!(U, U0, sys, [0, dt], control=control)
+# # # # 
+# # # #         #@show t
+# # # #         #plot_solution(U, X)
+# # # #         
+# # # #         I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+# # # #         I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+# # # #         I = (
+# # # #           sum((I_contributions_stdy .+ I_contributions_stdy_0)./2)
+# # # #           +
+# # # #           sum((I_contributions_tran .- I_contributions_tran_0)./dt)
+# # # #         )
+# # # #         
+# # # #         total_charge += I*dt
+# # # #         @show I*dt
+# # # #         
+# # # #         I_contributions_tran_0 = I_contributions_tran
+# # # #         I_contributions_stdy_0 = I_contributions_stdy
+# # # #         U0 .= U
+# # # #         dt *= dt_fac
+# # # #       end
+# # # #       return total_charge
+    end
+    
+    
+    
+    
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    #########################################
+    
+    # code for performing CV(f) ---- FAST cv MODE
+    
+    if voltammetry && fast_CV_mode   
+        upp_bound_phi = upp_bound_eta/(1 + parameters.e_fac)
+        low_bound_phi = low_bound_eta/(1 + parameters.e_fac)
+        
+        tstep=Float64(((upp_bound_phi-low_bound_phi)/2)/voltrate/sample)
+        
+        if save_files || out_df_bool          
+            out_df = DataFrame(t = Float64[], U = Float64[], I = Float64[], Ir = Float64[], Is = Float64[], Ib = Float64[], Ibb = Float64[])          
+        end
+  
+        only_formal_meas = [0.0]  # to pass as an argument to set_meas_get_tran_I_contributions
 
-      I_contributions_tran_0 = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
-      I_contributions_stdy_0 = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U0, sys, parameters, AreaEllyt, X)
-      #plot_solution(U0, X)
-      #pause(2)
-      
-      # relaxation
-      total_charge = 0
-      
-      t = 0
-      dt = dt_start
-      phi = parameters.phi_eq
-      sys.boundary_values[index_driving_species,1]=phi
-      while t < t_end
-        t += dt
-        control.Δt = dt
-        evolve!(U, U0, sys, [0, dt], control=control)
+        U = unknowns(sys)        
+        U0 = deepcopy(inival)              
+              
+        # calculating directly steadystate ###############                  
+        sys.boundary_values[index_driving_species,1]=parameters.phi_eq
+        solve!(U0,inival,sys, control=control)
+        U_eq = deepcopy(U0)
 
-        #@show t
-        #plot_solution(U, X)
+        if save_files || out_df_bool
+          push!(out_df, (0, 0, 0, 0, 0, 0, 0))
+        end            
         
-        I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
-        I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
-        I = (
-          sum((I_contributions_stdy .+ I_contributions_stdy_0)./2)
-          +
-          sum((I_contributions_tran .- I_contributions_tran_0)./dt)
-        )
+        # compute the positive half
+        istep = 1
+        dir = 1
+        phi = parameters.phi_eq + voltrate*tstep*dir        
+        while phi <= (upp_bound_phi + parameters.phi_eq) + upp_bound_phi/100.
+          sys.boundary_values[index_driving_species,1]=phi
+          solve!(U, U0, sys, control=control)
+          
+          # Steady part of measurement functional        
+          I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+          #
+          Ir= I_contributions_stdy[1]          
+          if save_files || out_df_bool
+            push!(out_df,[istep*tstep,   (1 + parameters.e_fac)*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
+          end
+          
+          # preparing for the next step
+          istep+=1
+          U0.=U
+          phi+=voltrate*tstep*dir       
+        end
         
-        total_charge += I*dt
-        @show I*dt
+        # complete the other direction 
+        for i in collect(size(out_df)[1]: -1 : 1)        
+          push!(out_df, (istep*tstep, Tuple(out_df[i, 2:end])...))          
+          istep+=1
+        end        
         
-        I_contributions_tran_0 = I_contributions_tran
-        I_contributions_stdy_0 = I_contributions_stdy
-        U0 .= U
-        dt *= dt_fac
-      end
-      return total_charge
+        
+        # compute the negative half
+        istep_negative = istep
+        U0 .= U_eq
+        dir = -1        
+        phi = parameters.phi_eq + voltrate*tstep*dir
+        while phi >= (low_bound_phi + parameters.phi_eq) - upp_bound_phi/100.
+          sys.boundary_values[index_driving_species,1]=phi
+          solve!(U, U0, sys, control=control)
+          
+          # Steady part of measurement functional        
+          I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
+          #
+          Ir= I_contributions_stdy[1]          
+          if save_files || out_df_bool
+            push!(out_df,[istep*tstep,   (1 + parameters.e_fac)*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
+          end
+          
+          # preparing for the next step
+          istep+=1
+          U0.=U
+          phi+=voltrate*tstep*dir     
+        end
+
+        # complete the other direction 
+        for i in collect(size(out_df)[1] : -1 : istep_negative)   
+          push!(out_df, (istep*tstep, Tuple(out_df[i, 2:end])...))          
+          istep+=1
+        end 
+        
+        if out_df_bool
+          return out_df
+        else
+          return
+        end      
     end
     
     
@@ -458,9 +635,12 @@ function run_new(;physical_model_name="",
     #########################################
     
     
-    # code for performing CV
+    
+    # code for performing CV    
     if voltammetry
- 
+        upp_bound_phi = upp_bound_eta/(1 + parameters.e_fac)
+        low_bound_phi = low_bound_eta/(1 + parameters.e_fac)
+    
         istep=1
         phi=0
         phi_prev = 0
@@ -487,7 +667,8 @@ function run_new(;physical_model_name="",
         end
         
         cv_cycles = 1
-        relaxation_length = 1    # how many "(cv_cycle/4)" should relaxation last
+        sinus_mode = false
+        
         relax_counter = 0
         istep_cv_start = -1
         time_range = zeros(0)  # [s]
@@ -499,7 +680,7 @@ function run_new(;physical_model_name="",
         end
         direction_switch_count = 0
 
-        tstep=((upp_bound-low_bound)/2)/voltrate/sample   
+        tstep=Float64(((upp_bound_phi-low_bound_phi)/2)/voltrate/sample)
         if print_bool
             @printf("tstep %g = \n", tstep)
         end
@@ -511,8 +692,8 @@ function run_new(;physical_model_name="",
         
         if pyplot
             PyPlot.close()
-            PyPlot.ion()
-            PyPlot.figure(figsize=(10,8))
+            PyPlot.ion()            
+            PyPlot.figure(321, figsize=(10,8))
             #PyPlot.figure(figsize=(5,5))
         end
         
@@ -524,15 +705,10 @@ function run_new(;physical_model_name="",
             U .= inival
         end
         
+              
         if true
-          # calculating directly steadystate ###############
-          #state = "cv_is_on"
-          state = "relaxation"
-          relaxation_length = 2.0/sample
-          istep_cv_start = 0
-          phi=parameters.phi_eq
-          dir=1 
-          
+          # calculating directly steadystate ###############                  
+          sys.boundary_values[index_driving_species,1]=parameters.phi_eq
           solve!(U0,inival,sys, control=control)
           if save_files || out_df_bool
             push!(out_df, (0, 0, 0, 0, 0, 0, 0))
@@ -556,8 +732,16 @@ function run_new(;physical_model_name="",
           #
           append!(time_range,0)
           
-          phi_prev = phi
-          phi = phi + voltrate*dir*tstep
+          
+          # preparing fist step          
+          istep_cv_start = 0          
+          dir=1
+          state = "relaxation"
+          phi=parameters.phi_eq
+          relaxation_length = 2*2.0/sample
+          
+          phi_prev = parameters.phi_eq
+          #phi = phi + voltrate*dir*tstep
           phi_out = (phi_prev + phi)/2.0
           ##################################################
           # using the ramp ... not recommended
@@ -580,17 +764,24 @@ function run_new(;physical_model_name="",
                 if print_bool
                     println("relaxation ... ")
                 end
-            end            
+            end  
             if state=="relaxation" && relax_counter >= sample*relaxation_length
                 relax_counter += 1
-                state="cv_is_on"
+                if sinus_mode
+                  state="sinus_mode"
+                else
+                  state="cv_is_on"
+                end
                 istep_cv_start = istep
                 dir=1
                 if print_bool
                     print("cv ~~~ direction switch: ")
                 end
-            end                            
-            if state=="cv_is_on" && (phi <= low_bound-0.00000001+phi0 || phi >= upp_bound+0.00000001+phi0)
+            end
+            if state=="sinus_mode" && istep > 100
+              state = "cv_is_off"
+            end
+            if state=="cv_is_on" && (phi <= low_bound_phi-0.00000001+phi0 || phi >= upp_bound_phi+0.00000001+phi0)
                 dir*=(-1)
                 # uncomment next line if phi should NOT go slightly beyond limits
                 #phi+=2*voltrate*dir*tstep
@@ -604,16 +795,12 @@ function run_new(;physical_model_name="",
                 state = "cv_is_off"
             end
             
-            
             # tstep to potential phi
             sys.boundary_values[index_driving_species,1]=phi
-            
+                        
             control.Δt = tstep
+
             evolve!(U, U0, sys, [0, tstep], control=control)
-            
-            
-#             solve!(U, U0, sys, control=control, tstep=tstep)
-            
             
             # Transient part of measurement functional
             I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
@@ -629,10 +816,9 @@ function run_new(;physical_model_name="",
             Is  = (I_contributions_tran[1] - I_contributions_tran_0[1])/tstep                
             Ib  = (I_contributions_tran[2] - I_contributions_tran_0[2])/tstep 
             Ibb = (I_contributions_tran[3] - I_contributions_tran_0[3])/tstep
-
             
- 
-
+          
+          
             #@show state
             #@show Ir+Is+Ib+Ibb
             if false && !(test || test_from_above)
@@ -654,14 +840,19 @@ function run_new(;physical_model_name="",
             end
             surface_species_range = hcat(surface_species_range, surface_species_to_append)
             
-            append!(phi_range,phi_out)
-            #
-            append!(Ib_range,Ib)
-            append!(Is_range,Is)
-            append!(Ibb_range,Ibb)
-            append!(Ir_range, Ir)
-            #
+            append!(phi_range,phi_out)              
             append!(time_range,tstep*istep)
+            if istep > 2              
+              append!(Ib_range,Ib)
+              append!(Is_range,Is)
+              append!(Ibb_range,Ibb)
+              append!(Ir_range, Ir)              
+            else              
+              append!(Ib_range,0)
+              append!(Is_range,0)
+              append!(Ibb_range,0)
+              append!(Ir_range, 0)                            
+            end
             
             if state=="cv_is_on"
                 if save_files || out_df_bool
@@ -673,16 +864,15 @@ function run_new(;physical_model_name="",
                           dir*Ib/voltrate,                            
                           dir*Ibb/voltrate])
                     else
-                        push!(out_df,[(istep-istep_cv_start)*tstep,   phi_out-phi0,   Ib+Is+Ir+Ibb,  Ir,  Is,  Ib,  Ibb])
+                        push!(out_df,[(istep-istep_cv_start)*tstep,   (1 + parameters.e_fac)*(phi_out-phi0),   Ib+Is+Ir+Ibb,  Ir,  Is,  Ib,  Ibb])
                     end
                 end
             end
-            
-            
-            
+                      
             # plotting                  
             if pyplot && istep%2 == 0
-
+                
+                figure(321)
                 num_subplots=4
                 ys_marker_size=6
                 PyPlot.subplots_adjust(hspace=0.5)
@@ -764,7 +954,11 @@ function run_new(;physical_model_name="",
                 #println("relaxation ... ",relax_counter/sample*100,"%")
             else
                 phi_prev = phi
-                phi+=voltrate*dir*tstep
+                if sinus_mode
+                  phi = parameters.phi_eq + sin(voltrate*tstep*istep)
+                else
+                  phi+=voltrate*dir*tstep
+                end
                 phi_out = (phi_prev + phi)/2.0
             end
         end
@@ -828,10 +1022,10 @@ function run_new(;physical_model_name="",
             
             subplot(222)
             if dlcap  
-                cbl, cs = model_symbol.direct_capacitance(parameters, collect(float(low_bound):0.001:float(upp_bound)))
-                plot(collect(float(low_bound):0.001:float(upp_bound)), (cbl+cs), label="tot CG") 
-                plot(collect(float(low_bound):0.001:float(upp_bound)), (cbl), label="b CG") 
-                plot(collect(float(low_bound):0.001:float(upp_bound)), (cs), label="s CG") 
+                cbl, cs = model_symbol.direct_capacitance(parameters, collect(float(low_bound_phi):0.001:float(upp_bound_phi)))
+                plot(collect(float(low_bound_phi):0.001:float(upp_bound_phi)), (cbl+cs), label="tot CG") 
+                plot(collect(float(low_bound_phi):0.001:float(upp_bound_phi)), (cbl), label="b CG") 
+                plot(collect(float(low_bound_phi):0.001:float(upp_bound_phi)), (cs), label="s CG") 
                 # rescaled by voltrate
                 plot(phi_range[cv_range].-phi0, ((Is_range + Ib_range + Ir_range + Ibb_range)[cv_range])/voltrate ,label="rescaled total current")
             else
@@ -876,8 +1070,8 @@ function run_new(;physical_model_name="",
                     end
                 end
             end
-            parn = ["verbose" ,"pyplot", "width", "voltammetry", "voltrate", "low_bound", "upp_bound", "sample", "phi0"]
-            parv =[verbose ,pyplot, width, voltammetry, voltrate, low_bound, upp_bound, sample, @sprintf("%.6g",phi0)]
+            parn = ["verbose" ,"pyplot", "width", "voltammetry", "voltrate", "low_bound_phi", "upp_bound_phi", "sample", "phi0"]
+            parv =[verbose ,pyplot, width, voltammetry, voltrate, low_bound_phi, upp_bound_phi, sample, @sprintf("%.6g",phi0)]
             for ii in 1:length(parn)
                     linestring=string(parn[ii],": ",parv[ii])
                     PyPlot.text(0.01+shift, 0.95+height, linestring, fontproperties="monospace")

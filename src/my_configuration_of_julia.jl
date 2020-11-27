@@ -2,6 +2,7 @@ using Pkg
 Pkg.add("Plots")
 Pkg.add("VoronoiFVM")
 Pkg.add("Revise")
+Pkg.add("ForwardDiff")
 # add
 # 
 # # try

@@ -227,9 +227,9 @@ function par_study_err_evaluation!(actual_par_study; data_already_imported=false
           SIM_sim = actual_par_study.SIMs_data[i, prms_indicies...]
           
           # compute fitness function
-          error = fitnessFunction(SIM, 
-                SIM_list_exp[i],
-                apply_checknodes(SIM, SIM_sim, SIM.checknodes)
+          error = fitnessFunction(SIM,                
+                apply_checknodes(SIM, SIM_sim, SIM.checknodes,
+                SIM_list_exp[i])
               )
           all_errors_sum += error * SIM.fitness_factor
           SIMs_err[!, i][counter] = error
@@ -254,8 +254,8 @@ function par_study_err_evaluation!(actual_par_study; data_already_imported=false
           
           # compute fitness function
           error = fitnessFunction(SIM, 
-                SIM_list_exp[i],
-                apply_checknodes(SIM, SIM_sim, SIM.checknodes)
+                apply_checknodes(SIM, SIM_sim, SIM.checknodes,
+                SIM_list_exp[i])
               )
           all_errors_sum += error * SIM.fitness_factor
           SIMs_err[!, i][counter] = error

@@ -20,6 +20,10 @@ function TCtoT(TC)
   return TC+273.15
 end
 
+function TtoTC(T)
+  return T-273.15
+end
+
 function pO2tosim(pO2)
   # here we can add some regularization
   treashold = 1.0e-5
@@ -40,33 +44,68 @@ function get_sim_list(SIM_list)
   #TODO!!
 end
 
-function get_SIM_list_rectangle(TC,pO2, bias, data_set, simulations::Array{String})
+function general_simulation_get_fitness_factors(SIM_name::String, simulations, fitness_factors)
+  if length(simulations) == length(fitness_factors)
+    for (i, name) in enumerate(simulations)
+      if name==SIM_name
+        return fitness_factors[i]
+      end
+    end
+    println("ERROR: SIM_name \"$(SIM_name)\" not found!")
+    return throw(Exception)
+  else
+    println("ERROR: shape mismatch: length(simulations) == length(fitness_factors) ... $(length(simulations)) != $(length(fitness_factors))")
+    return throw(Exception)
+  end
+end
+
+function get_SIM_list_rectangle(TC,pO2, bias, data_set, simulations::Array{String}, fitness_factors, physical_model_name)    
     SIM_list = Array{abstract_simulation}(undef,0)
-    if "CV" in simulations
-      append!(SIM_list,[
-        CV_simulation(TC, pO2, data_set)...
-      ])
-    end
-    if "EIS" in simulations
-      append!(SIM_list,[
-        EIS_simulation(TC, pO2, bias, data_set)...
-      ])  
-    end
-    if "CAP" in simulations
-      append!(SIM_list,[
-        CAP_simulation(TC, pO2)...
-      ])
-    end
-    if "CAP-CV" in simulations
-      append!(SIM_list,[
-        CAP_simulation(TC, pO2, analytical=false)...
-      ])
+    for SIM_name in simulations
+      if "CV"==SIM_name
+        append!(SIM_list,[
+          CV_simulation(TC, pO2, data_set=data_set, 
+            fitness_factor=general_simulation_get_fitness_factors("CV", simulations, fitness_factors),
+            physical_model_name=physical_model_name)...
+        ]) 
+        continue
+      end
+      if "CV(f)"==SIM_name
+        append!(SIM_list,[
+          CV_simulation(TC, pO2, data_set=data_set, fast_mode=true, 
+            fitness_factor=general_simulation_get_fitness_factors("CV(f)", simulations, fitness_factors),
+            physical_model_name=physical_model_name)...
+        ])
+        continue
+      end
+      if "EIS"==SIM_name
+        append!(SIM_list,[
+          EIS_simulation(TC, pO2, bias, data_set=data_set, 
+            fitness_factor=general_simulation_get_fitness_factors("EIS", simulations, fitness_factors),
+            physical_model_name=physical_model_name)...
+        ])
+        continue
+      end
+      if "CAP"==SIM_name
+        append!(SIM_list,[
+          CAP_simulation(TC, pO2)...
+        ])
+        continue
+      end
+      if "CAP-CV"==SIM_name
+        append!(SIM_list,[
+          CAP_simulation(TC, pO2, analytical=false)...
+        ])
+        continue
+      end
+      println("ERROR: SIM_name \"$(SIM_name)\" not found!")
+      return throw(Exception)
     end
     return SIM_list
 end
 
 
-function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=("A0", "R0", "DGA", "DGR", "betaR", "SR"), scripted_tuple)
+function filename_format_prms(; save_dir="./nouze/", prefix="", prms=Nothing, prms_names=Nothing, scripted_tuple)
 
   function consistency_check()
     if (size(prms_names,1) != size(scripted_tuple,1) || 

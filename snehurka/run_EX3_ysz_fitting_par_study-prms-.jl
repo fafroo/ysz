@@ -1,4 +1,4 @@
-#!/usr/local/pkg/Installs/linux-ubuntu18.04-x86_64-gcc7.4.0/bin-julia/1.0.5/5fgzaay5eavbfm4v/bin/julia
+#!/usr/local/pkg/Installs/linux-ubuntu18.04-skylake_avx512/gcc7.4.0/julia/1.3.1/6cvgicvsj2rrblel/bin/julia
 #
 #SBATCH --job-name=NYQ
 #SBATCH -p express3

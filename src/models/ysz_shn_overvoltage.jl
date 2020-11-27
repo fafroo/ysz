@@ -1,4 +1,4 @@
-module ysz_shn
+module ysz_shn_overvoltage
 
 #############################################
 # WHILE CREATING NEW MODEL                  #
@@ -9,8 +9,8 @@ module ysz_shn
 # [x] equilibrium phi
 # [x] meas_tran & meas_stdy
 # [x] output species, names
-# [x ] function set_parameters
-# [x ] changed module name :)
+# [x] function set_parameters
+# [x] changed module name according to the file name :)
 
 using Printf
 using VoronoiFVM
@@ -93,12 +93,6 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     
     L::Float64  # inductance
     
-    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
-    sites_Om0::Float64  # atomic O sites ratio
-    sites_Om1::Float64  # oxide O-1 sites ratio 
-    
-    
-    
     # fixed
     DD::Float64   # diffusion coefficient [m^2/s]
     pO2::Float64 # O2 partial pressure [bar]\z
@@ -128,6 +122,17 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     mY::Float64
     zL::Float64   # average charge number [1]
     yB::Float64   # electroneutral value [1]
+    
+    
+    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
+    sites_Om0::Float64  # atomic O sites ratio
+    sites_Om1::Float64  # oxide O-1 sites ratio 
+    
+    # overvoltage influence - dimensionless number used as "supplied energy" = -e_fac*(e0)*\eta
+    e_fac::Float64
+    
+    
+
     
     phi_eq::Float64 # equilibrium voltage [V]
     y0_eq::Float64
@@ -200,11 +205,7 @@ function YSZParameters(this)
     this.stoichiometric_matrix = hcat(this.gammaA, this.gammaR, this.gammaO, this.gammaB, this.gammaC)
  
     this.L=2.3560245927364395e-6
-    
-    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
-    this.sites_Om0 = 1/4
-    this.sites_Om1 = 1/2
-    
+
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
     #this.DD=9.5658146540360312e-10  # some value  <<<< nearly the BEST hand-guess
@@ -223,6 +224,16 @@ function YSZParameters(this)
     this.vL=3.35e-29
     this.zA  = -2;
     this.zOmin = -1;
+    
+    # oxygen adsorption sites coverage w.r.t. one surface YSZ cell
+    this.sites_Om0 = this.ms_par*(1.0-this.nus)
+    this.sites_Om1 = this.ms_par*(1.0-this.nus)
+    
+    #
+    this.e_fac = 0.0
+    
+    
+
 
     this.ARO_mode = false # true# 
     this.meas_new = false
@@ -263,11 +274,18 @@ function phi_to_y0(this::YSZParameters, phi)
 end
 
 function equilibrium_boundary_conditions(this::YSZParameters)
-    if this.ARO_mode
+    #if this.ARO_mode
+    if false
+        phi_eq =  (
+                (this.kB*this.T*log(sqrt(this.pO2)*((1-this.yB)/this.yB)) + this.DGO/2 + this.DGR + this.DGA)
+                /
+                ((-2*this.e_fac + 2)*this.e0)
+              )
         a_yOs = this.pO2^(1/2.0)*exp(-this.DGO/(2 * this.kB * this.T))
         a_yAs = a_yOs*exp(-this.DGR/(this.kB * this.T))
         a_y0 = a_yAs*exp(this.DGA/(this.kB * this.T))
-        return y0_activity_to_phi(this, a_y0), a_y0/(1 + a_y0), a_yAs/(1 + a_yAs), a_yOs/(1 + a_yOs), 0.2
+        #return phi_eq, a_y0/(1 + a_y0), a_yAs/(1 + a_yAs), a_yOs/(1 + a_yOs), 0.2        
+        return phi_eq, a_y0/(1 + a_y0), 0.4, 0.6, 0.2
     else   # !!!!!!!!!!!!!!!!!!!!!!!!!!
         a_yOs = this.pO2^(0.5)*exp(-this.DGO/(2.0 * this.kB * this.T))
         a_yAs = a_yOs*exp(-this.DGR/(this.kB * this.T))
@@ -275,7 +293,7 @@ function equilibrium_boundary_conditions(this::YSZParameters)
 
         a_yOmins = a_yOs*exp(this.DGB/(this.kB * this.T))
         ysV = 1/(1 + a_yAs + a_yOs + a_yOmins)
-
+        #@show y0_activity_to_phi(this, a_y0), a_y0/(1 + a_y0), a_yAs*ysV, a_yOs*ysV, a_yOmins*ysV
         return y0_activity_to_phi(this, a_y0), a_y0/(1 + a_y0), a_yAs*ysV, a_yOs*ysV, a_yOmins*ysV
     end
 end
@@ -519,47 +537,68 @@ end
 
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
-    if this.ARO_mode || this.separate_vacancy
-        f[iyAs]     =this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
-        f[iyOs]     =this.mO*this.sites_Om0*u[iyOs]/this.areaL
-        f[iyOmins]  =this.mO*this.sites_Om1*u[iyOmins]/this.areaL
-    else
-        f[iyAs]   =this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
-        f[iyOs]   =this.mO*this.ms_par*(1.0-this.nus)*u[iyOs]/this.areaL
-        f[iyOmins]=this.mO*this.ms_par*(1.0-this.nus)*u[iyOmins]/this.areaL
+      if this.ARO_mode || this.separate_vacancy
+      #if false
+          f[iyAs]     =this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
+          f[iyOs]     =this.mO*this.sites_Om0            *u[iyOs]/this.areaL
+          f[iyOmins]  =this.mO*this.sites_Om1            *u[iyOmins]/this.areaL
+      else
+          f[iyAs]   =this.mO*this.ms_par*(1.0-this.nus)*u[iyAs]/this.areaL
+          f[iyOs]   =this.mO*this.ms_par*(1.0-this.nus)*u[iyOs]/this.areaL
+          f[iyOmins]=this.mO*this.ms_par*(1.0-this.nus)*u[iyOmins]/this.areaL
+      end
+      #@show value.(f)
     end
-end
-
 end
 
 # surface reaction + adsorption
 function breaction!(f,u,node,this::YSZParameters)
     if  node.region==1
-        electroR=electroreaction(this,u)
-        oxide_ads = exponential_oxide_adsorption(this, u)
-        gas_ads = exponential_gas_adsorption(this, u)
+        #@show value.(u)
+        #@show node
+        #@show value(exponential_oxide_adsorption(this, u))*this.mO
         
-        # ARO mass production
-        g_ARO = similar(f)
-        
-        g_ARO[iphi]=0
-        g_ARO[iy]= this.mO*oxide_ads
-        g_ARO[iyAs]= - this.mO*electroR - this.mO*oxide_ads
-        g_ARO[iyOs]= this.mO*electroR - this.mO*2*gas_ads
-        g_ARO[iyOmins]= 0  #this.mO*(0.1 - u[iyOmins])
-        
-        # AROBC mass production 
-        rema = this.stoichiometric_matrix
-        rates = reaction_rates(u, this)
-        h_template = (this.mO*rema*rates)[1:end-1]
-
         if this.ARO_mode
-            f = g_ARO
+        #if false
+          electroR=electroreaction(this,u)
+          oxide_ads = exponential_oxide_adsorption(this, u)
+          gas_ads = exponential_gas_adsorption(this, u)       
+  
+          f[iy] = this.mO*oxide_ads
+          # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
+          # sign is negative bcs of the equation implementation
+          f[iyAs] = - this.mO*electroR - this.mO*oxide_ads
+          f[iyOs] = this.mO*electroR - this.mO*2*gas_ads
+          f[iphi] = 0
+          f[iyOmins] = 0
+          
+          return 
+          # ARO mass production
+          h_template_ARO = [
+            u[1]*0,
+            this.mO*oxide_ads,
+            - this.mO*electroR - this.mO*oxide_ads,
+            this.mO*electroR - this.mO*2*gas_ads,
+            u[1]*0 #1.2817095250891399e-26
+          ]
         else
-            for (ii, hh) in enumerate(h_template)
-              f[ii] = -hh
-          end
-        end 
+          rema = this.stoichiometric_matrix
+          rates = reaction_rates(u, this)
+          
+          # AROBC mass production
+          h_template = - (this.mO*rema*rates)[1:end-1]        
+        end
+        
+        #h_template =  [0.0, 9.735031348709388e-5, -9.735031348709388e-5, -0.007132510524489904, 1.2817095250891399e-26]
+        #h_template =  [0,0,0,0,0]
+        for (ii, hh) in enumerate(h_template)
+            #@show h_template == h_template_ARO
+            f[ii] = hh
+        end
+        
+        #print(" ----------- breaction --- ")
+        #@show value.(f)
+        
     else
         f[iy]=0
         f[iphi]=0
@@ -651,11 +690,19 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
         rate = (
             (this.rR/this.SR)*the_fac
             *(
-                exp(-this.betaR*this.SR*this.DGR/(this.kB*this.T))
+                exp(-this.betaR*this.SR*(
+                  this.DGR
+                  +
+                  this.e_fac*2*this.e0*u[iphi]
+                  )/(this.kB*this.T))
                 *(u[iyAs]/(1-u[iyAs]))^(-this.betaR*this.SR)
                 *(u[iyOs]/(1-u[iyOs]))^(this.betaR*this.SR)
                 - 
-                exp((1.0-this.betaR)*this.SR*this.DGR/(this.kB*this.T))
+                exp((1.0-this.betaR)*this.SR*(
+                  this.DGR
+                  +
+                  this.e_fac*2*this.e0*u[iphi]
+                  )/(this.kB*this.T))
                 *(u[iyAs]/(1-u[iyAs]))^((1.0-this.betaR)*this.SR)
                 *(u[iyOs]/(1-u[iyOs]))^(-(1.0-this.betaR)*this.SR)
             )
@@ -718,6 +765,7 @@ function reaction_template(u,
                            kappa::Float64,
                            gamma::Array{Int32,1};
                            debug="",
+                           specific_string=""
          )
     activities = activity(this, u)
 
@@ -726,7 +774,8 @@ function reaction_template(u,
 
     bv_count = gamma[2]
     sv_count = sum(gamma[3:5])
-    if this.ARO_mode # || (debug != "") 
+    #if this.ARO_mode # || (debug != "") 
+    if false
       activities[iyAs] = u[iyAs]/(1-u[iyAs])
       activities[iyOs] = u[iyOs]/(1-u[iyOs])
       if gamma[5] != 0
@@ -761,7 +810,11 @@ function reaction_template(u,
     end
   
     reac_activities = prod(activities.^gamma)
-
+    
+    if specific_string=="R: e-"
+      DG += this.e_fac*2*this.e0*u[iphi]
+    end
+    
     L = exp(
               -beta*S*DG/this.kB/this.T
             )*reac_activities^(-beta*S)
@@ -860,7 +913,8 @@ function reaction_rates(u, this::YSZParameters)
                            this.SR,
                            this.kappaR,
                            this.gammaR,
-                           #debug="R"
+                           #debug="R",
+                           specific_string="R: e-"
         )
     O = reaction_template(u, this,
                            this.rO,

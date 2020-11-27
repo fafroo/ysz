@@ -1,13 +1,8 @@
-#!/usr/local/pkg/julia/1.0.3/bin/julia
+#!/usr/local/pkg/Installs/linux-ubuntu18.04-x86_64-gcc7.4.0/bin-julia/1.3.1/losaultqdx7s2zto/bin/julia
 #
 #SBATCH --job-name=NYQ
-#SBATCH -p express
+#SBATCH -p express3
 #SBATCH --time=0-6
-
-
-#module add julia
-#module --ignore-cache load "julia"
-
 
 include(string(pwd(),"/../src/ysz_fitting.jl"))
 

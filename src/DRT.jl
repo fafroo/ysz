@@ -22,6 +22,10 @@ mutable struct DRT_control_struct
   peak_merge_tol::Float32
 end
 
+function DRT_control_struct()
+  return DRT_control_struct(0.0, 1, 1, 2,0)
+end
+
 mutable struct DRT_struct
   EIS_df::DataFrame
   tau_range::Array{Float64}
@@ -32,6 +36,18 @@ mutable struct DRT_struct
   control::DRT_control_struct
 end
 
+
+# 
+# function perform_KK_test(EIS_df::DataFrame, DRT::DRT_struct)
+#   EIS_copy = deepcopy(EIS_df)
+#   
+#   L = DRT.L
+#   # subtract inductance
+#   for (i, f) in enumerate(EIS_copy.f)
+#     EIS_copy.Z[i] += - im*2*pi*f*L
+#   end
+#   
+# end
 
 
 
@@ -176,7 +192,7 @@ function plot_DRT_h(DRT::DRT_struct, to_standard_figure=true, print_bool=false, 
     legend()
   end
   if print_bool
-    println("DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)")  
+    println("non-DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)")  
   end
 end
   
@@ -193,7 +209,7 @@ function plot_DRT_RC(DRT::DRT_struct, to_standard_figure=true, print_bool=true)
   grid(true)
   
   if print_bool
-    println("DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)") 
+    println("non-DRT_parameters:  R_ohm = $(DRT.R_ohm)  L = $(DRT.L)") 
     for i in 1:size(peaks_df,1)
       println(">> f$i = $(1/(2*pi*peaks_df.C[i]*peaks_df.R[i]))    R$i = $(peaks_df.R[i])   C$i = $(peaks_df.C[i])   ... (tau_c$i = $(peaks_df.tau_c[i]))")
     end
@@ -210,6 +226,12 @@ function plot_DRT_Rtau(DRT::DRT_struct, to_standard_figure=true, print_bool=fals
   xlabel("log10(\$\\tau\$ [s])")
   ylabel("R [Ohm]")
   xlim(log10.([DRT.tau_range[1], DRT.tau_range[end]])...)
+  
+  
+  previos_maximum = (PyPlot.gca()).get_ylim()[2]
+  @show previos_maximum
+  
+  ylim(0, max(maximum(peaks_df.R)*1.1, previos_maximum)  )
   plot(log10.(peaks_df.C.*peaks_df.R), peaks_df.R, "o")
   grid(true)
 

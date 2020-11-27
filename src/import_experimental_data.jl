@@ -94,7 +94,7 @@ function import_CVtoDataFrame(;TC,pO2, data_set="MONO_110")
     # this needs to be added to separate simulation !!! ... IV_simulation
     return import_IVtoDataFrame_folder(TC=TC, pO2=pO2, bias_array=vcat(collect(0 : 0.1 : 1), collect(0.9 : -0.1 : -0.9), collect(-1 : 0.1 : 0)), 
           folder="../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2_Dan) 6/")
-  elseif data_set=="MONO_I-V"
+  elseif data_set=="MONO_110_I-V"
     return import_IVtoDataFrame_folder(TC=TC, pO2=pO2, bias_array=vcat(collect(0 : 0.1 : 1), collect(0.9 : -0.1 : -0.9), collect(-1 : 0.1 : 0)), 
           folder="../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2_Dan)/")
   else
@@ -120,7 +120,7 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
     bias_mV = "0_1"
   end
   #
-  if data_set[end-3 : end-1] == "OCV"
+  if length(data_set) > 3 && (data_set[end-3 : end-1] == "OCV")
     bias_mv = "0_"*data_set[end]
   end
   #
@@ -133,6 +133,13 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
   elseif data_set=="HebbWagner"
     # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
     fNAME=string("../snehurka/experimental_data_PSS/HebbWagner/$(TC) C/$(TC)_EIS $(bias)V v ref 50mV amplituda.z")
+  
+  
+  elseif data_set=="HebbWagner_110"
+    # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/02 YSZ 110 Ag-Ag/700 a 800 C vice biasu/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+  
+  
   elseif length(data_set) >= 8 && data_set[1:8]=="MONO_110"
     fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2_Dan)/eis_$(bias_mV).z")
   elseif data_set=="OLD_MONO_100"
@@ -144,6 +151,22 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
       ocp_token = ""
     end
     fNAME=string("../snehurka/experimental_data_PSS/K4/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")
+  
+  elseif data_set=="K06"
+    if bias == 0
+      ocp_token = "_ocp"
+    else
+      ocp_token = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/K06/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")
+  
+  elseif data_set=="K07"
+    if bias == 0
+      ocp_token = "_ocp"
+    else
+      ocp_token = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/K07/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")  
   else
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/$(data_set)")
   end
