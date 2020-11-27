@@ -591,8 +591,21 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation([700, 75
                
                
             
+            
+            
+            
                
-               
+#### TEST"" 
+new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.CV_simulation([700], [20], 0.0, physical_model_name="ysz_model_GAS_LoMA_Temperature", data_set="OLD_MONO_100"), pyplot=2,  
+                             prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                 "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",
+                                 "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",
+                                 "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
+                                 "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                               
+                             prms_values=(1, 0.43096402436244524, 0, 0, 0, 0.288753339609282, 21.848922443832656, -0.027911417199004526, -0.004572027928900416, 0.34126793851080767, 21.125910388311805, -0.01811856204892673, 0.07188764966775679, 0.2812740178140478, 21.467392253748145, 0.13475333193229766, -0.05952919838333402, -0.11167034872750412, 0.6732907278249488, 0.0019313676794959437, 11.553528276411772, 0.1858817137725142, 0.5255525854475593)
+                             ,use_experiment=true);
+CV fitness error TC=700.0°C pO2=20.0% OLD_MONO_100   => 0.017530636997970084
                
                
                

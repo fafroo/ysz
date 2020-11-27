@@ -164,7 +164,7 @@ function YSZParameters(this)
     this.O.S= 10^0.0
     this.O.exp= 1
     
-    this.L=2.3560245927364395e-6
+    this.L=2.45e-6
     
     #this.DD=1.5658146540360312e-11  # [m / s^2]fitted to conductivity 0.063 S/cm ... TODO reference
     #this.DD=8.5658146540360312e-10  # random value  <<<< GOOOD hand-guess
@@ -629,8 +629,10 @@ end
 function EXP_reaction_template(this::YSZParameters, RR::reaction_struct; PI_activites, overvoltage=0)
     # PI_activities = a_products/a_reactants
     
-    return  (
+    return  (            
+              #(RR.r/(RR.S*RR.S))
               (RR.r/RR.S)
+              #(RR.r)
               *(
                   exp(-RR.beta*RR.S*
                   (
@@ -806,6 +808,7 @@ end
 
 
 # surface reaction + adsorption
+#function generic_operator!(f, u, node, sys)
 function breaction!(f,u,node,this::YSZParameters)
     if  node.region==1
         electroR=electroreaction(this,u)

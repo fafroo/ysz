@@ -556,6 +556,7 @@ function EIS_data_preprocessing(EIS_df)
   end
   
   #ysz_fitting.typical_plot_exp(EIS_simulation(800, 100, 0.0, use_DRT=false)[1], EIS_df, "!EIS_data_preprocessing")
+
   
   #lowest frequency cut off
   lowest_freq_idx = get_lowest_freq_idx(EIS_df, find_at_least_negative=10)
@@ -564,7 +565,9 @@ function EIS_data_preprocessing(EIS_df)
   end
   if lowest_freq_idx == -1
     println("ERROR: lowest_freq_idx not found!")
-    return throw(Exception)
+    
+    lowest_freq_idx=1
+    #return throw(Exception)
   end
   
   # intersection with x axis

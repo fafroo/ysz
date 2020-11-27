@@ -184,6 +184,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         flux=model_symbol.flux!,
         reaction=model_symbol.reaction!,
         breaction=model_symbol.breaction!,
+        #generic=model_symbol.generic_operator!,
         bstorage=model_symbol.bstorage!
     )
     #
