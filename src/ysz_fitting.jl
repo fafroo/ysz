@@ -117,10 +117,33 @@ include("../src/EEC_module.jl")
 
 
 
-function simple_run(SIM_list::Array{abstract_simulation}; pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
-                        test=false, save_files=false, save_dir="default")
+function simple_run(SIM_list=Nothing; TC=800, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=Array{String}(undef, 0),
+                    fitness_factors=Nothing, physical_model_name="ysz_model_GAS_LoMA_Temperature", 
+                        pyplot=0, use_experiment=true, prms_names=[], prms_values=[], 
+                        test=false, save_files=false, save_dir="default",
+                        line_color_idx = 1
+                        )
   # here starts the true body
+  if SIM_list==Nothing
+    try
+      if fitness_factors == Nothing
+        aux_array = zeros(length(simulations))
+        aux_array .= 1
+        fitness_factors = aux_array
+      end
+      SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name)
+    catch
+      println("ERROR: please define TC, pO2, bias, data_set, simulations ... OR ... define SIM_fitting")
+      return throw(Exception)
+    end
+  end
+  
   save_path="../data/simple_run/"*save_dir
+  
+  plot_temp_parameters(prms_values=prms_values, prms_names=prms_names, label=save_dir, 
+                          save_file=save_files, save_dir=save_path*"/", file_name="temp_prms",
+                          line_color_idx=line_color_idx)  
+  
   if test
     test_result = 0
   end
@@ -213,16 +236,12 @@ end
 
 
 # useful wrap
-function simple_run(;TC=800, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=Array{String}(undef, 0), fitness_factors=Nothing, physical_model_name="ysz_model_GAS_LoMA_Temperature", pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
-                         test=false, save_files=false, save_dir="default")
-    if fitness_factors == Nothing
-      aux_array = zeros(length(simulations))
-      aux_array .= 1
-      fitness_factors = aux_array
-    end    
-    simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
-                        test=test, save_files=save_files, save_dir=save_dir)
-end
+# function simple_run(;, simulations=Array{String}(undef, 0), pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
+#                          test=false, save_files=false, save_dir="default")
+# 
+#     simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
+#                         test=test, save_files=save_files, save_dir=save_dir)
+# end
 
 
 ###########################################################
@@ -1110,7 +1129,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
                               save_file=false, save_dir="../data/temp_prms/", file_name="temp_prms_$(label)",                              
                               fig_num = 135,
                               f_b_rates=true,
-                              line_color_idx = 1
+                              line_color_idx = 1,                              
                               )
   line_styles = ["-", "--", ":"]
   line_colors = ["r", "g", "b"]
@@ -1166,6 +1185,25 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     return X_list
   end
   
+  
+  
+  
+  include("../src/models/ysz_model_GAS_LoMA_Temperature.jl")
+  physical_model_name="ysz_model_GAS_LoMA_Temperature"
+  
+  #model_symbol = eval(Symbol("ysz_experiments."*physical_model_name))
+  AreaEllyt = 0.00011309724 * 0.7
+  parameters=ysz_experiments.ysz_model_GAS_LoMA_Temperature.YSZParameters()
+  
+  # formal experimental setting for pO2
+  parameters.pO2 = 0.20
+  
+
+  
+
+
+  
+  
   figure(fig_num)
   suptitle("Temperature dependent parameters")
   
@@ -1176,7 +1214,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
   r_idx = 1
   DG_idx = 2
   
-  T_list = TC_list .+ 273.15
+  T_list = TCtoT.(TC_list)
 
   reactions_lists=[[],[]]
   
@@ -1190,7 +1228,8 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
             prm_name, 
             (attribute_name=="r" ? "log_10 r" : "DG [eV]"), 
             (line_color_idx == 1 ? reaction_name : "!none"), 
-            line_style=line_colors[line_color_idx]*line_styles[i])    
+            line_style=line_colors[line_color_idx]*line_styles[i]
+        )    
       )
     end  
   end
@@ -1264,7 +1303,46 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     end
   end
   
+  function local_update_physical_parameters(TC)
+    # update parameters for new TC
+    parameters.T = TCtoT(TC)
+    ysz_experiments.ysz_model_GAS_LoMA_Temperature.set_parameters!(parameters, prms_values, prms_names)
+    return ysz_experiments.ysz_model_GAS_LoMA_Temperature.YSZParameters_update!(parameters)  
+  end
   
+  phi_eq_list = []
+  YSZ_Om0_eq_list = []
+  surf_Om_eq_list = []
+  surf_O_eq_list = []
+  
+  for TC in TC_list
+    parameters = local_update_physical_parameters(TC)
+    push!(phi_eq_list, parameters.phi_eq)
+    push!(YSZ_Om0_eq_list, parameters.y0_eq*(1-parameters.nu)*parameters.m_par)
+    push!(surf_Om_eq_list, parameters.yAs_eq*parameters.COmm)
+    push!(surf_O_eq_list, parameters.yOs_eq*parameters.CO)
+  end
+  
+  
+  function mymy_plot(X_list, yylabel, position)
+    subplot(2,4, 4 + position)
+    xlabel("TC (°C)")
+    title(yylabel)
+    plot(
+      TC_list, X_list, 
+      line_colors[line_color_idx],
+      label=label
+      )
+    legend(loc="best")
+    if save_file
+      TC_prms_df[!, Symbol(yylabel)] = X_list
+    end
+  end
+  
+  mymy_plot(phi_eq_list, "E^YSZ", 1)
+  mymy_plot(YSZ_Om0_eq_list, "YSZ_Om0_eq", 2)
+  mymy_plot(surf_Om_eq_list, "surf_Om_eq", 3)
+  mymy_plot(surf_O_eq_list, "surf_O_eq", 4)
   
   
   if save_file

@@ -22,10 +22,13 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[700,], pO2=[100], bias=collect(-
               use_DRT=false);
 
 ### Notes:
-### - run_EEC_fitting works at the time only for "R-L-RCPE-RCPE" EEC
-### - parameters are ["R1", "L2", "R3", "C3", "alpha3", "R4", "C4", "alpha4"]
-### - if initial values are not specified, algorithm chooses quite good initial values by itself
-###
+### - run_EEC_fitting works at the time for structrure "R-L-{(RCPE-)_Ntimes}{-C}" EEC
+### - parameters are ["R1", "L2", "R3", "C3", "alpha3", "R4", "C4", "alpha4", ..., C(2 + 3*N + 1)]
+### - if initial values are not specified, algorithm chooses quite good initial values by itself for
+###   - supported structure is "R-L-{(RCPE-)_Ntimes}{-C}" EEC
+###     - "R-L" is obligatory
+###     - {(RCPE-)_ntimes} means for example "RCPE-RCPE-RCPE-". ---> can be even 0-times
+###     - {-C} at the end is optional parametr for capacitance
 ### - f_interval crop frequencies used from experimental measurement. 
 ###       e.g. f_exp = [1, 2, 3, 4, 5, 6, 7, 8] and f_interval = [3, 6], then only [3, 4, 5, 6] frequencies are used 
 ###       NOTE: f_interval = "auto" ------> (not bad) f_interval is found automatically
@@ -47,7 +50,7 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[700,], pO2=[100], bias=collect(-
 ### - default values are << save_to_folder="../data/EEC/" >> and  << file_name="default_output.txt" >>
 ### - fixed_prms_names: defines which parameters should NOT be fitted. e.g. ["R1", "L2"]
 ### - fixed_prms_values: defines the values of the fixed_prms_names. e.g. [0.4, 1.4e-6]    
-### - alpha_low=0.2, alpha_upp=1.0 (default values) defines lower and upper bound for fitting alphas          
+### - alpha_low=0.2, alpha_upp=1.0 (default values) defines lower and upper bound for fitting alphas         
 
 # saving and loading
 ysz_fitting.save_EEC_data_holder(computed_data, folder="../data/EEC/", file_name="default.txt")
@@ -85,7 +88,7 @@ ysz_fitting.display_fit_vs_exp(computed_data,
                                    f_interval="auto", use_DRT=true)
                                    
 ### Notes:
-### f_interval="auto" behaves the asme as in ysz_fitting.run_EEC_fitting( ... )
+### f_interval="auto" behaves the same as in ysz_fitting.run_EEC_fitting( ... )
 
 ############################################################
 ############## Temperature fitting stuff ###################

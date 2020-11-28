@@ -640,7 +640,7 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
                         0.2508668451347317, 22.090559844352843,     0.03792340204410957, -0.004860699297832186,   0.4, 
                         0.3868217597699285, 21.870010619930834,     0.028391243693966506, 0.007005115247570771,   0, 
                         -0.04999999999980735, 0.650006103286414,    29.996, 44.0577,    0.2711, 0.7615)
-                      ,use_experiment=true);              
+                      ,use_experiment=true);         
                
  # ff EIS-CV = [1, 50] >>>>>>> CV hm...not bad
 new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100", 
@@ -654,8 +654,18 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
                       prms_values=(1, 0.4, 0, 0, 0, 0.694, 21.988, -0.05, 0.094, 0, 0.109, 24.664, -0.05, -0.595, 0.4, 0.103, 23.884, -0.05, 0.799, 0, -0.05, 0.65, 10.169, 7.766, 1.608, 2.276)
                       ,use_experiment=true);              
                
-               
-               
+ # ff EIS-CV = [1, 50] >>>>>>> CV hm...not bad . . . . INTERESTING !!!
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100", 
+                      pyplot=1,  
+                      prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                        
+                      prms_values= (1, 0.4, 0, 0, 0, 1.0185215132822192, 23.182674107082356, 0.13440543573183525, -0.39997828296758825, 0, 0.5761228751304889, 23.162955498506758, -0.04823389345853183, -0.5681798094492313, 0.4, 0.3312458201313922, 21.691782616050627, 0.011559093251970432, -0.051549137252482446, 0, -0.04999999999985964, 0.9219231046985951, 10.42800243707937, 97.32851834184535, 1.5785439673767248, 0.08274263700524723)
+                      ,use_experiment=true);                
+            
                
                
                
@@ -1396,7 +1406,23 @@ ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_
                                                             [0.1, 1, 10, 100].*1.0e-11, collect(0.1 : 666.1 : 0.8), 1000.0, 100., collect(0.0 : 0.1 : 0.0))
                                                 ,use_experiment=false); 
                                   
-                                  
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
 ###########################################################################################
 ##########################        USED IN ARTICLE      ####################################
 ###########################################################################################
@@ -1408,7 +1434,7 @@ TC=[700, 750, 800, 850]; pO2=[20, 40, 60]; data_set="OLD_MONO_100";
        ysz_fitting.simple_run([
           ysz_fitting.CV_simulation(TC, pO2, data_set=data_set, sample=50  )...,
           ysz_fitting.EIS_simulation(TC, pO2, data_set=data_set, f_range=(1, 30000, 1.2)  )...],
-                                                      save_files=true, save_dir="experiments",  pyplot=1,  
+                                                      save_files=true, save_dir="experiments",  pyplot=0,  
                                                       prms_names=Nothing,
                                                       prms_values=[]
                                                       ,use_experiment=true);
