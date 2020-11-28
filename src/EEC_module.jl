@@ -76,13 +76,13 @@ function get_EEC(EEC_structure)
   EEC_structure_splitted = split(EEC_actual.structure, "-")
   prms_names = Array{String}(undef, 0)
   
-  impedance_string = "0"
-  
   for (i, token) in enumerate(EEC_structure_splitted)
     if token=="R"
       append!(prms_names, ["R$(i)"])
     elseif token=="L"
       append!(prms_names, ["L$(i)"])
+    elseif token=="C"
+      append!(prms_names, ["C$(i)"])  
     elseif token=="RCPE"
       append!(prms_names, ["R$(i)", "C$(i)", "alpha$(i)"])
     elseif token=="RC"
@@ -111,7 +111,9 @@ function evaluate_EEC(EEC::EEC_data_struct, omega)
     if token=="R"
       total_Z += g(EEC, "R$(i)")
     elseif token=="L"
-      total_Z += im*omega*g(EEC, "L$(i)")*L_units
+      total_Z += im*omega*g(EEC, "L$(i)")*L_units      
+    elseif token=="C"
+      total_Z += 1/(im*omega*g(EEC, "C$(i)"))
     elseif token=="RCPE"
       total_Z += g(EEC, "R$(i)")    /( 1 + (g(EEC, "R$(i)") * g(EEC, "C$(i)") * im*omega)^(g(EEC, "alpha$(i)")) )
     elseif token=="RC"
@@ -467,10 +469,10 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
   RCPE_count = get_count_of_RCPEs(EEC)
   
   for i in 1:RCPE_count
-    # R
+    # RCPE-R
     output[3 + (i-1)*3] = width*(1.0/RCPE_count)
     
-    # C
+    # RCPE-C
     central_capacitance = 1/(2*pi*highest_freq*output[3])
     if RCPE_count == 1
       spread_item = 0
@@ -482,12 +484,10 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
     end
     output[4 + (i-1)*3] = central_capacitance*(1 + spread_item)
     
-    # alpha
-    output[5 + (i-1)*3] = 0.9
-  end
-  
-  
-  
+    # RCPE-alpha
+    output[5 + (i-1)*3] = 0.9        
+
+
 # #   # R3, R4
 # #   output[3] = width*smaller_circle_resistance_ratio
 # #   output[6] = width*(1 - smaller_circle_resistance_ratio)
@@ -505,6 +505,14 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
 #   @show central_capacitance
 #   @show output[4]
 #   @show output[7]
+  end
+  
+  # C
+  if length(output)==2 + 3*RCPE_count + 1
+    output[2 + 3*RCPE_count + 1] = max(0, -1/(2*pi*EIS_exp.f[1]*imag(EIS_exp.Z[1])))
+  end
+  
+  
   
   #@show imag(EIS_exp.Z[end]) 
   #@show left, right, width
@@ -545,6 +553,12 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
     #alpha
     lower_limits[5 + (i-1)*3] = -Inf
     upper_limits[5 + (i-1)*3] = Inf    
+  end
+  
+  # C[end]
+  if prms_length == 2 + 3*RCPE_count + 1
+    lower_limits[end] = 0.0
+    upper_limits[end] = Inf
   end
   
   EEC.lower_limits_for_fitting = lower_limits

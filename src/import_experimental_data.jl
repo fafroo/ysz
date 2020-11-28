@@ -20,8 +20,17 @@ function import_CVtoDataFrame_path(f_name)
     df
 end
 
+#  "22-10-2020-point_2_PROKOP.txt"
+
 function import_EIStoDataFrame_path(f_name)
     #df = DataFrame(f = Float32[], Re = Float32[], Im = Float32[])
+    if length(f_name) >= 10 && f_name[end-9:end]=="PROKOP.txt"
+      df = CSV.File(f_name, decimal=',') |> DataFrame            
+      return DataFrame(
+        f = reverse(deepcopy(df[!, 4])), 
+        Z = reverse(deepcopy(df[!, 5] .- im*df[!, 6]))
+      )
+    end
     df = DataFrame(f = Float32[], Z = Complex[])
     line_is_valid=false
     open(f_name) do file
