@@ -667,9 +667,19 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
                       ,use_experiment=true);                
             
                
-               
-               
-               
+############# HHH ###########   UUU ############# RRR ################# AAAAA  ######  !!!!!!!! ###############              
+########   HAND GUESS for log_10 (X.S) = (0, 0.2, 0)
+# ff EIS-CV = [1, 1.8] >>>>>>> CV hm...not bad . . . . INTERESTING !!!
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100", 
+                      pyplot=1,  
+                      prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                        
+                      prms_values= (1, 0.307, 0, 0, 0, 0.293, 21.917, -0.027, 0.082, 0.0, 0.339, 21.541, -0.007, 0.029, 0.2, 0.913, 21.968, 0.109, -0.011, 0.0, -0.05, 0.65, 19.545, 60.431, 0.416, 0.86)
+                      ,use_experiment=true);
                
                
                

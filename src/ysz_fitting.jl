@@ -1261,7 +1261,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     for (i, reaction_name) in enumerate(show_reactions)
       # forward
       push!(r_f_lists, 
-        10.0 .^ reactions_lists[r_idx][i] .* exp.(-reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
+        10.0 .^ reactions_lists[r_idx][i] .* exp.(- (10.0^gv(reaction_name*".S"))* reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
       )
       subplot(2,2,1)
       
@@ -1285,7 +1285,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
       
       # backward
       push!(r_b_lists, 
-        10.0 .^ reactions_lists[r_idx][i] .* exp.(reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
+        10.0 .^ reactions_lists[r_idx][i] .* exp.( (10.0^gv(reaction_name*".S"))*reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
       )
       subplot(2,2,2)
       xlabel("TC (°C)")
