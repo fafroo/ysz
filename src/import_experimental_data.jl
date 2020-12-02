@@ -25,10 +25,13 @@ end
 function import_EIStoDataFrame_path(f_name)
     #df = DataFrame(f = Float32[], Re = Float32[], Im = Float32[])
     if length(f_name) >= 10 && f_name[end-9:end]=="PROKOP.txt"
+      # position of frequency column
+      freq_col_idx = parse(Int32,f_name[end-10])
+      
       df = CSV.File(f_name, decimal=',') |> DataFrame            
       return DataFrame(
-        f = reverse(deepcopy(df[!, 4])), 
-        Z = reverse(deepcopy(df[!, 5] .- im*df[!, 6]))
+        f = reverse(deepcopy(df[!, freq_col_idx])), 
+        Z = reverse(deepcopy(df[!, freq_col_idx+1] .- im*df[!, freq_col_idx+2]))
       )
     end
     df = DataFrame(f = Float32[], Z = Complex[])
@@ -47,7 +50,7 @@ function import_EIStoDataFrame_path(f_name)
         end
     end
     df.f = reverse(df.f)
-    df.Z = reverse(df.Z)
+    df.Z = reverse(df.Z)    
     return df
 end
 

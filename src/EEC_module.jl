@@ -178,7 +178,7 @@ end
 #
 #     mask can be generated via string input, e.g. every "L" should be constant >>
 #
-function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Nothing, alpha_low=0.0, alpha_upp=1.0, with_errors=false)
+function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Nothing, alpha_low=0.0, alpha_upp=1.0, with_errors=false, error_type)
   
   projection_plot_maximum = 0.02
   projection_plot_minimum = 10
@@ -284,7 +284,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
 #     PyPlot.show()
     
     
-    err = fitnessFunction(SIM, EIS_EEC, EIS_exp)
+    err = fitnessFunction(SIM, EIS_EEC, EIS_exp, error_type=error_type)
     
 #     EEC_plot_error_projection(
 #       take_only_masked(mask, EEC_actual.prms_values), 
@@ -307,7 +307,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq", plot_legend=false)[1]
     #typical_plot_sim(SIM, EIS_EEC)
-    #println("e = $(fitnessFunction(SIM, EIS_EEC, EIS_exp))\nx = $(x)")
+    #println("e = $(fitnessFunction(SIM, EIS_EEC, EIS_exp, error_type=error_type))\nx = $(x)")
     return get_EIS_value_from_gf(EIS_EEC, gf)
   end  
   
@@ -371,9 +371,9 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     begin # Optim
       fit_O = optimize(to_optimize, x0M, #lower=lowM, upper=uppM, 
         #Δ=1000000, 
-        #x_tol=1.0e-14,
-        #f_tol=1.0e-14, 
-        #g_tol=1.0e-14, 
+        #x_tol=1.0e-18,
+        #f_tol=1.0e-18, 
+        #g_tol=1.0e-18
         #autodiff=:central,
         #LevenbergMarquardt(),
         #Dogleg(),
@@ -697,7 +697,7 @@ end
 
 
 function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
-                        f_interval=Nothing, succes_fit_threshold = 0.002,
+                        f_interval=Nothing, succes_fit_threshold = 0.002, error_type="normalized",
                         fixed_prms_names=[], fixed_prms_values=[],
                         init_values=Nothing, alpha_low=0.2, alpha_upp=1, #fitting_mask=Nothing,
                         EEC_structure="R-L-RCPE-RCPE",
@@ -737,8 +737,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   ####  [ ] chcete vypisovat L2 v mikro-Henry nebo v Henry? stejne jako zadavani a kdekoliv
   ####  [ ] jsou limity pro alphu [0.2, 1.0] ok? nebo by bylo lepsi 0.1? (protoze pro 0.01 to delalo divne veci) 750, 80, -0.5, "MONO_110"
   
-  function succesful_fit(EIS_EEC, EIS_exp)
-    if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp) > succes_fit_threshold
+  function succesful_fit(error, EIS_EEC, EIS_exp, error_type)
+    #if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp, error_type=error_type) > succes_fit_threshold
+    if error > succes_fit_threshold
       return false
     else
       return true
@@ -892,12 +893,12 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
           plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC initial guess $(init_values_idx)")
         end
         
-        EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors)
-## HERE        
+        EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors, error_type=error_type)
+        
         HF_LF_correction!(EEC_actual)        
         
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        actual_error = fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)
+        actual_error = fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp, error_type=error_type)
         if actual_error < best_error
           best_error = actual_error
           best_prms_values = deepcopy(EEC_actual.prms_values)
@@ -945,7 +946,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     
     EEC_actual.prms_values = deepcopy(best_prms_values)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-    actual_error = fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)        
+    actual_error = best_error
     
 
     
@@ -960,7 +961,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
     
     
-    if !(succesful_fit(EIS_EEC, EIS_exp))
+    if !(succesful_fit(actual_error, EIS_EEC, EIS_exp, error_type))
       warning_buffer *="WARNING: (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! // error $(actual_error) > defined threshold $(succes_fit_threshold) //\n"
       # TODO ... optionally save picture of the result for humanous check
       # or this reports can go to another error_log_file.txt
@@ -1240,7 +1241,10 @@ function get_joint_EEC_data_via_bias(EEC_data_1, EEC_data_2)
 end
   
   
-function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=false, DRT_draw_semicircles=false, plot_legend=false, f_interval="auto")
+function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, 
+                            use_DRT=false, DRT_draw_semicircles=false, plot_legend=false, 
+                            f_interval="auto",
+                            error_type="normalized")
 
   for   (TC_idx, TC_item) in enumerate(TC), 
       (pO2_idx, pO2_item) in enumerate(pO2), 
@@ -1276,7 +1280,7 @@ function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=fal
     
     println("--- ($(TC_item), $(pO2_item), $(bias_item), $(data_set)) --- ")
     @show prms_values
-    println("fitnessFunction = $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp))")
+    println("fitnessFunction = $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp, error_type=error_type))")
     
   end  
 end

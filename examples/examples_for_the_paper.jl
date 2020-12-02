@@ -670,6 +670,50 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
 ############# HHH ###########   UUU ############# RRR ################# AAAAA  ######  !!!!!!!! ###############              
 ########   HAND GUESS for log_10 (X.S) = (0, 0.2, 0)
 # ff EIS-CV = [1, 1.8] >>>>>>> CV hm...not bad . . . . INTERESTING !!!
+# new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100", 
+#                       pyplot=1,  
+#                       prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+#                           "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+#                           "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+#                           "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+#                           "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+#                         
+#                       prms_values= (1, 0.307, 0, 0, 0, 0.293, 21.917, -0.027, 0.082, 0.0, 0.339, 21.541, -0.007, 0.029, 0.2, 0.913, 21.968, 0.109, -0.011, 0.0, -0.05, 0.65, 19.545, 60.431, 0.416, 0.86)
+#                       ,use_experiment=true);
+               
+               
+               
+               
+################ pO2 = [20, 40, 60]
+# ff EIS-CV = [1, 0] >>>>>>>  
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 40, 60], data_set="OLD_MONO_100", 
+                      pyplot=1,  
+                      prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                        
+                      prms_values=(1, 0.3, 0, 0, 0, 0.278, 21.896, -0.005, -0.071, 0.0, 0.312, 21.616, -0.024, 0.072, 0.2, 0.246, 21.41, 0.105, -0.1, 0.0, -0.05, 0.65, 0.0, 8.54, 0.165, 0.552)
+                      ,use_experiment=true, line_color_idx=2, evaluate_temp=true);
+                      
+# ff EIS-CV = [1, 0] >>> Free NU and COmm
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20,40, 60], data_set="OLD_MONO_100", 
+                      pyplot=1,  
+                      prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                          "nu_700", "nu_750", "nu_800", "nu_850",       "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                        
+                      prms_values= (1, 0.3, 0, 0, 0, 0.246, 21.927, 0.005, -0.095, 0.0, 0.328, 21.589, -0.009, 0.059, 0.2, 0.18, 21.51, 0.093, -0.088, 0.0, 0.729, 0.572, 0.566, 0.202, -2.725, 13.798, 0.102, 0.668)
+                      ,use_experiment=true, line_color_idx=1, evaluate_temp=true, save_dir="freeNU");
+                      
+#####################################
+
+                      
+#### pO2 = [20, 60] #################                     
+# ff EIS-CV = [1, 0] >>>>>>> EIS >>>  GOOD :)  >>>>>>>>>>>>>> HUSTY !!!! trefi to celkem pekne i dalsi atmosfery kysliku 40
 new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100", 
                       pyplot=1,  
                       prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
@@ -678,8 +722,38 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
                           "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
                           "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
                         
-                      prms_values= (1, 0.307, 0, 0, 0, 0.293, 21.917, -0.027, 0.082, 0.0, 0.339, 21.541, -0.007, 0.029, 0.2, 0.913, 21.968, 0.109, -0.011, 0.0, -0.05, 0.65, 19.545, 60.431, 0.416, 0.86)
-                      ,use_experiment=true);
+                      prms_values= (1, 0.3, 0, 0, 0, 0.279, 21.883, 0.007, -0.061, 0.0, 0.298, 21.621, -0.029, 0.087, 0.2, 0.245, 21.434, 0.108, -0.11, 0.0, -0.05, 0.652, 0.0, 8.88, 0.158, 0.59)
+                      ,use_experiment=true, line_color_idx=1, evaluate_temp=true);
+                      
+                      
+# ff EIS-CV = [1, 1.8] >>>>>>> both >>>  both GOOD :)
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100", 
+                      pyplot=1,  
+                      prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                        
+                      prms_values= (1, 0.3, 0, 0, 0, 0.295, 21.915, -0.027, 0.082, 0.0, 0.34, 21.543, -0.006, 0.026, 0.2, 0.961, 21.991, 0.108, -0.008, 0.0, -0.05, 0.65, 8.466, 69.399, 0.417, 0.873)
+                      ,use_experiment=true);               
+              
+              
+# ff EIS-CV = [1, inf] >>>>>>>  CV  >>> so ... so ... 
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 800, 850], pO2=[20, 60], data_set="OLD_MONO_100", 
+                      pyplot=1,  
+                      prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                          "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                          "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                          "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                          "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                        
+                      prms_values= (1, 0.3, 0, 0, 0, 0.669, 21.989, -0.098, 0.111, 0.0, 0.515, 22.627, -0.14, -0.33, 0.2, 0.563, 21.82, 0.046, 0.013, 0.0, -0.05, 0.772, 1.588, 0.468, 1.488, 0.724)
+                      ,use_experiment=true);              
+                
+               
+               
+
                
                
                
@@ -690,16 +764,14 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
                
                
                
-               
-               
-               
-               
-               
-               
-               
-               
-               
-               
+#p1 = (1, 0.4, 0, 0, 0, 0.409, 22.171, -0.05, 0.011, 0.166, 0.405, 22.58, -0.071, -0.048, 0.512, 0.389, 21.22, 0.103, 0.005, -0.296, -0.05, 0.689, 27.145, 16.145, 0.174, 0.684)   
+p1 = (1, 0.3, 0, 0, 0, 0.295, 21.915, -0.027, 0.082, 0.0, 0.34, 21.543, -0.006, 0.026, 0.2, 0.961, 21.991, 0.108, -0.008, 0.0, -0.05, 0.65, 8.466, 69.399, 0.417, 0.873)
+
+p2 = (1, 0.4, 0, 0, 0, 
+                        0.2825409348052233, 21.887472830668642,     -0.023307013734441284, 0.0980508181649717,    0, 
+                        0.2508668451347317, 22.090559844352843,     0.03792340204410957, -0.004860699297832186,   0.4, 
+                        0.3868217597699285, 21.870010619930834,     0.028391243693966506, 0.007005115247570771,   0, 
+                        -0.04999999999980735, 0.650006103286414,    29.996, 44.0577,    0.2711, 0.7615)               
                
                                           
                                                         
@@ -1447,7 +1519,7 @@ TC=[700, 750, 800, 850]; pO2=[20, 40, 60]; data_set="OLD_MONO_100";
                                                       save_files=true, save_dir="experiments",  pyplot=0,  
                                                       prms_names=Nothing,
                                                       prms_values=[]
-                                                      ,use_experiment=true);
+                                                      ,use_experiment=true, line_color_idx=1);
 
 
 # par_stud_e_fac_LF

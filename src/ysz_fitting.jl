@@ -121,7 +121,7 @@ function simple_run(SIM_list=Nothing; TC=800, pO2=1.0, bias=0.0, data_set="MONO_
                     fitness_factors=Nothing, physical_model_name="ysz_model_GAS_LoMA_Temperature", 
                         pyplot=0, use_experiment=true, prms_names=[], prms_values=[], 
                         test=false, save_files=false, save_dir="default",
-                        line_color_idx = 1
+                        line_color_idx = 1, evaluate_temp=false
                         )
   # here starts the true body
   if SIM_list==Nothing
@@ -140,9 +140,11 @@ function simple_run(SIM_list=Nothing; TC=800, pO2=1.0, bias=0.0, data_set="MONO_
   
   save_path="../data/simple_run/"*save_dir
   
-  plot_temp_parameters(prms_values=prms_values, prms_names=prms_names, label=save_dir, 
+  if evaluate_temp
+    plot_temp_parameters(prms_values=prms_values, prms_names=prms_names, label=save_dir, 
                           save_file=save_files, save_dir=save_path*"/", file_name="temp_prms",
                           line_color_idx=line_color_idx)  
+  end
   
   if test
     test_result = 0
