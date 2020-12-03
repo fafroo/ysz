@@ -35,6 +35,7 @@ using LinearAlgebra
 include("../src/models/ysz_model_GAS_LoMA.jl")
 include("../src/models/ysz_model_GAS_LoMA_shared.jl")
 include("../src/models/ysz_model_GAS_LoMA_Temperature.jl")
+include("../src/models/ysz_model_GAS_LoMA_generic.jl")
 
 include("../prototypes/timedomain_impedance.jl")
 
@@ -66,13 +67,13 @@ include("../prototypes/timedomain_impedance.jl")
 #   PyPlot.grid()
 # end
 
-function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
+function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
                 test=false, test_from_above=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
                 pO2=1.0, T=1073, data_set=Nothing,
-                prms_names_in=[],
-                prms_values_in=[],
+                prms_names_in=Nothing,
+                prms_values_in=Nothing,
                 #### EIS ####
                 EIS_IS=false,  bias=0.0, f_range=(0.9, 1.0e+5, 1.1),
                 #
@@ -85,7 +86,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                 dlcap=false, dlcap_analytical=false, 
                 #### STEP ####
                 STEP=false, dt_fac=1.5, dt_start=1.0e-5, t_end=0.01,
-                #
+                #### conductivity ####
                 conductivity_fitting=false
                 )
 
@@ -101,8 +102,11 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     iy = model_symbol.iy
     iyAs = model_symbol.iyAs
     iyOs = model_symbol.iyOs
+    #iphiLSM = model_symbol.iphiLSM
+    #iphiYSZ = model_symbol.iphiYSZ
     index_driving_species = model_symbol.index_driving_species
-
+    
+    
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
     # Geometry of the problem
@@ -156,6 +160,12 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     # update the "computed" values in parameters
     parameters = model_symbol.YSZParameters_update!(parameters)
     
+    if index_driving_species == iphi
+      ZETA_fac =  (1 + parameters.e_fac)
+    else
+      ZETA_fac =  1
+    end
+    
     #@show parameters.yB
     #@show parameters.DD
   
@@ -176,18 +186,35 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     #model_symbol.printfields(parameters)
     
     
+    
     # assembling of the system
-    physics=VoronoiFVM.Physics(
-        data=parameters,
-        num_species=size(bulk_species,1)+size(surface_species,1),
-        storage=model_symbol.storage!,
-        flux=model_symbol.flux!,
-        reaction=model_symbol.reaction!,
-        breaction=model_symbol.breaction!,
-        #generic=model_symbol.generic_operator!,
-        bstorage=model_symbol.bstorage!
-    )
-    #
+    if physical_model_name=="ysz_model_GAS_LoMA_generic"  
+      physics=VoronoiFVM.Physics(
+          data=parameters,
+          num_species=size(bulk_species,1)+size(surface_species,1),
+          storage=model_symbol.storage!,
+          flux=model_symbol.flux!,
+          reaction=model_symbol.reaction!,
+          breaction=model_symbol.breaction!,
+          generic=model_symbol.generic_operator!,
+          bstorage=model_symbol.bstorage!
+      )
+    else
+      physics=VoronoiFVM.Physics(
+          data=parameters,
+          num_species=size(bulk_species,1)+size(surface_species,1),
+          storage=model_symbol.storage!,
+          flux=model_symbol.flux!,
+          reaction=model_symbol.reaction!,
+          breaction=model_symbol.breaction!,
+          #generic=model_symbol.generic_operator!,
+          bstorage=model_symbol.bstorage!
+      )    
+    end
+    
+    
+    
+    
     if print_bool
         model_symbol.printfields(parameters)
     end
@@ -282,7 +309,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         phi_steady = parameters.phi_eq + bias/(1 + parameters.e_fac)
         
         excited_spec=index_driving_species
-        excited_bc=1
+        excited_bc=index_driving_species
         excited_bcval=phi_steady
         
         
@@ -324,7 +351,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
           print("ERROR: run_new: ramp cannot reach the steady state") 
           throw(Exception)
         end
-
+        
         
         # Create impedance system
         isys=VoronoiFVM.ImpedanceSystem(sys,steadystate,excited_spec, excited_bc)
@@ -436,11 +463,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
             PyPlot.ylabel("Im")
             PyPlot.legend(loc="lower center")
             PyPlot.tight_layout()
-            pause(1.0e-10)
-            
-            ###########################
-            pause(1000)
-            ###########################
+            pause(1.0e-10)                      
         end
         
         if out_df_bool
@@ -534,8 +557,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     # code for performing CV(f) ---- FAST cv MODE
     
     if voltammetry && fast_CV_mode   
-        upp_bound_phi = upp_bound_eta/(1 + parameters.e_fac)
-        low_bound_phi = low_bound_eta/(1 + parameters.e_fac)
+        upp_bound_phi = upp_bound_eta/ZETA_fac
+        low_bound_phi = low_bound_eta/ZETA_fac
         
         tstep=Float64(((upp_bound_phi-low_bound_phi)/2)/voltrate/sample)
         
@@ -549,10 +572,11 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         U0 = deepcopy(inival)              
               
         # calculating directly steadystate ###############                  
-        sys.boundary_values[index_driving_species,1]=parameters.phi_eq
+        sys.boundary_values[index_driving_species, 1]=parameters.phi_eq
         solve!(U0,inival,sys, control=control)
         U_eq = deepcopy(U0)
 
+        
         if save_files || out_df_bool
           push!(out_df, (0, 0, 0, 0, 0, 0, 0))
         end            
@@ -562,7 +586,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         dir = 1
         phi = parameters.phi_eq + voltrate*tstep*dir        
         while phi <= (upp_bound_phi + parameters.phi_eq) + upp_bound_phi/100.
-          sys.boundary_values[index_driving_species,1]=phi
+          sys.boundary_values[index_driving_species, 1]=phi
           solve!(U, U0, sys, control=control)
           
           # Steady part of measurement functional        
@@ -570,7 +594,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
           #
           Ir= I_contributions_stdy[1]          
           if save_files || out_df_bool
-            push!(out_df,[istep*tstep,   (1 + parameters.e_fac)*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
+            push!(out_df,[istep*tstep,   ZETA_fac*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
           end
           
           # preparing for the next step
@@ -579,7 +603,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
           phi+=voltrate*tstep*dir       
         end
         
-        # complete the other direction 
+        # complete the other direction
         for i in collect(size(out_df)[1]: -1 : 1)        
           push!(out_df, (istep*tstep, Tuple(out_df[i, 2:end])...))          
           istep+=1
@@ -592,7 +616,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
         dir = -1        
         phi = parameters.phi_eq + voltrate*tstep*dir
         while phi >= (low_bound_phi + parameters.phi_eq) - upp_bound_phi/100.
-          sys.boundary_values[index_driving_species,1]=phi
+          sys.boundary_values[index_driving_species, 1]=phi
           solve!(U, U0, sys, control=control)
           
           # Steady part of measurement functional        
@@ -600,7 +624,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
           #
           Ir= I_contributions_stdy[1]          
           if save_files || out_df_bool
-            push!(out_df,[istep*tstep,   (1 + parameters.e_fac)*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
+            push!(out_df,[istep*tstep,   ZETA_fac*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
           end
           
           # preparing for the next step
@@ -638,8 +662,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
     
     # code for performing CV    
     if voltammetry
-        upp_bound_phi = upp_bound_eta/(1 + parameters.e_fac)
-        low_bound_phi = low_bound_eta/(1 + parameters.e_fac)
+        upp_bound_phi = upp_bound_eta/ZETA_fac
+        low_bound_phi = low_bound_eta/ZETA_fac
     
         istep=1
         phi=0
@@ -708,7 +732,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
               
         if true
           # calculating directly steadystate ###############                  
-          sys.boundary_values[index_driving_species,1]=parameters.phi_eq
+          sys.boundary_values[index_driving_species, 1]=parameters.phi_eq
           solve!(U0,inival,sys, control=control)
           if save_files || out_df_bool
             push!(out_df, (0, 0, 0, 0, 0, 0, 0))
@@ -796,11 +820,19 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
             end
             
             # tstep to potential phi
-            sys.boundary_values[index_driving_species,1]=phi
+            sys.boundary_values[index_driving_species, 1]=phi
                         
             control.Δt = tstep
 
             evolve!(U, U0, sys, [0, tstep], control=control)
+            
+#     #############
+#     #TODO EREASE
+#     @show U[iphiYSZ,1]
+#     @show U[iphi,1]
+#     @show U[iphiLSM,1]    
+#     #############
+        
             
             # Transient part of measurement functional
             I_contributions_tran = model_symbol.set_meas_and_get_tran_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
@@ -864,7 +896,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_shared",
                           dir*Ib/voltrate,                            
                           dir*Ibb/voltrate])
                     else
-                        push!(out_df,[(istep-istep_cv_start)*tstep,   (1 + parameters.e_fac)*(phi_out-phi0),   Ib+Is+Ir+Ibb,  Ir,  Is,  Ib,  Ibb])
+                        push!(out_df,[(istep-istep_cv_start)*tstep,   ZETA_fac*(phi_out-phi0),   Ib+Is+Ir+Ibb,  Ir,  Is,  Ib,  Ibb])
                     end
                 end
             end
