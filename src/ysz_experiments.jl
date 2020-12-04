@@ -106,6 +106,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     #iphiYSZ = model_symbol.iphiYSZ
     index_driving_species = model_symbol.index_driving_species
     
+    generic_mode = physical_model_name=="ysz_model_GAS_LoMA_generic"
+    
     
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
@@ -188,7 +190,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     
     
     # assembling of the system
-    if physical_model_name=="ysz_model_GAS_LoMA_generic"  
+    if generic_mode  
       physics=VoronoiFVM.Physics(
           data=parameters,
           num_species=size(bulk_species,1)+size(surface_species,1),
@@ -556,7 +558,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     
     # code for performing CV(f) ---- FAST cv MODE
     
-    if voltammetry && fast_CV_mode   
+    if voltammetry && fast_CV_mode
         upp_bound_phi = upp_bound_eta/ZETA_fac
         low_bound_phi = low_bound_eta/ZETA_fac
         
@@ -585,7 +587,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         istep = 1
         dir = 1
         phi = parameters.phi_eq + voltrate*tstep*dir        
-        while phi <= (upp_bound_phi + parameters.phi_eq) + upp_bound_phi/100.
+        while (generic_mode ? U0[iphiLSM,1] : phi) <= (upp_bound_phi + parameters.phi_eq) + upp_bound_phi/100.
+          
           sys.boundary_values[index_driving_species, 1]=phi
           solve!(U, U0, sys, control=control)
           
@@ -594,7 +597,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
           #
           Ir= I_contributions_stdy[1]          
           if save_files || out_df_bool
-            push!(out_df,[istep*tstep,   ZETA_fac*(phi - parameters.phi_eq),   Ir+0,  Ir,  0,  0,  0])
+            push!(out_df,[istep*tstep,   
+              (generic_mode ?     : ZETA_fac*(phi - parameters.phi_eq)),   
+              Ir+0,  Ir,  0,  0,  0])
           end
           
           # preparing for the next step
@@ -615,7 +620,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         U0 .= U_eq
         dir = -1        
         phi = parameters.phi_eq + voltrate*tstep*dir
-        while phi >= (low_bound_phi + parameters.phi_eq) - upp_bound_phi/100.
+        
+        while (generic_mode ? 
+                  U0[iphiLSM,1] >= (low_bound_phi + parameters.phi_eq) - upp_bound_phi/100. : 
+                  phi >= (low_bound_phi + parameters.phi_eq) - upp_bound_phi/100.)          
           sys.boundary_values[index_driving_species, 1]=phi
           solve!(U, U0, sys, control=control)
           
