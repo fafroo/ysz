@@ -68,7 +68,7 @@ function timedomain_impedance(sys, # time domain system
 
         # solve with  new excitation value
         excitation_val=sin(ω*t_current)*excitation_amplitude
-        sys.boundary_values[excited_spec,excited_bc]=excited_bcval + excitation_val  /(1 + 1)   # zeta = 1 .... zeta correction
+        sys.boundary_values[excited_spec,excited_bc]=excited_bcval + excitation_val
         solve!(U,Uold,sys,tstep=tstep)
         
         

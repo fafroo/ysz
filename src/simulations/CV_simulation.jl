@@ -6,7 +6,7 @@ using PyPlot
 
 const  CV_standard_figure_num = 5
 const  CV_default_physical_model_name = "ysz_model_GAS_LoMA_Temperature"
-const  fast_mode_sample = 4
+const  fast_mode_sample = 10
 
 
 ######################################

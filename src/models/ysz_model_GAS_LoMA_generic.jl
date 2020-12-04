@@ -27,7 +27,9 @@ const bulk_species = (iphi, iy) = (1, 2)
 const surface_species = (iyAs, iyOs, iphiYSZ, iphiLSM) = (3, 4, 5, 6)
 const surface_names = ("yAs", "yOs", "phiYSZ", "phiLSM")
 
-const index_driving_species = iphi
+
+#const index_driving_species = iphi
+const index_driving_species = iphiLSM
 
 
 include("../../src/general_supporting_stuff.jl")
@@ -757,7 +759,7 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
                           )
                         ),
           #overvoltage=2*this.e0*this.e_fac*u[iphi]
-          overvoltage=2*this.e0*this.e_fac*(u[iphi] - u[iphiYSZ])
+          overvoltage=2*this.e0*(u[iphiLSM] - u[iphi])
         )
     else
       the_fac = 0
@@ -838,17 +840,21 @@ function breaction!(f,u,node,this::YSZParameters)
         # sign is negative bcs of the equation implementation
         f[iyAs]= this.mO*oxide_ads - this.mO*electroR 
         f[iyOs]= this.mO*electroR - this.mO*2*gas_ads
-        f[iphi]= 0.0
         
-        # the following equation relates u[iphi] to the desired u[iphiLSM]
-        f[iphiLSM] = u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac)
+        # model E^LSM = zeta E^YSZ
+        f[iphi]= 1.0e6*(u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        # model E^LSM = zeta (E^YSZ + IR)
+        #f[iphi]= 1.0e6*(- u[iphiLSM] + u[iphi]*(1 + this.e_fac))
+        
+        # the following equation relates u[iphi] to the u[iphiLSM]
+        f[iphiLSM] = 0.0
     end
 end
 
 
 function generic_operator!(f, u, sys)    
     idx=unknown_indices(unknowns(sys))    
-    
+    #
     f .=0.0
     # this is inode = 80 ----> position in domain x = 1.83e-8  out of L = 5e-4
     # phiYSZ = phi(x)/(1 - x/L) ... 1 - x/L = 0.9999634
