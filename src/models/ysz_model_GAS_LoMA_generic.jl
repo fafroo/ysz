@@ -24,12 +24,11 @@ using CSV
 using LeastSquaresOptim
 
 const bulk_species = (iphi, iy) = (1, 2)
-const surface_species = (iyAs, iyOs, iphiYSZ, iphiLSM) = (3, 4, 5, 6)
-const surface_names = ("yAs", "yOs", "phiYSZ", "phiLSM")
+const surface_species = (iyAs, iyOs, iphiYSZ) = (3, 4, 5)
+const surface_names = ("yAs", "yOs", "phiYSZ")
 
 
-#const index_driving_species = iphi
-const index_driving_species = iphiLSM
+const index_driving_species = iphi
 
 
 include("../../src/general_supporting_stuff.jl")
@@ -314,7 +313,7 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
     inival[iyAs,1] = parameters.yAs_eq
     inival[iyOs,1] = parameters.yOs_eq
     inival[iphiYSZ,1] = 0.0
-    inival[iphiLSM,1] = parameters.phiLSM_eq
+    
     return inival
 end
 
@@ -843,7 +842,7 @@ function breaction!(f,u,node,this::YSZParameters)
         f[iphi]= 0.0
         
         # the following equation relates u[iphi] to the u[iphiLSM]
-        f[iphiLSM] = u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac)
+        #f[iphiLSM] = u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac)
     end
 end
 

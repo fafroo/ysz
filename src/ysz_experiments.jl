@@ -82,7 +82,6 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     iyAs = model_symbol.iyAs
     iyOs = model_symbol.iyOs
     if physical_model_name=="ysz_model_GAS_LoMA_generic"
-      iphiLSM = model_symbol.iphiLSM
       iphiYSZ = model_symbol.iphiYSZ
     end
     index_driving_species = model_symbol.index_driving_species
@@ -107,7 +106,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
       
       PyPlot.subplot(212)
       if physical_model_name=="ysz_model_GAS_LoMA_generic"
-        for i in [3,4]
+        for i in [3]
           PyPlot.plot(0,U[surface_species[i],1],marker, markersize=point_marker_size, label=surface_names[i])
         end
       end
@@ -274,12 +273,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     #@show sys.boundary_factors[1] = VoronoiFVM.Dirichlet
     #@show sys.boundary_values[1] = parameters.phiS_eq
     
-    @show sys.boundary_factors[6]
-    @show sys.boundary_values[6]
     
-    
-    @show inival[iphi,1]
-    @show inival[iphiLSM,1]
+    @show inival[iphi,1]    
     @show inival[iphiYSZ,1]
     
     
@@ -290,13 +285,14 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     println(sum(steadystate))
     
     @show steadystate[iphi,1]
-    @show steadystate[iphiLSM,1]
+    
     @show steadystate[iphiYSZ,1]
     
-#     U1 = unknowns(sys)
-#     sys.boundary_values[index_driving_species,1] = parameters.phi_eq + 0.02
-#     solve!(U1, steadystate, sys, control=control)
-#     plot_solution(U1, X, 10^9, marker="x")
+    value_phiLSM = parameters.phiLSM_eq
+    U1 = unknowns(sys)
+    sys.boundary_values[index_driving_species,1] = (value_iphiLSM + parameters.e_fac*u[iphiYSZ])/(1 + parameters.e_fac)
+    solve!(U1, steadystate, sys, control=control)
+    plot_solution(U1, X, 10^9, marker="x")
     return
 ################
 
