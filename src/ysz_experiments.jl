@@ -70,6 +70,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
                 )
 
     
+    if EIS_IS
+      physical_model_name="ysz_model_GAS_LoMA_Temperature"
+    end
     
     #model_symbol = eval(Symbol(model_label))
     model_symbol = eval(Symbol(physical_model_name))
@@ -176,8 +179,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     
     if index_driving_species == iphi
       ZETA_fac =  (1 + parameters.e_fac)
+      reverse_ZETA_fac = 1
     else
       ZETA_fac =  1
+      reverse_ZETA_fac = (1 + parameters.e_fac)
     end
 
     
@@ -253,51 +258,62 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     inival = model_symbol.get_typical_initial_conditions(sys, parameters)
     phi0 = parameters.phi_eq
 
-
+    @show parameters.DD
     #
     control=VoronoiFVM.NewtonControl()
     control.verbose=false
-    control.tol_linear=1.0e-10
+    control.tol_linear=1.0e-15
     control.tol_relative=1.0e-18
     #control.tol_absolute=1.0e-4
-    #control.max_iterations=200
+    control.max_iterations=500
     control.max_lureuse=0
-    control.damp_initial=1.0e-3
-    control.damp_growth=1.3
+    control.damp_initial=1.0e-5
+    control.damp_growth=1.2
 
 ##### used for diplaying initial conditions vs steady state    
-    figure(111)
-    plot_solution(inival, X, 10^9, marker="o")
-    
-    @show sys.boundary_factors[1]
-    @show sys.boundary_values[1]
-    #@show sys.boundary_factors[1] = VoronoiFVM.Dirichlet
-    #@show sys.boundary_values[1] = parameters.phiS_eq
-    
-    @show sys.boundary_factors[6]
-    @show sys.boundary_values[6]
-    
-    
-    @show inival[iphi,1]
-    @show inival[iphiLSM,1]
-    @show inival[iphiYSZ,1]
-    
-    
-    
-    steadystate = unknowns(sys)
-    solve!(steadystate, inival, sys, control=control)
-    plot_solution(steadystate, X, 10^9, marker="x")
-    println(sum(steadystate))
-    
-    @show steadystate[iphi,1]
-    @show steadystate[iphiLSM,1]
-    @show steadystate[iphiYSZ,1]
-    
-#     U1 = unknowns(sys)
-#     sys.boundary_values[index_driving_species,1] = parameters.phi_eq + 0.02
-#     solve!(U1, steadystate, sys, control=control)
-#     plot_solution(U1, X, 10^9, marker="x")
-    return
+#     figure(111)
+# #     plot_solution(inival, X, 10^9, marker="o")
+#     
+#     #@show sys.boundary_factors[1]
+#     #@show sys.boundary_values[1]
+#     #@show sys.boundary_factors[1] = VoronoiFVM.Dirichlet
+#     #@show sys.boundary_values[1] = parameters.phiS_eq
+#     
+#     @show sys.boundary_factors[6]
+#     @show sys.boundary_values[6]
+#     
+#     
+#     @show inival[iphi,1]
+#     @show inival[iphiLSM,1]
+#     @show inival[iphiYSZ,1]
+#     
+#     
+#     
+#     steadystate = unknowns(sys)
+#     solve!(steadystate, inival, sys, control=control)
+#     plot_solution(steadystate, X, 10^9, marker="x")
+#     println(sum(steadystate))
+#     
+#     @show steadystate[iphi,1]
+#     @show steadystate[iphiLSM,1]
+#     @show steadystate[iphiYSZ,1]
+#     
+#     
+#     for U_sim in [0.2, 0.5, 1.0, 1.5 ]
+#       U1 = unknowns(sys)
+#       sys.boundary_values[index_driving_species,1] = parameters.phi_eq + U_sim
+#       solve!(U1, steadystate, sys, control=control)
+#       plot_solution(U1, X, 10^9, marker="x")
+#       steadystate .= U1
+#       
+#       
+#       @show U1[iphiLSM,1]
+#       @show U1[iphi,1]      
+#       @show U1[iphiYSZ,1] 
+#       @show U1[iphiLSM,1] + parameters.e_fac*U1[iphiYSZ,1] - U1[iphi,1]*(1 + parameters.e_fac)
+#       @show U1[iphiLSM,1] - U1[iphi,1]*(1 + parameters.e_fac)
+#     end
+#     return
 ################
 
     #@show parameters.phi_eq
@@ -373,10 +389,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
 
         # Calculate steady state solution
         steadystate = unknowns(sys)
-        phi_steady = parameters.phi_eq + bias/(1 + parameters.e_fac)
+        phi_steady = parameters.phi_eq + bias/ZETA_fac      
         
         excited_spec=index_driving_species
-        excited_bc=index_driving_species
+        excited_bc=1
         excited_bcval=phi_steady
         
         
@@ -393,7 +409,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
             # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
 # #               try
                 
-                #@show phi_ramp
+                #@show phi_ramp                
                 sys.boundary_values[excited_spec,1] = phi_ramp
                 solve!(steadystate, steadystate_old, sys, control=control)
                 steadystate_old .= steadystate
@@ -418,7 +434,6 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
           print("ERROR: run_new: ramp cannot reach the steady state") 
           throw(Exception)
         end
-        
         
         # Create impedance system
         isys=VoronoiFVM.ImpedanceSystem(sys,steadystate,excited_spec, excited_bc)
@@ -460,7 +475,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
                                     tref=tref, excitation_amplitude=1.0e-3,
                                     fit=true, tol_amplitude=1.0e-3, fit_window_size=20.0, plot_amplitude=false)
                 inductance = im*parameters.L*w                        
-                push!(z_timedomain, inductance + (1.0/ztime)/(1 + parameters.e_fac))
+                push!(z_timedomain, inductance + (1.0/ztime))#/(1 + parameters.e_fac))
                 print_bool && @show ztime
                 @show w, z_timedomain[end]
             end
@@ -812,7 +827,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
           end
           surface_species_range = hcat(surface_species_range, surface_species_to_append)
           
-          append!(phi_range,parameters.phi_eq)
+          append!(phi_range, U0[iphi, 1])
           #
           I_contributions_stdy_0 = [0]
           I_contributions_tran_0 = [0, 0, 0]
@@ -939,7 +954,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
             end
             surface_species_range = hcat(surface_species_range, surface_species_to_append)
             
-            append!(phi_range,phi_out)              
+            append!(phi_range,U[iphi,1])              
             append!(time_range,tstep*istep)
             if istep > 2              
               append!(Ib_range,Ib)

@@ -112,6 +112,8 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     zL::Float64   # average charge number [1]
     yB::Float64   # electroneutral value [1]
     
+    
+    
     phi_eq::Float64 # equilibrium voltage [V]
     phiS_eq::Float64
     phiLSM_eq::Float64
@@ -758,8 +760,8 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
                             u[iyOs]
                           )
                         ),
-          overvoltage=2*this.e0*this.e_fac*u[iphi]
-          #overvoltage=2*this.e0*this.e_fac*(u[iphi] - u[iphiYSZ])
+          #overvoltage=2*this.e0*this.e_fac*u[iphi]
+          overvoltage=2*this.e0*(u[iphiLSM] - u[iphi])
         )
     else
       the_fac = 0
@@ -840,10 +842,14 @@ function breaction!(f,u,node,this::YSZParameters)
         # sign is negative bcs of the equation implementation
         f[iyAs]= this.mO*oxide_ads - this.mO*electroR 
         f[iyOs]= this.mO*electroR - this.mO*2*gas_ads
-        f[iphi]= 0.0
+        
+        # model E^LSM = zeta E^YSZ
+        f[iphi]= 1.0e6*(u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        # model E^LSM = zeta (E^YSZ + IR)
+        #f[iphi]= 1.0e6*(- u[iphiLSM] + u[iphi]*(1 + this.e_fac))
         
         # the following equation relates u[iphi] to the u[iphiLSM]
-        f[iphiLSM] = u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac)
+        f[iphiLSM] = 0.0
     end
 end
 
