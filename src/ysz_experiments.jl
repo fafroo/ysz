@@ -44,28 +44,7 @@ include("../prototypes/timedomain_impedance.jl")
 # --------- end of YSZ import ---------- #
 ##########################################
 
-# function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0)
-#   point_marker_size = 5
-#   
-#   
-#   PyPlot.subplot(211)
-#   PyPlot.plot((x_factor)*X[:],U[iy,:],label="y")
-#   for (i, idx) in enumerate(surface_species)
-#     PyPlot.plot(0,U[idx,1],"o", markersize=point_marker_size, label=surface_names[i])
-#   end
-#   PyPlot.ylim(-0.5,1.1)
-#   PyPlot.xlim(-0.01*plotted_length, plotted_length)
-#   PyPlot.xlabel(x_label)
-#   PyPlot.legend(loc="best")
-#   PyPlot.grid()
-#   
-#   PyPlot.subplot(212)
-#   PyPlot.plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
-#   PyPlot.xlim(-0.01*plotted_length, plotted_length)
-#   PyPlot.xlabel(x_label)
-#   PyPlot.legend(loc="best")
-#   PyPlot.grid()
-# end
+
 
 function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
                 test=false, test_from_above=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
@@ -102,9 +81,44 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     iy = model_symbol.iy
     iyAs = model_symbol.iyAs
     iyOs = model_symbol.iyOs
-    #iphiLSM = model_symbol.iphiLSM
-    #iphiYSZ = model_symbol.iphiYSZ
+    if physical_model_name=="ysz_model_GAS_LoMA_generic"
+      iphiLSM = model_symbol.iphiLSM
+      iphiYSZ = model_symbol.iphiYSZ
+    end
     index_driving_species = model_symbol.index_driving_species
+    
+    
+    
+    function plot_solution(U, X, x_factor=10^9, x_label="", plotted_length= 5.0; marker="o")
+      point_marker_size = 5
+      
+      
+      PyPlot.subplot(211)
+      PyPlot.plot((x_factor)*X[:],U[iy,:],label="y")
+      for (i, idx) in enumerate(surface_species[1:2])
+        PyPlot.plot(0,U[idx,1],marker, markersize=point_marker_size, label=surface_names[i])
+      end
+      
+      PyPlot.ylim(-0.5,1.1)
+      PyPlot.xlim(-0.01*plotted_length, plotted_length)
+      PyPlot.xlabel(x_label)
+      PyPlot.legend(loc="best")
+      PyPlot.grid()
+      
+      PyPlot.subplot(212)
+      if physical_model_name=="ysz_model_GAS_LoMA_generic"
+        for i in [3,4]
+          PyPlot.plot(0,U[surface_species[i],1],marker, markersize=point_marker_size, label=surface_names[i])
+        end
+      end
+      PyPlot.plot((x_factor)*X[:],U[iphi,:],label="phi (V)")
+      PyPlot.xlim(-0.01*plotted_length, plotted_length)
+      PyPlot.xlabel(x_label)
+      PyPlot.legend(loc="best")
+      PyPlot.grid()
+    end
+    
+    
     
     
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
@@ -165,6 +179,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     else
       ZETA_fac =  1
     end
+
+    
+    
     
     #@show parameters.yB
     #@show parameters.DD
@@ -240,8 +257,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     #
     control=VoronoiFVM.NewtonControl()
     control.verbose=false
-    control.tol_linear=1.0e-4
-    control.tol_relative=1.0e-8
+    control.tol_linear=1.0e-10
+    control.tol_relative=1.0e-18
     #control.tol_absolute=1.0e-4
     #control.max_iterations=200
     control.max_lureuse=0
@@ -249,17 +266,67 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     control.damp_growth=1.3
 
 ##### used for diplaying initial conditions vs steady state    
-# #     figure(111)
-# #     plot_solution(inival, X, 10^9)
-# #     
-# #     steadystate = unknowns(sys)
-# #     solve!(steadystate, inival, sys, control=control)
-# #     plot_solution(steadystate, X, 10^9)
-# #     println(sum(steadystate))
-# #     return
+    figure(111)
+    plot_solution(inival, X, 10^9, marker="o")
+    
+    @show sys.boundary_factors[1]
+    @show sys.boundary_values[1]
+    #@show sys.boundary_factors[1] = VoronoiFVM.Dirichlet
+    #@show sys.boundary_values[1] = parameters.phiS_eq
+    
+    @show sys.boundary_factors[6]
+    @show sys.boundary_values[6]
+    
+    
+    @show inival[iphi,1]
+    @show inival[iphiLSM,1]
+    @show inival[iphiYSZ,1]
+    
+    
+    
+    steadystate = unknowns(sys)
+    solve!(steadystate, inival, sys, control=control)
+    plot_solution(steadystate, X, 10^9, marker="x")
+    println(sum(steadystate))
+    
+    @show steadystate[iphi,1]
+    @show steadystate[iphiLSM,1]
+    @show steadystate[iphiYSZ,1]
+    
+#     U1 = unknowns(sys)
+#     sys.boundary_values[index_driving_species,1] = parameters.phi_eq + 0.02
+#     solve!(U1, steadystate, sys, control=control)
+#     plot_solution(U1, X, 10^9, marker="x")
+    return
 ################
 
     #@show parameters.phi_eq
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     ############################################
