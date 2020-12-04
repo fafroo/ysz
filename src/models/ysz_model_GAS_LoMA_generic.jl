@@ -112,8 +112,6 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     zL::Float64   # average charge number [1]
     yB::Float64   # electroneutral value [1]
     
-    
-    
     phi_eq::Float64 # equilibrium voltage [V]
     phiS_eq::Float64
     phiLSM_eq::Float64
