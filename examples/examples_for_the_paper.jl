@@ -804,9 +804,32 @@ p2 = (1, 0.4, 0, 0, 0,
                                                         
                                                         
                                                         
+# E^LSM = zeta E^YSZ
+# naive try with fixed zeta = 0.3, SR = 0.2 ... as fot the previous case
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 850], pO2=[20, 60], data_set="OLD_MONO_100",
+                           physical_model_name="ysz_model_GAS_LoMA_generic", 
+                             pyplot=1,
+                             prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                 "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                                 "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                                 "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                                 "nu_700", "nu_750", "nu_800", "nu_850",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                               
+                             prms_values=(1, 0.3, 0, 0, 0, 0.373, 22.14, -0.08, -0.1, 0.0, 0.301, 21.741, 0.083, 0.05, 0.2, 0.301, 21.739, -0.08, 0.101, 0.0, 0.804, 0.702, 0.6, 0.537, 10.038, 30.718, 0.716, 1.004) 
+                             ,use_experiment=true);
                                                         
-                                                        
-                                                        
+# hope
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, pO2=[20, 60], data_set="OLD_MONO_100",
+                           physical_model_name="ysz_model_GAS_LoMA_generic", 
+                             pyplot=1,
+                             prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                 "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                                 "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                                 "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                                 "nu_700", "nu_750", "nu_800", "nu_850",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                               
+                             prms_values=
+                             ,use_experiment=true);
                                                         
                                                         
                                                         
