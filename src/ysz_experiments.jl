@@ -73,7 +73,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     
     if physical_model_name=="ysz_model_GAS_LoMA_generic"      
       if EIS_IS
-        physical_model_name=="ysz_model_GAS_LoMA_Temperature"
+        physical_model_name="ysz_model_GAS_LoMA_Temperature"
+        generic_mode = false
       else
         generic_mode = true   
       end
