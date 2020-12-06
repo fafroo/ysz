@@ -128,6 +128,59 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
       PyPlot.grid()
     end
     
+    function set_eta(phiS)
+      if generic_mode
+        sys.physics.data.phiLSM = parameters.phiLSM_eq + phiS*ZETA_fac
+      else
+        sys.boundary_values[index_driving_species, 1]=parameters.phi_eq + phiS
+      end
+    end
+    
+    function ramp_to_phiS!(U, U0, phiS, phiS0;
+                          ramp_nodes_growth = 4, # each phi_step will be divided into $() parts in the next round
+                          ramp_max_nodes = 30,   # number of refinement of phi_step
+                          verbose=true)
+      got_exception = Nothing
+      ramp_isok = false
+      
+      if verbose
+        @show phiS0, phiS
+      end
+      
+      for ramp_nodes in (0 : ramp_nodes_growth : ramp_max_nodes)
+        U_ramp = deepcopy(U0)        
+        for phi_ramp in (ramp_nodes == 0 ? phiS : collect(phiS0 : (phiS - phiS0)/ramp_nodes : phiS))
+            try              
+              if verbose
+                @show phi_ramp                
+              end
+              set_eta(phi_ramp - parameters.phi_eq)                  
+              solve!(U, U_ramp, sys, control=control)
+              U_ramp .= U
+              
+              ramp_isok = true
+              
+            catch e
+              if e isa InterruptException
+                rethrow(e)
+              else
+                #println("fail")
+                got_exception = e
+                ramp_isok=false
+                break
+              end
+            end
+        end
+        if ramp_isok
+          break
+        end
+      end
+      if !(ramp_isok)
+        println("ERROR: run_new: ramp cannot reach the steady state") 
+        println(got_exception)
+        throw(Exception)
+      end                    
+    end
     
     
     
@@ -404,45 +457,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         excited_bc=1
         excited_bcval=phi_steady
         
-        
-        
         # relaxation (ramp to phi_steady)
-        ramp_isok = false
-        ramp_nodes_growth = 4 # each phi_step will be divided into $ parts
-        ramp_max_nodes = 30   # number of refinement of phi_step
-        steadystate_old = deepcopy(inival)
-        for ramp_nodes in (0 : ramp_nodes_growth : ramp_max_nodes)
-          steadystate_old = deepcopy(inival)
-          
-          for phi_ramp in (ramp_nodes == 0 ? phi_steady : collect(0.0 : phi_steady/ramp_nodes : phi_steady))
-            # println("phi_steady / phi_ramp = ",phi_steady," / ",phi_ramp)
-# #               try
-                
-                #@show phi_ramp                
-                sys.boundary_values[excited_spec,1] = phi_ramp
-                solve!(steadystate, steadystate_old, sys, control=control)
-                steadystate_old .= steadystate
-                
-                ramp_isok = true
-                
-# #               catch e
-# #                 if e isa InterruptException
-# #                   rethrow(e)
-# #                 else
-# #                   #println("fail")
-# #                   ramp_isok=false
-# #                   break
-# #                 end
-# #               end
-          end
-          if ramp_isok
-            break
-          end
-        end
-        if !(ramp_isok)
-          print("ERROR: run_new: ramp cannot reach the steady state") 
-          throw(Exception)
-        end
+        ramp_to_phiS!(steadystate, inival, phi_steady, parameters.phi_eq)
+
         
         # Create impedance system
         isys=VoronoiFVM.ImpedanceSystem(sys,steadystate,excited_spec, excited_bc)
@@ -644,13 +661,6 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     #########################################
     #########################################
     #########################################
-    function set_eta(phiS)
-      if generic_mode
-        sys.physics.data.phiLSM = parameters.phiLSM_eq + phiS*ZETA_fac
-      else
-        sys.boundary_values[index_driving_species, 1]=parameters.phi_eq + phiS
-      end
-    end
     
     # code for performing CV(f) ---- FAST cv MODE
     
@@ -669,7 +679,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         U = unknowns(sys)        
         U0 = deepcopy(inival)              
               
-        # calculating directly steadystate ###############                  
+        # calculating directly steadystate ###############                                        
         set_eta(0.0)
         solve!(U0,inival,sys, control=control)
         U_eq = deepcopy(U0)
@@ -682,10 +692,11 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         # compute the positive half
         istep = 1
         dir = 1
+        phi_prev = parameters.phi_eq
         phi = parameters.phi_eq + voltrate*tstep*dir        
         while phi <= (upp_bound_phi + parameters.phi_eq) + upp_bound_phi/100.
-          set_eta(phi - parameters.phi_eq)
-          solve!(U, U0, sys, control=control)
+          
+          ramp_to_phiS!(U, U0, phi, phi_prev)
           
           # Steady part of measurement functional        
           I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
@@ -698,6 +709,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
           # preparing for the next step
           istep+=1
           U0.=U
+          phi_prev = phi
           phi+=voltrate*tstep*dir       
         end
         
@@ -712,10 +724,11 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         istep_negative = istep
         U0 .= U_eq
         dir = -1        
+        phi_prev = parameters.phi_eq
         phi = parameters.phi_eq + voltrate*tstep*dir
         while phi >= (low_bound_phi + parameters.phi_eq) - upp_bound_phi/100.
-          set_eta(phi - parameters.phi_eq)
-          solve!(U, U0, sys, control=control)
+          
+          ramp_to_phiS!(U, U0, phi, phi_prev)
           
           # Steady part of measurement functional        
           I_contributions_stdy = model_symbol.set_meas_and_get_stdy_I_contributions(only_formal_meas, U, sys, parameters, AreaEllyt, X)
@@ -728,6 +741,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
           # preparing for the next step
           istep+=1
           U0.=U
+          phi_prev = phi
           phi+=voltrate*tstep*dir     
         end
 
