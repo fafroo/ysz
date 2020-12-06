@@ -22,14 +22,14 @@ using PyPlot
 using DataFrames
 using CSV
 using LeastSquaresOptim
+using SparseArrays
 
 const bulk_species = (iphi, iy) = (1, 2)
-const surface_species = (iyAs, iyOs, iphiYSZ, iphiLSM) = (3, 4, 5, 6)
-const surface_names = ("yAs", "yOs", "phiYSZ", "phiLSM")
+const surface_species = (iyAs, iyOs, iphiYSZ) = (3, 4, 5)
+const surface_names = ("yAs", "yOs", "phiYSZ")
 
 
-#const index_driving_species = iphi
-const index_driving_species = iphiLSM
+const index_driving_species = iphi
 
 
 include("../../src/general_supporting_stuff.jl")
@@ -111,6 +111,8 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     mY::Float64
     zL::Float64   # average charge number [1]
     yB::Float64   # electroneutral value [1]
+    
+    phiLSM::Float64
     
     phi_eq::Float64 # equilibrium voltage [V]
     phiS_eq::Float64
@@ -197,7 +199,7 @@ function YSZParameters(this)
     this.COmm_B=-Inf
     this.COmm_C=-Inf
     #
-    this.e_fac = 0.0
+    this.e_fac = 0.0    
     
 
     # known
@@ -282,10 +284,12 @@ end
 
 # boundary conditions
 function set_typical_boundary_conditions!(sys, parameters::YSZParameters)
-    sys.boundary_values[index_driving_species,1]=parameters.phi_eq
-    sys.boundary_values[iphi,2]=0.0
+    #sys.boundary_values[index_driving_species,1]=parameters.phi_eq
+    #sys.boundary_factors[index_driving_species,1]=VoronoiFVM.Dirichlet
     #
-    sys.boundary_factors[index_driving_species,1]=VoronoiFVM.Dirichlet
+    parameters.phiLSM = parameters.phiLSM_eq
+    #
+    sys.boundary_values[iphi,2]=0.0
     sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
     #
     sys.boundary_values[iy,2]=parameters.yB
@@ -314,7 +318,7 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
     inival[iyAs,1] = parameters.yAs_eq
     inival[iyOs,1] = parameters.yOs_eq
     inival[iphiYSZ,1] = 0.0
-    inival[iphiLSM,1] = parameters.phiLSM_eq
+    
     return inival
 end
 
@@ -759,7 +763,7 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
                           )
                         ),
           #overvoltage=2*this.e0*this.e_fac*u[iphi]
-          overvoltage=2*this.e0*(u[iphiLSM] - u[iphi])
+          overvoltage=2*this.e0*this.e_fac*(u[iphi] - u[iphiYSZ])
         )
     else
       the_fac = 0
@@ -823,7 +827,7 @@ end
 
 
 # surface reaction + adsorption
-function breaction!(f,u,node,this::YSZParameters)        
+function breaction!(f,u,node,this::YSZParameters)     
     
     # u is the array for unknown at some point X -> u = (u[iy], u[iy], u[iAs], u[iOs]}
     my_u = u    
@@ -841,13 +845,13 @@ function breaction!(f,u,node,this::YSZParameters)
         f[iyAs]= this.mO*oxide_ads - this.mO*electroR 
         f[iyOs]= this.mO*electroR - this.mO*2*gas_ads
         
-        # model E^LSM = zeta E^YSZ
-        f[iphi]= 1.0e6*(u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
-        # model E^LSM = zeta (E^YSZ + IR)
-        #f[iphi]= 1.0e6*(- u[iphiLSM] + u[iphi]*(1 + this.e_fac))
+        #### E^LSM = zeta E^YSZ
+        f[iphi]= 1e6*(this.phiLSM + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        #### E^LSM = zeta ( E^YSZ + IR )
+        #f[iphi]= 1e6*(this.phiLSM  - u[iphi]*(1 + this.e_fac))
         
         # the following equation relates u[iphi] to the u[iphiLSM]
-        f[iphiLSM] = 0.0
+        #f[iphiLSM] = u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac)
     end
 end
 
@@ -860,6 +864,22 @@ function generic_operator!(f, u, sys)
     # phiYSZ = phi(x)/(1 - x/L) ... 1 - x/L = 0.9999634
     f[idx[iphiYSZ,1]] = (u[idx[iphi,80]])/0.9999634 - u[idx[iphiYSZ, 1]] 
 end
+
+function generic_operator_sparsity(sys)
+    idx=unknown_indices(unknowns(sys))
+    sparsity=spzeros(num_dof(sys),num_dof(sys))
+    sparsity[idx[iphiYSZ,1],idx[iphi,80]]=1
+    sparsity[idx[iphiYSZ,1],idx[iphiYSZ, 1]]=1
+    sparsity
+end
+
+
+
+
+
+
+
+
 
 
 

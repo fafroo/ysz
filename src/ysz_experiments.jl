@@ -20,6 +20,7 @@ using DataFrames
 using CSV
 using LeastSquaresOptim
 using LinearAlgebra
+using SparseArrays
 
 ##########################################
 # internal import of YSZ repo ############
@@ -70,8 +71,14 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
                 )
 
     
-    if EIS_IS
-      physical_model_name="ysz_model_GAS_LoMA_Temperature"
+    if physical_model_name=="ysz_model_GAS_LoMA_generic"      
+      if EIS_IS
+        physical_model_name=="ysz_model_GAS_LoMA_Temperature"
+      else
+        generic_mode = true   
+      end
+    else
+      generic_mode = false
     end
     
     #model_symbol = eval(Symbol(model_label))
@@ -84,8 +91,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     iy = model_symbol.iy
     iyAs = model_symbol.iyAs
     iyOs = model_symbol.iyOs
-    if physical_model_name=="ysz_model_GAS_LoMA_generic"
-      iphiLSM = model_symbol.iphiLSM
+    if generic_mode
       iphiYSZ = model_symbol.iphiYSZ
     end
     index_driving_species = model_symbol.index_driving_species
@@ -109,8 +115,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
       PyPlot.grid()
       
       PyPlot.subplot(212)
-      if physical_model_name=="ysz_model_GAS_LoMA_generic"
-        for i in [3,4]
+      if generic_mode
+        for i in [3]
           PyPlot.plot(0,U[surface_species[i],1],marker, markersize=point_marker_size, label=surface_names[i])
         end
       end
@@ -176,14 +182,6 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     
     # update the "computed" values in parameters
     parameters = model_symbol.YSZParameters_update!(parameters)
-    
-    if index_driving_species == iphi
-      ZETA_fac =  (1 + parameters.e_fac)
-      reverse_ZETA_fac = 1
-    else
-      ZETA_fac =  1
-      reverse_ZETA_fac = (1 + parameters.e_fac)
-    end
 
     
     
@@ -210,7 +208,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     
     
     # assembling of the system
-    if physical_model_name=="ysz_model_GAS_LoMA_generic"  
+    if generic_mode
       physics=VoronoiFVM.Physics(
           data=parameters,
           num_species=size(bulk_species,1)+size(surface_species,1),
@@ -219,6 +217,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
           reaction=model_symbol.reaction!,
           breaction=model_symbol.breaction!,
           generic=model_symbol.generic_operator!,
+          generic_sparsity=model_symbol.generic_operator_sparsity,
           bstorage=model_symbol.bstorage!
       )
     else
@@ -258,35 +257,38 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     inival = model_symbol.get_typical_initial_conditions(sys, parameters)
     phi0 = parameters.phi_eq
 
-    @show parameters.DD
+    if generic_mode
+      ZETA_fac = 1
+    else
+      ZETA_fac = (1 + parameters.e_fac)
+    end
+    
+
     #
     control=VoronoiFVM.NewtonControl()
     control.verbose=false
-    control.tol_linear=1.0e-15
-    control.tol_relative=1.0e-18
+    control.tol_linear=1.0e-5
+    control.tol_relative=1.0e-8
     #control.tol_absolute=1.0e-4
     control.max_iterations=500
     control.max_lureuse=0
-    control.damp_initial=1.0e-5
-    control.damp_growth=1.2
-
+    control.damp_initial=1.0e-3
+    control.damp_growth=1.1
+    
+    
 ##### used for diplaying initial conditions vs steady state    
 #     figure(111)
-# #     plot_solution(inival, X, 10^9, marker="o")
+#     plot_solution(inival, X, 10^9, marker="o")
 #     
-#     #@show sys.boundary_factors[1]
-#     #@show sys.boundary_values[1]
-#     #@show sys.boundary_factors[1] = VoronoiFVM.Dirichlet
-#     #@show sys.boundary_values[1] = parameters.phiS_eq
-#     
-#     @show sys.boundary_factors[6]
-#     @show sys.boundary_values[6]
-#     
-#     
-#     @show inival[iphi,1]
-#     @show inival[iphiLSM,1]
-#     @show inival[iphiYSZ,1]
-#     
+# #     @show sys.boundary_factors[1]
+# #     @show sys.boundary_values[1]
+# #     #@show sys.boundary_factors[1] = VoronoiFVM.Dirichlet
+# #     #@show sys.boundary_values[1] = parameters.phiS_eq
+# #     
+# #     
+# #     @show inival[iphi,1] 
+# #     #@show inival[iphiYSZ,1]
+#      
 #     
 #     
 #     steadystate = unknowns(sys)
@@ -294,25 +296,31 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
 #     plot_solution(steadystate, X, 10^9, marker="x")
 #     println(sum(steadystate))
 #     
-#     @show steadystate[iphi,1]
-#     @show steadystate[iphiLSM,1]
-#     @show steadystate[iphiYSZ,1]
+#     #@show steadystate[iphi,1]
 #     
+#     #@show steadystate[iphiYSZ,1]
+#     #@show parameters.phiLSM_eq  - steadystate[iphi,1]*(1 + parameters.e_fac)
 #     
-#     for U_sim in [0.2, 0.5, 1.0, 1.5 ]
-#       U1 = unknowns(sys)
-#       sys.boundary_values[index_driving_species,1] = parameters.phi_eq + U_sim
-#       solve!(U1, steadystate, sys, control=control)
-#       plot_solution(U1, X, 10^9, marker="x")
-#       steadystate .= U1
-#       
-#       
-#       @show U1[iphiLSM,1]
-#       @show U1[iphi,1]      
-#       @show U1[iphiYSZ,1] 
-#       @show U1[iphiLSM,1] + parameters.e_fac*U1[iphiYSZ,1] - U1[iphi,1]*(1 + parameters.e_fac)
-#       @show U1[iphiLSM,1] - U1[iphi,1]*(1 + parameters.e_fac)
+#     #value_phiLSM = parameters.phiLSM_eq
+#     U1 = unknowns(sys)
+#     
+#     eta_sim = -0.8
+#     if generic_mode
+#       sys.physics.data.phiLSM = parameters.phiLSM_eq + eta_sim
+#     else
+#       sys.boundary_values[index_driving_species, 1]=parameters.phi_eq + eta_sim/ZETA_fac
 #     end
+#     
+#     
+#     solve!(U1, steadystate, sys, control=control)
+#     plot_solution(U1, X, 10^9, marker="x")
+#     
+#     if generic_mode
+#       @show steadystate[iphi,1]    
+#       @show steadystate[iphiYSZ,1]
+#       @show parameters.phiLSM_eq + 1.0  - U1[iphi,1]*(1 + parameters.e_fac)
+#     end
+#       
 #     return
 ################
 
@@ -635,6 +643,13 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     #########################################
     #########################################
     #########################################
+    function set_eta(phiS)
+      if generic_mode
+        sys.physics.data.phiLSM = parameters.phiLSM_eq + phiS*ZETA_fac
+      else
+        sys.boundary_values[index_driving_species, 1]=parameters.phi_eq + phiS
+      end
+    end
     
     # code for performing CV(f) ---- FAST cv MODE
     
@@ -654,7 +669,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         U0 = deepcopy(inival)              
               
         # calculating directly steadystate ###############                  
-        sys.boundary_values[index_driving_species, 1]=parameters.phi_eq
+        set_eta(0.0)
         solve!(U0,inival,sys, control=control)
         U_eq = deepcopy(U0)
 
@@ -668,7 +683,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         dir = 1
         phi = parameters.phi_eq + voltrate*tstep*dir        
         while phi <= (upp_bound_phi + parameters.phi_eq) + upp_bound_phi/100.
-          sys.boundary_values[index_driving_species, 1]=phi
+          set_eta(phi - parameters.phi_eq)
           solve!(U, U0, sys, control=control)
           
           # Steady part of measurement functional        
@@ -698,7 +713,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         dir = -1        
         phi = parameters.phi_eq + voltrate*tstep*dir
         while phi >= (low_bound_phi + parameters.phi_eq) - upp_bound_phi/100.
-          sys.boundary_values[index_driving_species, 1]=phi
+          set_eta(phi - parameters.phi_eq)
           solve!(U, U0, sys, control=control)
           
           # Steady part of measurement functional        
@@ -814,7 +829,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
               
         if true
           # calculating directly steadystate ###############                  
-          sys.boundary_values[index_driving_species, 1]=parameters.phi_eq
+          set_eta(0.0 - parameters.phi_eq)
           solve!(U0,inival,sys, control=control)
           if save_files || out_df_bool
             push!(out_df, (0, 0, 0, 0, 0, 0, 0))
@@ -902,7 +917,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
             end
             
             # tstep to potential phi
-            sys.boundary_values[index_driving_species, 1]=phi
+            set_eta(phi - parameters.phi_eq)
                         
             control.Δt = tstep
 
