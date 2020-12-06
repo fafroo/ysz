@@ -136,10 +136,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
       end
     end
     
-    function ramp_to_phiS!(U, U0, phiS, phiS0;
-                          ramp_nodes_growth = 4, # each phi_step will be divided into $() parts in the next round
-                          ramp_max_nodes = 30,   # number of refinement of phi_step
-                          verbose=true)
+    function ramp_to_phiS!(U, U0, phiS, phiS0;                          
+                          verbose=false)
       got_exception = Nothing
       ramp_isok = false
       
@@ -147,9 +145,21 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
         @show phiS0, phiS
       end
       
-      for ramp_nodes in (0 : ramp_nodes_growth : ramp_max_nodes)
-        U_ramp = deepcopy(U0)        
-        for phi_ramp in (ramp_nodes == 0 ? phiS : collect(phiS0 : (phiS - phiS0)/ramp_nodes : phiS))
+     
+      
+      given_damp_growth = control.damp_growth      
+      ramp_nodes_list =       [0,                 0,    0,  4,   4,   16,  32 ]
+      damp_growth_in_round =  [given_damp_growth, 1.5, 1.1, 1.5, 1.1, 1.1, 1.1]
+            
+      phi_ramp_solved = phiS0
+      
+      U_ramp = deepcopy(U0)
+      
+      for (round, ramp_nodes) in enumerate(ramp_nodes_list)
+        
+        control.damp_growth=damp_growth_in_round[round]        
+                
+        for phi_ramp in (ramp_nodes == 0 ? phiS : collect(phi_ramp_solved : (phiS - phiS0)/ramp_nodes : phiS))
             try              
               if verbose
                 @show phi_ramp                
@@ -157,6 +167,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
               set_eta(phi_ramp - parameters.phi_eq)                  
               solve!(U, U_ramp, sys, control=control)
               U_ramp .= U
+              phi_ramp_solved = phi_ramp
               
               ramp_isok = true
               
@@ -172,6 +183,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
             end
         end
         if ramp_isok
+          control.damp_growth = given_damp_growth
           break
         end
       end
@@ -324,10 +336,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     control.tol_linear=1.0e-5
     control.tol_relative=1.0e-8
     #control.tol_absolute=1.0e-4
-    control.max_iterations=500
+    control.max_iterations=300
     control.max_lureuse=0
     control.damp_initial=1.0e-3
-    control.damp_growth=1.1
+    control.damp_growth=2.0
     
     
 ##### used for diplaying initial conditions vs steady state    

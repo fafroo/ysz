@@ -762,8 +762,8 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
                             u[iyOs]
                           )
                         ),
-          #overvoltage=2*this.e0*this.e_fac*u[iphi]
           overvoltage=2*this.e0*this.e_fac*(u[iphi] - u[iphiYSZ])
+          #overvoltage=2*this.e0*this.e_fac*u[iphi]          
         )
     else
       the_fac = 0
