@@ -1161,7 +1161,11 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     if X_B == Nothing || X_C == Nothing
       return [gv(prm_name*"_$(TC)", throw_error=true) for TC in TC_list]
     else
-      return [X_B*((TC-700)/50.) + X_C for TC in TC_list]
+      if (length(prm_name) >= 3) && (prm_name[2:3]==".r")        
+        return [(X_B*((TC-700)/50.) + X_C) + (gv(prm_name[1]*".S")) for TC in TC_list]
+      else
+        return [X_B*((TC-700)/50.) + X_C for TC in TC_list]
+      end
     end
   end
   
@@ -1312,14 +1316,14 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     return ysz_experiments.ysz_model_GAS_LoMA_Temperature.YSZParameters_update!(parameters)  
   end
   
-  phi_eq_list = []
+  E_eq_list = []
   YSZ_Om0_eq_list = []
   surf_Om_eq_list = []
   surf_O_eq_list = []
   
   for TC in TC_list
     parameters = local_update_physical_parameters(TC)
-    push!(phi_eq_list, parameters.phi_eq)
+    push!(E_eq_list, parameters.phi_eq*(1 + parameters.e_fac))
     push!(YSZ_Om0_eq_list, parameters.y0_eq*(1-parameters.nu)*parameters.m_par)
     push!(surf_Om_eq_list, parameters.yAs_eq*parameters.COmm)
     push!(surf_O_eq_list, parameters.yOs_eq*parameters.CO)
@@ -1341,7 +1345,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     end
   end
   
-  mymy_plot(phi_eq_list, "E^YSZ", 1)
+  mymy_plot(E_eq_list, "E", 1)
   mymy_plot(YSZ_Om0_eq_list, "YSZ_Om0_eq", 2)
   mymy_plot(surf_Om_eq_list, "surf_Om_eq", 3)
   mymy_plot(surf_O_eq_list, "surf_O_eq", 4)

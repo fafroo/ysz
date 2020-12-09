@@ -130,8 +130,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     
     function set_eta(phiS)
       if generic_mode
+        # E^LSM =  zeta*E^YSZ
         sys.physics.data.phiLSM = parameters.phiLSM_eq + phiS*ZETA_fac
       else
+        # E^LSM =  zeta* ( E^YSZ + IR )
         sys.boundary_values[index_driving_species, 1]=parameters.phi_eq + phiS
       end
     end
