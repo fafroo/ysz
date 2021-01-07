@@ -774,36 +774,7 @@ p2 = (1, 0.4, 0, 0, 0,
                         0.3868217597699285, 21.870010619930834,     0.028391243693966506, 0.007005115247570771,   0, 
                         -0.04999999999980735, 0.650006103286414,    29.996, 44.0577,    0.2711, 0.7615)               
                
-                                          
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
+                                                             
                                                         
 # E^LSM = zeta E^YSZ
 # naive try with fixed zeta = 0.3, SR = 0.2 ... as fot the previous case
@@ -863,7 +834,26 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
                                           0.124, 21.291,      0.076, -0.133,         0.0, 
                                           0.75, 0.704, 0.521, 0.201,         -1.344, 6.574, -0.025, 0.395)                                    
                                     ,use_experiment=true, 
-                                    save_files=false, save_dir="EIS", line_color_idx=1, evaluate_temp=true);                                                           
+                                    save_files=false, save_dir="EIS", line_color_idx=1, evaluate_temp=true);      
+                                    
+# hope ff 1:0  >> CO(mm)_B nonneg                                    
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 850], pO2=[20, 60], data_set="OLD_MONO_100",
+                                  physical_model_name="ysz_model_GAS_LoMA_generic", 
+                                    pyplot=1,
+                                    prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                        "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                                        "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                                        "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                                        "nu_700", "nu_750", "nu_800", "nu_850",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                                      
+                                    prms_values=(1, 0.88, 0, 0, 0,  
+                                          0.264, 21.545,        0.045, 0.045,        -0.33, 
+                                          0.306, 21.585,        0.012, 0.17,          0.33, 
+                                          0.243, 21.291,        0.095, -0.1,           0.0, 
+                                          0.785, 0.662, 0.47, 0.209,           0.163, 7.149, 0.089, 0.354)                                    
+                                    ,use_experiment=true, 
+                                    save_files=false, save_dir="EIS_nn", line_color_idx=1, evaluate_temp=true);                                    
+                                                
                                                         
 # hope ff 1:1.3 ... not the best, but 3 peaks >> GOOD >>> could be taken !!! :)
 new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 850], pO2=[20, 60], data_set="OLD_MONO_100",
@@ -875,14 +865,66 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
                                         "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
                                         "nu_700", "nu_750", "nu_800", "nu_850",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
                                       
-                                    prms_values=(1, 0.883, 0, 0, 0,
+                                    prms_values=(1, 0.88, 0, 0, 0,
                                           0.338, 21.533,      0.067, -0.08,       -0.33, 
-                                          0.333, 21.584,      0.144, 0.084,        0.334, 
+                                          0.333, 21.584,      0.144, 0.084,        0.33, 
                                           0.352, 21.983,      0.048, -0.087,       0.001, 
                                           0.819, 0.708, 0.6, 0.517,       9.989, 30.319,      0.486, 0.688)
                                     ,use_experiment=true, 
                                     save_files=false, save_dir="both", line_color_idx=2, evaluate_temp=true);
 
+               
+
+               
+               
+               
+###### CONST CO(mm) ###########################################
+# hope ff 1:0 ... great :))            >>> taken                          
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 850], pO2=[20, 60], data_set="OLD_MONO_100",
+                                  physical_model_name="ysz_model_GAS_LoMA_generic", 
+                                    pyplot=1,
+                                    prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                        "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                                        "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                                        "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                                        "nu_700", "nu_750", "nu_800", "nu_850",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                                      
+                                    prms_values=(1, 0.88, 0, 0, 0, 0.257, 21.517, 0.043, -0.094, -0.33, 0.237, 21.732, -0.004, 0.202, 0.33, 0.18, 21.215, 0.085, -0.156, 0.0, 0.75, 0.679, 0.496, 0.2, 0.0, 4.116, 0.0, 0.38)                                 
+                                    ,use_experiment=true,
+                                    save_files=false, save_dir="EIS", line_color_idx=1, evaluate_temp=true);
+               
+               
+               
+# hope ff 1:1.3 ... 2 peaks ... but  >> GOOD >>> could be taken !!! :)
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 850], pO2=[20, 60], data_set="OLD_MONO_100",
+                                  physical_model_name="ysz_model_GAS_LoMA_generic", 
+                                    pyplot=1,
+                                    prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                        "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                                        "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                                        "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                                        "nu_700", "nu_750", "nu_800", "nu_850",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                                        
+                                    prms_values=(1, 0.88, 0, 0, 0, 0.3, 21.6, 0.08, 0.11, -0.33, 0.3, 21.6, 0.103, 0.011, 0.33, 0.306, 22.307, 0.08, 0.0, 0.0, 0.8, 0.746, 0.646, 0.5, 0.0, 30.591, 0.0, 0.878)
+                                    ,use_experiment=true, 
+                                    save_files=false, save_dir="both", line_color_idx=2, evaluate_temp=true);               
+# hope ff 1:1.3 ...    CV ok                
+new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[700, 750, 850], pO2=[20, 60], data_set="OLD_MONO_100",
+                                  physical_model_name="ysz_model_GAS_LoMA_generic", 
+                                    pyplot=1,
+                                    prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                        "A.r_B", "A.r_C",        "A.DG_B", "A.DG_C",     "A.S",
+                                        "R.r_B", "R.r_C",        "R.DG_B", "R.DG_C",     "R.S",
+                                        "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",     "O.S",
+                                        "nu_700", "nu_750", "nu_800", "nu_850",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
+                                        
+                                    prms_values=(1, 0.88, 0, 0, 0, 0.54, 21.502, 0.013, 0.097, -0.33, 0.326, 22.234, 0.112, 0.113, 0.33, 0.426, 21.965, 0.093, -0.088, 0.0, 0.93, 0.65, 0.6, 0.26, 0.0, 30.591, 0.0, 0.878)
+                                    ,use_experiment=true, 
+                                    save_files=false, save_dir="CV", line_color_idx=3, evaluate_temp=true);               
+               
+               
+               
+               
                
                
                
@@ -1579,8 +1621,8 @@ ysz_fitting.simple_run(ysz_fitting.EIS_simulation(800, [40], 0.0, data_set="OLD_
 # template for saving files
 TC=[700, 750, 800, 850]; pO2=[20, 40, 60]; data_set="OLD_MONO_100";
        ysz_fitting.simple_run([
-          ysz_fitting.CV_simulation(TC, pO2, data_set=data_set, sample=50  )...,
-          ysz_fitting.EIS_simulation(TC, pO2, data_set=data_set, f_range=(1, 30000, 1.2)  )...],
+          ysz_fitting.CV_simulation(TC, pO2, data_set=data_set, sample=50, physical_model_name="ysz_model_GAS_LoMA_generic"  )...,
+          ysz_fitting.EIS_simulation(TC, pO2, data_set=data_set, f_range=(1, 30000, 1.2), physical_model_name="ysz_model_GAS_LoMA_generic"  )...],
                                                       save_files=true, save_dir="experiments",  pyplot=0,  
                                                       prms_names=Nothing,
                                                       prms_values=[]
@@ -1670,7 +1712,7 @@ ysz_fitting.simple_run(simulations=["CV", "EIS"], TC=800, pO2=[40, 60], bias=0.0
                                                 
 # LLL 1 EIS-CV ...fail of CV                       
 ysz_fitting.simple_run(simulations=["CV", "EIS"], TC=800, pO2=[40, 60], bias=0.0, data_set="OLD_MONO_100", pyplot=1,  
-                                                prms_names=["separate_vacancy", "A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG",      "conductivity", "nu", "OC", "ms_par", "e_fac"],              
+                                                prms_names=["separate_vacancy", "A.exp", "R.exp ", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG",      "conductivity", "nu", "OC", "ms_par", "e_fac"],              
                                                 prms_values=(true, 0.0, 0.0, 0.0, 22.790631052263787, 22.30016049493873, 21.826412050023904, -0.2886011047255152, 0.13411306312611201, 0.08535699920265348, 3.72, 0.8500086485807636, 7.118766097564314, 28.32000294249703, 0.0)
                                                 ,use_experiment=true);
                                                 
@@ -1690,3 +1732,85 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation([ 800], 
                       
                       9.985, 51.946, 0.19, 0.797)
                       ,use_experiment=true);
+
+                      
+                      
+                      
+                      
+####################################################
+####################################################
+#### SHA vs SEP comparison ##########    CORRECT MODEL #### 
+# shared
+SHA_vs_SEP = ysz_fitting.simple_run(simulations=["EIS"], TC=750, pO2=60, bias=0.0, data_set="OLD_MONO_100", pyplot=1,  
+                        physical_model_name="ysz_model_GAS_LoMA_generic",          
+                        prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                        "A.r",      "A.DG",
+                                        "R.r",      "R.DG",
+                                        "O.r",      "O.DG",
+                                        "nu",     "CO",     "COmm"],
+                        prms_values=(0, 0.0, 0, 0, 0, 22.986833011976863, 0.09356569189369754, 21.955873372516326, 0.07492013587080583, [22.67, 29], -0.6154237534608018, 0.3414399051362852, 666, 17.26576136395294)
+                        ,use_experiment=true);                     
+                      
+# separate
+SHA_vs_SEP = ysz_fitting.simple_run(simulations=["EIS"], TC=750, pO2=60, bias=0.0, data_set="OLD_MONO_100", pyplot=1,  
+                        physical_model_name="ysz_model_GAS_LoMA_generic",          
+                        prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                        "A.r",      "A.DG",
+                                        "R.r",      "R.DG",
+                                        "O.r",      "O.DG",
+                                        "nu",     "CO",     "COmm"],
+                        prms_values=(1, 0.0, 0, 0, 0, 22.239645778031775, -0.11475291933274577, 22.01350710083606, 0.08185420233832269, [21.95, 29], -0.21962624735381847, 0.3249340342508185, 21.975075442182572, 1.7008124346139954)
+                        ,use_experiment=true);                     
+
+#### EXP vs LoMA comparison ########
+# EIS-CV ff1:1 ...          >>> OK                   
+EXP_vs_LOMA = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=800, pO2=[20, 60], bias=0.0, data_set="OLD_MONO_100", pyplot=1,  
+                        physical_model_name="ysz_model_GAS_LoMA_generic",          
+                        prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                    "A.r",      "A.DG",   "A.S",
+                                    "R.r",      "R.DG",   "R.S",
+                                    "O.r",      "O.DG",   "O.S",
+                                    "nu",     "CO",     "COmm"],
+                        prms_values=(1, 0.17, 1, 1, 1, 21.9, 0.161, -0.416, 21.23, -0.126, 0.58, 20.977, 0.071, -0.005, 0.42, 14.052, 1.203)
+                        ,use_experiment=true);
+                                                
+# EIS-CV ff1:1  ... 3 peaks & fail of CV    >>> OK             
+EXP_vs_LOMA = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=800, pO2=[20, 60], bias=0.0, data_set="OLD_MONO_100", pyplot=1,  
+                        physical_model_name="ysz_model_GAS_LoMA_generic",          
+                        prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                    "A.r",      "A.DG",   "A.S",
+                                    "R.r",      "R.DG",   "R.S",
+                                    "O.r",      "O.DG",   "O.S",
+                                    "nu",     "CO",     "COmm"],
+                        prms_values=(1, 0.0, 0, 0, 0, 22.052, -0.043, -0.511, 23.164, 0.114, 0.363, 22.001, 0.014, 0.019, 0.3, 12.655, 3.597)
+                        ,use_experiment=true);
+                        
+# EIS-CV ff1:1  ... 2 peaks & CV ok         >>> OK             
+EXP_vs_LOMA = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=800, pO2=[20, 60], bias=0.0, data_set="OLD_MONO_100", pyplot=1,  
+                        physical_model_name="ysz_model_GAS_LoMA_generic",          
+                        prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+                                    "A.r",      "A.DG",   "A.S",
+                                    "R.r",      "R.DG",   "R.S",
+                                    "O.r",      "O.DG",   "O.S",
+                                    "nu",     "CO",     "COmm"],
+                        prms_values=(1, 0.8, 0, 0, 0, 22.227, 0.005, -0.387, 22.123, 0.25, 0.327, 24.989, -0.013, 0.016, 0.687, 20.188, 1.38)
+                        ,use_experiment=true);                        
+
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      

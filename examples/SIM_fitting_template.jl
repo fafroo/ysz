@@ -48,71 +48,71 @@
 
 
 
-function assemble_meta_SIM_fitting_single_TC(;only_return_SIM_fitting=false, mode="go", bash_command = "echo")  
+function assemble_meta_SIM_fitting_single_TC(;only_return_SIM_fitting=false, mode="go", bash_command="echo", direct_bool=true)  
   #######################################################
   #######################################################
   #######################################################
   ########### SIM_fitting definition ####################
- 
- 
-  TC = 700
-  pO2 = [20, 60]
+
+
+  TC = 750
+  pO2 = [20]
   bias = 0.0
 
   data_set = "OLD_MONO_100"
   simulations = ["EIS", "CV(f)"]
-  fitness_factors = [1.0, 3.0]
-  
-  physical_model_name = "ysz_model_GAS_LoMA_shared"
-  
+  fitness_factors = [1.0, 5.0]
+
+  physical_model_name = "ysz_model_GAS_LoMA_generic"
+
   #####
-  
-  prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp", 
-              "A.r",      "A.DG",        
-              "R.r",      "R.DG", 
-              "O.r",      "O.DG",                      
-              "nu",     "CO",     "COmm"]        
-  
-  prms_lists=      (1, 0.38, 0, 0, 0,
-                    21.5,       [-0.2, 0.0558328, 0.2],
-                    21.5,       [-0.2, 0.0480154, 0.2],
-                    21.5,       [-0.2, -0.0438488, -0.2],
-                    [0.5, 0.8],         [1, 10.0],        [1.0, 10])
+
+  prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
+              "A.r",      "A.DG",   #"A.S",
+              "R.r",      "R.DG",   #"R.S",
+              "O.r",      "O.DG",   #"O.S",
+              "nu",     "CO",     "COmm"]
+
+  prms_lists=      (0, 0.8, 0, 0, 0,
+                    21.9,       [-0.13, -0.05, 0.05, 0.13],    # -0.33,
+                    21.9,       [-0.13, -0.05, 0.05, 0.13],    # 0.33,
+                    21.9,       [-0.13, -0.05, 0.05, 0.13],    # 0.0,
+                    0.7,         [20.0],        [1.0])
 
   mask          =(0, 1, 0, 0, 0,
-                  1,      1, 
-                  1,      1, 
-                  1,      1,
+                  1,      1,   # 1,
+                  1,      1,   # 1,
+                  1,      1,   # 1,
                   1,    1,    1)
   lower_bounds=(0.0, -0.8,  0.0, 0.0, 0.0,
-                15.5,       -0.8,  
-                15.9,       -0.8, 
-                15.7,       -0.8,                
+                15.5,       -0.8,      # -1.0,
+                15.9,       -0.8,      # -1.0,
+                15.7,       -0.8,      # -1.0,
                 0.3,    0.05,     0.05)
-                
-  upper_bounds=(1.0,  1.0,  1.0, 1.0, 1.0,
-                27.5,       0.8,
-                27.9,       0.8,  
-                27.7,       0.8,                         
+
+  upper_bounds=(1.0,  2.0,  1.0, 1.0, 1.0,
+                27.5,       0.8,      #  1.0,
+                27.9,       0.8,      #  1.0,
+                27.7,       0.8,      #  1.0,
                 0.95,   150,     150)
-                
+
 
   scripted_tuple =(1, 1, 1, 1, 1,
-                  1,      1,
-                  1,      1,       
-                  1,      1,
+                  1,      1,   # 1,
+                  1,      1,   # 1,
+                  1,      1,   # 1,
                   1,    1,    1)
-                  
-  
+
+
   #######################################################
-  
+
   name = "cosi_kdesi"
-  
+
   #######################################################
   #############  SIM_fitting construction ###############
   #######################################################
   #######################################################
-  
+
   SIM_fitting = ysz_fitting.build_SIM_fitting(
                                     TC=TC,
                                     pO2=pO2,
@@ -129,18 +129,18 @@ function assemble_meta_SIM_fitting_single_TC(;only_return_SIM_fitting=false, mod
                                     upper_bounds=upper_bounds,
                                     #
                                     print_to_file=false,
-                                    save_dir="../data/SIM_fitting/temp/"*name*"/", 
+                                    save_dir="../data/SIM_fitting/temp/"*name*"/",
                                     file_name="SIM_fitting_default.txt",
                                     #
-                                    bboptimize_bool=false, 
-                                    iteration_count=3000,
+                                    bboptimize_bool=false,
+                                    iteration_count=5000,
                                     )
-                                    
+
   pyplot = false
   plot_each_x_th = 20
   print_only_result = true
-  
-  # 
+
+  #
   if only_return_SIM_fitting
     return SIM_fitting
   else
@@ -151,29 +151,31 @@ function assemble_meta_SIM_fitting_single_TC(;only_return_SIM_fitting=false, mod
                             print_only_result=print_only_result,
                             SIM_fitting=SIM_fitting,
                             scripted_tuple=scripted_tuple,
-                          
+
                               ### if true, no script is called! Just direclty run_par_study_script_wrap()
-                              direct_bool = false,
-  
+                              direct_bool = direct_bool,
+
                             SIM_fitting_mode = true,    #!#!#!#!#!#!#!#!#!#!
-                  
+
                             #bash_command = "sbatch",
                             #bash_command = "echo",
                             #bash_command = "julia",
                             bash_command = bash_command,
-                            
+
                             #mode = "test_one_prms",
                             #mode = "only_print",
                             #mode = "go",
                             mode = mode,
-                            
+
                             express3_bool = true
-                            ) 
-  
-  
+                            )
+
+
     return SIM_fitting
   end
 end
+
+
 
 
 

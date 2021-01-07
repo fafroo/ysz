@@ -1162,7 +1162,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
       return [gv(prm_name*"_$(TC)", throw_error=true) for TC in TC_list]
     else
       if (length(prm_name) >= 3) && (prm_name[2:3]==".r")        
-        return [(X_B*((TC-700)/50.) + X_C) + (gv(prm_name[1]*".S")) for TC in TC_list]
+        return [10.0^((X_B*((TC-700)/50.) + X_C) + (gv(prm_name[1]*".S"))) for TC in TC_list]
       else
         return [X_B*((TC-700)/50.) + X_C for TC in TC_list]
       end
@@ -1178,6 +1178,10 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     X_list = get_X_list(prm_name, TC_list)
     if save_file
       TC_prms_df[!, Symbol(prm_name)] = X_list
+    end
+    
+    if (length(prm_name) >= 3) && (prm_name[2:3]==".r")
+      yscale("log")
     end
     
     plot(TC_list, X_list, 
@@ -1232,7 +1236,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
       push!(reactions_lists[j],
         plot_X(
             prm_name, 
-            (attribute_name=="r" ? "log_10 r" : "DG [eV]"), 
+            (attribute_name=="r" ? "r [m/s^2]" : "DG [eV]"), 
             (line_color_idx == 1 ? reaction_name : "!none"), 
             line_style=line_colors[line_color_idx]*line_styles[i]
         )    
@@ -1267,7 +1271,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     for (i, reaction_name) in enumerate(show_reactions)
       # forward
       push!(r_f_lists, 
-        10.0 .^ reactions_lists[r_idx][i] .* exp.(- (10.0^gv(reaction_name*".S"))* reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
+        reactions_lists[r_idx][i] .* exp.(- (10.0^gv(reaction_name*".S"))* reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
       )
       subplot(2,2,1)
       
@@ -1291,7 +1295,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
       
       # backward
       push!(r_b_lists, 
-        10.0 .^ reactions_lists[r_idx][i] .* exp.( (10.0^gv(reaction_name*".S"))*reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
+        reactions_lists[r_idx][i] .* exp.( (10.0^gv(reaction_name*".S"))*reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
       )
       subplot(2,2,2)
       xlabel("TC (°C)")
@@ -1345,7 +1349,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     end
   end
   
-  mymy_plot(E_eq_list, "E", 1)
+  mymy_plot(E_eq_list, "E_eq", 1)
   mymy_plot(YSZ_Om0_eq_list, "YSZ_Om0_eq", 2)
   mymy_plot(surf_Om_eq_list, "surf_Om_eq", 3)
   mymy_plot(surf_O_eq_list, "surf_O_eq", 4)

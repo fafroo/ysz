@@ -275,7 +275,7 @@ function equilibrium_boundary_conditions(this::YSZParameters)
     else
       y_V = 1/(1.0 + a_yOs + a_yAs)      
       return  phiS_eq,
-              phisLSM_eq,
+              phiLSM_eq,
               a_y0/(1 + a_y0),   
               a_yAs*(y_V),   
               a_yOs*(y_V)
