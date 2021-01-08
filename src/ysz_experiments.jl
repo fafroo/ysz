@@ -203,15 +203,16 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
     
+    porosity = 0.0
     if data_set == Nothing
       AreaEllyt == 1.0    # random value
     else
       if data_set == "OLD_MONO_100"
-        AreaEllyt = 0.00011309724 * 0.7       # m^2 (geometrical area)*(1 - porosity)
+        AreaEllyt = 0.00011309724 * (1-porosity)       # m^2 (geometrical area)*(1 - porosity)
       elseif data_set[1:4] == "MONO"
-        AreaEllyt = 0.00011309724 * 0.7       # m^2 (geometrical area)*(1 - porosity)
+        AreaEllyt = 0.00011309724 * (1-porosity)       # m^2 (geometrical area)*(1 - porosity)
       elseif data_set[1:4] == "POLY"
-        AreaEllyt = 0.000201 * 0.7            # m^2 (geometrical area)*(1 - porosity)
+        AreaEllyt = 0.000201 * (1-porosity)            # m^2 (geometrical area)*(1 - porosity)
       else
         println("\nERROR: ysz_experiments.jl: data_set NOT RECOGNIZED !!!! \n")
         return throw(Exception)
