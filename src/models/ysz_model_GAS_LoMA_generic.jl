@@ -330,7 +330,8 @@ function get_conductivity_from_T(T)
   TC_list = [700, 750, 800, 850]
   # conductivity values for "OLD_MONO_110"
   #conductivity_list = [1.02, 2.07,  3.72, 5.85]
-  conductivity_list = [1.015, 2.06,  3.63, 5.93]
+  #conductivity_list = [1.015, 2.06,  3.63, 5.93] # S/m ... for S_styk = S_kruh*(1 - 0.3) (with porosity)
+  conductivity_list = [0.711, 1.44, 2.54, 4.15]  # S/m ... for S_kruh = pi*0.6*0.6 cm (no porosity used)
   #
   for (i, T_test) in enumerate(TC_list.+273.15)
     if abs(T_test - T) < 0.5

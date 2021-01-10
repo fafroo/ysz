@@ -246,7 +246,6 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     #
     model_symbol.set_parameters!(parameters, prms_values_in, prms_names_in)
 
-    
 
     
     # update the "computed" values in parameters
@@ -262,6 +261,15 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     if conductivity_fitting
       sigma = model_symbol.get_conductivity(parameters)
       R_ohm = (1/sigma)*(width/AreaEllyt)
+      
+      ###
+      #
+      ######
+      #@show sigma
+      #@show R_ohm
+      
+      
+      
       return sigma, R_ohm
     end
 
