@@ -1830,7 +1830,7 @@ EXP_vs_LOMA = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=800, pO2=[
                                     "O.r",      "O.DG",   "O.S",
                                     "nu",     "CO",     "COmm"],
                         prms_values=(1, 0.17, 1, 1, 1, 21.9, 0.161, -0.416, 21.23, -0.126, 0.58, 20.977, 0.071, -0.005, 0.42, 14.052, 1.203)
-                        ,use_experiment=true);
+                        ,use_experiment=true);  
                                                 
 # EIS-CV ff1:1  ... 3 peaks & fail of CV    >>> OK             
 EXP_vs_LOMA = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=800, pO2=[20, 60], bias=0.0, data_set="OLD_MONO_100", pyplot=1,  
@@ -1855,7 +1855,8 @@ EXP_vs_LOMA = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=800, pO2=[
                         ,use_experiment=true);                        
 
                       
-                      
+##### por-0 ##########
+
                       
                       
                       

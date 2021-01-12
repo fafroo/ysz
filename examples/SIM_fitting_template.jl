@@ -63,17 +63,17 @@ function assemble_meta_SIM_fitting_single_TC(;only_return_SIM_fitting=false, mod
 #   simulations = ["EIS", "CV(f)"]
 #   fitness_factors = [1.0, 5.0]
   
-  simulations = ["EIS"]
-  fitness_factors = [1.0]
+  simulations = ["EIS", "CV(f)"]
+  fitness_factors = [1.0, 1.0]
 
   physical_model_name = "ysz_model_GAS_LoMA_generic"
 
   #####
 
   prms_names=["separate_vacancy", "e_fac", "A.exp", "R.exp", "O.exp",
-              "A.r",      "A.DG",   #"A.S",
-              "R.r",      "R.DG",   #"R.S",
-              "O.r",      "O.DG",   #"O.S",
+              "A.r",      "A.DG",   "A.S",
+              "R.r",      "R.DG",   "R.S",
+              "O.r",      "O.DG",   "O.S",
               "nu",     "CO",     "COmm"]
 
 #   prms_lists=      (0, 0.8, 0, 0, 0,
@@ -84,29 +84,30 @@ function assemble_meta_SIM_fitting_single_TC(;only_return_SIM_fitting=false, mod
 
 #   prms_lists=(0, 0.0, 0, 0, 0, 22.986833011976863, 0.09356569189369754, 21.955873372516326, 0.07492013587080583, 22.67, -0.6154237534608018, 0.3414399051362852, 1, 17.26576136395294)
   prms_lists=(0, 0.0, 0, 0, 0, 22.686833011976863, 0.09356569189369754, 21.755873372516326, 0.07492013587080583, 22.47, -0.6154237534608018, 0.3414399051362852, 1, 17.26576136395294)
+  prms_lists=(1, 0.17, 1, 1, 1, 21.9, 0.161, -0.416, 21.23, -0.126, 0.58, 20.977, 0.071, -0.005, 0.42, 14.052, 1.203)
   
   mask          =(0, 0, 0, 0, 0,
-                  1,      1,   # 1,
-                  1,      1,   # 1,
-                  1,      1,   # 1,
+                  1,      1,    0,
+                  1,      1,    0,
+                  1,      1,    0,
                   1,    1,    1)
   lower_bounds=(0.0, -0.8,  0.0, 0.0, 0.0,
-                15.5,       -0.8,      # -1.0,
-                15.9,       -0.8,      # -1.0,
-                15.7,       -0.8,      # -1.0,
+                15.5,       -0.8,       -1.0,
+                15.9,       -0.8,       -1.0,
+                15.7,       -0.8,       -1.0,
                 0.3,    0.05,     0.05)
 
   upper_bounds=(1.0,  2.0,  1.0, 1.0, 1.0,
-                27.5,       0.8,      #  1.0,
-                27.9,       0.8,      #  1.0,
-                27.7,       0.8,      #  1.0,
+                27.5,       0.8,        1.0,
+                27.9,       0.8,        1.0,
+                27.7,       0.8,        1.0,
                 0.95,   150,     150)
 
 
   scripted_tuple =(1, 1, 1, 1, 1,
-                  1,      1,   # 1,
-                  1,      1,   # 1,
-                  1,      1,   # 1,
+                  1,      1,    1,
+                  1,      1,    1,
+                  1,      1,    1,
                   1,    1,    1)
 
 
@@ -142,8 +143,8 @@ function assemble_meta_SIM_fitting_single_TC(;only_return_SIM_fitting=false, mod
                                     iteration_count=5000,
                                     )
 
-  pyplot = false
-  plot_each_x_th = 20
+  pyplot = true
+  plot_each_x_th = 50
   print_only_result = true
 
   #
