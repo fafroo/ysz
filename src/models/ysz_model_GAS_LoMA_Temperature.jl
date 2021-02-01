@@ -474,11 +474,11 @@ end
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
       if this.separate_vacancy
-        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
-        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL    *0.7
+        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL      *0.7
       else
-        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
-        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL    *0.7
+        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL    *0.7
       end
     end
 end
@@ -815,7 +815,13 @@ function breaction!(f,u,node,this::YSZParameters)
         electroR=electroreaction(this,u)
         oxide_ads = exponential_oxide_adsorption(this, u)
         gas_ads = exponential_gas_adsorption(this, u)
-        f[iy]= - this.mO*oxide_ads
+        
+        
+        
+        f[iy]= -this.mO*oxide_ads*0.7
+        
+        
+        
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
         # sign is negative bcs of the equation implementation
         f[iyAs]= this.mO*oxide_ads - this.mO*electroR 
@@ -875,7 +881,7 @@ function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEll
     dphi_end = U[iphi, end] - U[iphi, end-1]
     dx_end = X[end] - X[end-1]
     dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.COmm # (e0*zA*nA_s)
+    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.COmm            *0.7 # (e0*zA*nA_s)
     meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
     return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
 end
@@ -884,8 +890,8 @@ end
 # Steady part of measurement functional
 #
 function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
-    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
-    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
+    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))               *0.7
+    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))                  *0.7
 end
 
 

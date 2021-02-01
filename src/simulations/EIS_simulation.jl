@@ -551,7 +551,7 @@ function EIS_crop_to_f_interval(EIS_exp, f_interval)
   return filter(row -> (f_interval[1] < row.f) && (row.f < f_interval[2]), EIS_exp)
 end
 
-function EIS_data_preprocessing(EIS_df)
+function EIS_data_preprocessing(EIS_df, trim_inductance=false)
   
   function get_lowest_freq_idx(EIS_df; find_at_least_negative=10)
     lowest_freq_idx = -1
@@ -606,19 +606,22 @@ function EIS_data_preprocessing(EIS_df)
   if x_intersection_freq_idx == -1
     return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
   else
-    # inductance cut off
-    accepted_inductance_real_axis_threshold = 0.00*real(EIS_df.Z[lowest_freq_idx]) + 1.00*real(EIS_df.Z[x_intersection_freq_idx])
-    highest_freq_idx = -1
-    for i in (x_intersection_freq_idx + 1 ):length(EIS_df.f)
-      if real(EIS_df.Z[i]) > accepted_inductance_real_axis_threshold
-        highest_freq_idx = i
-        break
+    # (non)-inductance cut off
+    if trim_inductance
+      highest_freq_idx = x_intersection_freq_idx
+    else
+      accepted_inductance_real_axis_threshold = 0.00*real(EIS_df.Z[lowest_freq_idx]) + 1.00*real(EIS_df.Z[x_intersection_freq_idx])
+      highest_freq_idx = -1
+      for i in (x_intersection_freq_idx + 1 ):length(EIS_df.f)
+        if real(EIS_df.Z[i]) > accepted_inductance_real_axis_threshold
+          highest_freq_idx = i 
+          break
+        end
+      end
+      if highest_freq_idx == -1
+        return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
       end
     end
-    if highest_freq_idx == -1
-      return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
-    end
-
     return DataFrame(f = EIS_df.f[lowest_freq_idx:highest_freq_idx], Z = EIS_df.Z[lowest_freq_idx:highest_freq_idx])
   end
 end

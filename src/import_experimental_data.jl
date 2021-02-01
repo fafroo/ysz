@@ -146,10 +146,25 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
     # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
     fNAME=string("../snehurka/experimental_data_PSS/HebbWagner/$(TC) C/$(TC)_EIS $(bias)V v ref 50mV amplituda.z")
   
-  
-  elseif data_set=="HebbWagner_110"
-    # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
+  ##########################################################
+  # ! ! ! ! ! pO2 used as a repetition number ! ! ! ! ! ! 
+  elseif data_set=="HebbWagner_110_more_biases"
+    # TC \in (600 : 20 : 720) ...
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/02 YSZ 110 Ag-Ag/700 a 800 C vice biasu/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+  
+  elseif data_set=="HebbWagner_100"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/04 YSZ 100 Ag-Ag/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+    
+  elseif data_set=="HebbWagner_110"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/02 YSZ 110 Ag-Ag/vsechny teploty a jeden bias/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+    
+  elseif data_set=="HebbWagner_111"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/03 YSZ 111 Ag-Ag/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+      
+  ##########################################################
   
   
   elseif length(data_set) >= 8 && data_set[1:8]=="MONO_110"

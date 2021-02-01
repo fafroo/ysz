@@ -705,6 +705,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         show_all_initial_guesses=false,
                         with_errors=false, which_initial_guess="both",
                         use_DRT=false, DRT_draw_semicircles=false,
+                        trim_inductance=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
   ####
   ####  TODO:
@@ -830,7 +831,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     if f_interval!=Nothing
       if f_interval == "auto"
         #typical_plot_exp(SIM, EIS_exp, "! before")
-        EIS_exp = EIS_data_preprocessing(EIS_exp)
+        EIS_exp = EIS_data_preprocessing(EIS_exp, trim_inductance)
         #typical_plot_exp(SIM, EIS_exp, "! after")
       else
         EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
