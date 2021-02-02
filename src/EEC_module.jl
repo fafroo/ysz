@@ -680,17 +680,22 @@ end
 
 
 
-function save_EEC_prms_item_to_file(TC, pO2, bias, data_set, prms_names, prms_values, saving_destination; append=true)
+function save_EEC_prms_item_to_file(TC, pO2, bias, data_set, prms_names, prms_values, saving_destination; append=true, save_only_R1=false)
 
   full_prms_names = ("TC", "pO2", "bias", "data_set", (prms_names)...)
   full_prms_values = (TC, pO2, bias, data_set, prms_values...)
 
   df_out = DataFrame()
-  
-  for (i, name) in enumerate(full_prms_names)
-    df_out[!, Symbol(name)] = length(full_prms_values) == length(full_prms_names) ? [full_prms_values[i]] : []
+    
+  if save_only_R1
+    if append==true      
+      df_out[!, Symbol("R1")] = [prms_values[findall(x -> x=="R1", prms_names)[1]]]
+    end
+  else
+    for (i, name) in enumerate(full_prms_names)
+      df_out[!, Symbol(name)] = length(full_prms_values) == length(full_prms_names) ? [full_prms_values[i]] : []
+    end
   end
-  
   CSV.write(saving_destination, df_out, delim="\t", append=append)
 end
         
@@ -706,7 +711,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         with_errors=false, which_initial_guess="both",
                         use_DRT=false, DRT_draw_semicircles=false,
                         trim_inductance=false,
-                        save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
+                        save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt", save_R1_file=false)
   ####
   ####  TODO:
   ####  [?] initial values handling (from file, probably)
@@ -791,6 +796,11 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     mkpath(save_to_folder)
     saving_destination = save_to_folder*file_name
     save_EEC_prms_item_to_file([], [], [], [], EEC_actual.prms_names, [], saving_destination, append=false)
+    if save_R1_file
+      R1_file_name = split(file_name, '.')[1]*"_R1."*split(file_name, '.')[2]
+      R1_saving_destination = save_to_folder*R1_file_name
+      save_EEC_prms_item_to_file([], [], [], [], EEC_actual.prms_names, [], R1_saving_destination, append=false, save_only_R1=true)
+    end
   end
   
   cycle_number = 0
@@ -822,6 +832,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(missing_array)
       if save_file_bool
         save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*file_name)
+        if save_R1_file
+          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*R1_file_name, save_only_R1=true)
+        end
       end
       cycle_number += -1
       continue
@@ -956,7 +969,10 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     end
     
     if save_file_bool
-          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*file_name)
+      save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*file_name)
+      if save_R1_file        
+        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*R1_file_name, save_only_R1=true)    
+      end
     end
     
     EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
