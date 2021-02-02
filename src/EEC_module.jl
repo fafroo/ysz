@@ -76,13 +76,13 @@ function get_EEC(EEC_structure)
   EEC_structure_splitted = split(EEC_actual.structure, "-")
   prms_names = Array{String}(undef, 0)
   
-  impedance_string = "0"
-  
   for (i, token) in enumerate(EEC_structure_splitted)
     if token=="R"
       append!(prms_names, ["R$(i)"])
     elseif token=="L"
       append!(prms_names, ["L$(i)"])
+    elseif token=="C"
+      append!(prms_names, ["C$(i)"])  
     elseif token=="RCPE"
       append!(prms_names, ["R$(i)", "C$(i)", "alpha$(i)"])
     elseif token=="RC"
@@ -111,7 +111,9 @@ function evaluate_EEC(EEC::EEC_data_struct, omega)
     if token=="R"
       total_Z += g(EEC, "R$(i)")
     elseif token=="L"
-      total_Z += im*omega*g(EEC, "L$(i)")*L_units
+      total_Z += im*omega*g(EEC, "L$(i)")*L_units      
+    elseif token=="C"
+      total_Z += 1/(im*omega*g(EEC, "C$(i)"))
     elseif token=="RCPE"
       total_Z += g(EEC, "R$(i)")    /( 1 + (g(EEC, "R$(i)") * g(EEC, "C$(i)") * im*omega)^(g(EEC, "alpha$(i)")) )
     elseif token=="RC"
@@ -176,7 +178,7 @@ end
 #
 #     mask can be generated via string input, e.g. every "L" should be constant >>
 #
-function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Nothing, alpha_low=0.0, alpha_upp=1.0, with_errors=false)
+function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Nothing, alpha_low=0.0, alpha_upp=1.0, with_errors=false, error_type)
   
   projection_plot_maximum = 0.02
   projection_plot_minimum = 10
@@ -282,7 +284,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
 #     PyPlot.show()
     
     
-    err = fitnessFunction(SIM, EIS_EEC, EIS_exp)
+    err = fitnessFunction(SIM, EIS_EEC, EIS_exp, error_type=error_type)
     
 #     EEC_plot_error_projection(
 #       take_only_masked(mask, EEC_actual.prms_values), 
@@ -305,7 +307,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq", plot_legend=false)[1]
     #typical_plot_sim(SIM, EIS_EEC)
-    #println("e = $(fitnessFunction(SIM, EIS_EEC, EIS_exp))\nx = $(x)")
+    #println("e = $(fitnessFunction(SIM, EIS_EEC, EIS_exp, error_type=error_type))\nx = $(x)")
     return get_EIS_value_from_gf(EIS_EEC, gf)
   end  
   
@@ -369,9 +371,9 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     begin # Optim
       fit_O = optimize(to_optimize, x0M, #lower=lowM, upper=uppM, 
         #Δ=1000000, 
-        #x_tol=1.0e-14,
-        #f_tol=1.0e-14, 
-        #g_tol=1.0e-14, 
+        #x_tol=1.0e-18,
+        #f_tol=1.0e-18, 
+        #g_tol=1.0e-18
         #autodiff=:central,
         #LevenbergMarquardt(),
         #Dogleg(),
@@ -467,10 +469,10 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
   RCPE_count = get_count_of_RCPEs(EEC)
   
   for i in 1:RCPE_count
-    # R
+    # RCPE-R
     output[3 + (i-1)*3] = width*(1.0/RCPE_count)
     
-    # C
+    # RCPE-C
     central_capacitance = 1/(2*pi*highest_freq*output[3])
     if RCPE_count == 1
       spread_item = 0
@@ -482,12 +484,10 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
     end
     output[4 + (i-1)*3] = central_capacitance*(1 + spread_item)
     
-    # alpha
-    output[5 + (i-1)*3] = 0.9
-  end
-  
-  
-  
+    # RCPE-alpha
+    output[5 + (i-1)*3] = 0.9        
+
+
 # #   # R3, R4
 # #   output[3] = width*smaller_circle_resistance_ratio
 # #   output[6] = width*(1 - smaller_circle_resistance_ratio)
@@ -505,6 +505,14 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
 #   @show central_capacitance
 #   @show output[4]
 #   @show output[7]
+  end
+  
+  # C
+  if length(output)==2 + 3*RCPE_count + 1
+    output[2 + 3*RCPE_count + 1] = max(0, -1/(2*pi*EIS_exp.f[1]*imag(EIS_exp.Z[1])))
+  end
+  
+  
   
   #@show imag(EIS_exp.Z[end]) 
   #@show left, right, width
@@ -545,6 +553,12 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
     #alpha
     lower_limits[5 + (i-1)*3] = -Inf
     upper_limits[5 + (i-1)*3] = Inf    
+  end
+  
+  # C[end]
+  if prms_length == 2 + 3*RCPE_count + 1
+    lower_limits[end] = 0.0
+    upper_limits[end] = Inf
   end
   
   EEC.lower_limits_for_fitting = lower_limits
@@ -666,24 +680,29 @@ end
 
 
 
-function save_EEC_prms_item_to_file(TC, pO2, bias, data_set, prms_names, prms_values, saving_destination; append=true)
+function save_EEC_prms_item_to_file(TC, pO2, bias, data_set, prms_names, prms_values, saving_destination; append=true, save_only_R1=false)
 
   full_prms_names = ("TC", "pO2", "bias", "data_set", (prms_names)...)
   full_prms_values = (TC, pO2, bias, data_set, prms_values...)
 
   df_out = DataFrame()
-  
-  for (i, name) in enumerate(full_prms_names)
-    df_out[!, Symbol(name)] = length(full_prms_values) == length(full_prms_names) ? [full_prms_values[i]] : []
+    
+  if save_only_R1
+    if append==true      
+      df_out[!, Symbol("R1")] = [prms_values[findall(x -> x=="R1", prms_names)[1]]]
+    end
+  else
+    for (i, name) in enumerate(full_prms_names)
+      df_out[!, Symbol(name)] = length(full_prms_values) == length(full_prms_names) ? [full_prms_values[i]] : []
+    end
   end
-  
   CSV.write(saving_destination, df_out, delim="\t", append=append)
 end
         
 
 
 function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
-                        f_interval=Nothing, succes_fit_threshold = 0.002,
+                        f_interval=Nothing, succes_fit_threshold = 0.002, error_type="normalized",
                         fixed_prms_names=[], fixed_prms_values=[],
                         init_values=Nothing, alpha_low=0.2, alpha_upp=1, #fitting_mask=Nothing,
                         EEC_structure="R-L-RCPE-RCPE",
@@ -691,7 +710,8 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         show_all_initial_guesses=false,
                         with_errors=false, which_initial_guess="both",
                         use_DRT=false, DRT_draw_semicircles=false,
-                        save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt")
+                        trim_inductance=false,
+                        save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt", save_R1_file=false)
   ####
   ####  TODO:
   ####  [?] initial values handling (from file, probably)
@@ -723,8 +743,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   ####  [ ] chcete vypisovat L2 v mikro-Henry nebo v Henry? stejne jako zadavani a kdekoliv
   ####  [ ] jsou limity pro alphu [0.2, 1.0] ok? nebo by bylo lepsi 0.1? (protoze pro 0.01 to delalo divne veci) 750, 80, -0.5, "MONO_110"
   
-  function succesful_fit(EIS_EEC, EIS_exp)
-    if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp) > succes_fit_threshold
+  function succesful_fit(error, EIS_EEC, EIS_exp, error_type)
+    #if fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp, error_type=error_type) > succes_fit_threshold
+    if error > succes_fit_threshold
       return false
     else
       return true
@@ -775,6 +796,11 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     mkpath(save_to_folder)
     saving_destination = save_to_folder*file_name
     save_EEC_prms_item_to_file([], [], [], [], EEC_actual.prms_names, [], saving_destination, append=false)
+    if save_R1_file
+      R1_file_name = split(file_name, '.')[1]*"_R1."*split(file_name, '.')[2]
+      R1_saving_destination = save_to_folder*R1_file_name
+      save_EEC_prms_item_to_file([], [], [], [], EEC_actual.prms_names, [], R1_saving_destination, append=false, save_only_R1=true)
+    end
   end
   
   cycle_number = 0
@@ -806,6 +832,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(missing_array)
       if save_file_bool
         save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*file_name)
+        if save_R1_file
+          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*R1_file_name, save_only_R1=true)
+        end
       end
       cycle_number += -1
       continue
@@ -815,7 +844,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     if f_interval!=Nothing
       if f_interval == "auto"
         #typical_plot_exp(SIM, EIS_exp, "! before")
-        EIS_exp = EIS_data_preprocessing(EIS_exp)
+        EIS_exp = EIS_data_preprocessing(EIS_exp, trim_inductance)
         #typical_plot_exp(SIM, EIS_exp, "! after")
       else
         EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
@@ -878,12 +907,12 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
           plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC_pre, "!EEC initial guess $(init_values_idx)")
         end
         
-        EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors)
-## HERE        
+        EEC_find_fit!(EEC_actual, EIS_exp, mask=mask, alpha_low=alpha_low, alpha_upp=alpha_upp, with_errors=with_errors, error_type=error_type)
+        
         HF_LF_correction!(EEC_actual)        
         
         EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-        actual_error = fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)
+        actual_error = fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp, error_type=error_type)
         if actual_error < best_error
           best_error = actual_error
           best_prms_values = deepcopy(EEC_actual.prms_values)
@@ -931,7 +960,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     
     EEC_actual.prms_values = deepcopy(best_prms_values)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-    actual_error = fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp)        
+    actual_error = best_error
     
 
     
@@ -940,13 +969,16 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     end
     
     if save_file_bool
-          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*file_name)
+      save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*file_name)
+      if save_R1_file        
+        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*R1_file_name, save_only_R1=true)    
+      end
     end
     
     EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
     
     
-    if !(succesful_fit(EIS_EEC, EIS_exp))
+    if !(succesful_fit(actual_error, EIS_EEC, EIS_exp, error_type))
       warning_buffer *="WARNING: (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! // error $(actual_error) > defined threshold $(succes_fit_threshold) //\n"
       # TODO ... optionally save picture of the result for humanous check
       # or this reports can go to another error_log_file.txt
@@ -1226,7 +1258,10 @@ function get_joint_EEC_data_via_bias(EEC_data_1, EEC_data_2)
 end
   
   
-function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=false, DRT_draw_semicircles=false, plot_legend=false, f_interval="auto")
+function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, 
+                            use_DRT=false, DRT_draw_semicircles=false, plot_legend=false, 
+                            f_interval="auto",
+                            error_type="normalized")
 
   for   (TC_idx, TC_item) in enumerate(TC), 
       (pO2_idx, pO2_item) in enumerate(pO2), 
@@ -1262,7 +1297,7 @@ function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, use_DRT=fal
     
     println("--- ($(TC_item), $(pO2_item), $(bias_item), $(data_set)) --- ")
     @show prms_values
-    println("fitnessFunction = $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp))")
+    println("fitnessFunction = $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp, error_type=error_type))")
     
   end  
 end

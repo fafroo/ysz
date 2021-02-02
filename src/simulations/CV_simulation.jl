@@ -6,7 +6,7 @@ using PyPlot
 
 const  CV_standard_figure_num = 5
 const  CV_default_physical_model_name = "ysz_model_GAS_LoMA_Temperature"
-const  fast_mode_sample = 4
+const  fast_mode_sample = 5
 
 
 ######################################
@@ -23,6 +23,7 @@ mutable struct CV_simulation <: abstract_simulation
   #
   upp_bound::Float32
   low_bound::Float32
+  width::Float32
   dx_exp::Float64
   sample::Int64
   voltrate::Float32
@@ -44,7 +45,7 @@ function string(SIM::CV_simulation)
   return "$(SIM.name)_TC_$(SIM.TC)_pO2_$(SIM.pO2)"
 end
 
-function CV_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_name=CV_default_physical_model_name, fast_mode=false, upp_bound=1.0, low_bound=-1.0, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
+function CV_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_name=CV_default_physical_model_name, fast_mode=false, upp_bound=1.0, low_bound=-1.0, width=0.0005, dx_exp=-9, sample=8, voltrate=0.01, fig_size=(9, 6), checknodes=get_shared_checknodes(CV_simulation()), fitness_factor=1.0, plot_legend=true)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -60,6 +61,7 @@ function CV_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_na
       #
       this.upp_bound = upp_bound
       this.low_bound = low_bound
+      this.width = width
       this.dx_exp = dx_exp
       this.sample = sample
       this.voltrate = voltrate
@@ -197,7 +199,7 @@ end
 function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_in, pyplot::Int=0) 
   ysz_experiments.run_new(
       out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false), 
-      dx_exp=SIM.dx_exp, sample= (SIM.fast_mode ? fast_mode_sample : SIM.sample), 
+      width=SIM.width, dx_exp=SIM.dx_exp, sample= (SIM.fast_mode ? fast_mode_sample : SIM.sample), 
       upp_bound_eta=SIM.upp_bound, low_bound_eta=SIM.low_bound, voltrate=SIM.voltrate, fast_CV_mode=SIM.fast_mode,
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,

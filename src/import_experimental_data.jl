@@ -20,8 +20,20 @@ function import_CVtoDataFrame_path(f_name)
     df
 end
 
+#  "22-10-2020-point_2_PROKOP.txt"
+
 function import_EIStoDataFrame_path(f_name)
     #df = DataFrame(f = Float32[], Re = Float32[], Im = Float32[])
+    if length(f_name) >= 10 && f_name[end-9:end]=="PROKOP.txt"
+      # position of frequency column
+      freq_col_idx = parse(Int32,f_name[end-10])
+      
+      df = CSV.File(f_name, decimal=',') |> DataFrame            
+      return DataFrame(
+        f = reverse(deepcopy(df[!, freq_col_idx])), 
+        Z = reverse(deepcopy(df[!, freq_col_idx+1] .- im*df[!, freq_col_idx+2]))
+      )
+    end
     df = DataFrame(f = Float32[], Z = Complex[])
     line_is_valid=false
     open(f_name) do file
@@ -38,7 +50,7 @@ function import_EIStoDataFrame_path(f_name)
         end
     end
     df.f = reverse(df.f)
-    df.Z = reverse(df.Z)
+    df.Z = reverse(df.Z)    
     return df
 end
 
@@ -134,10 +146,25 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
     # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
     fNAME=string("../snehurka/experimental_data_PSS/HebbWagner/$(TC) C/$(TC)_EIS $(bias)V v ref 50mV amplituda.z")
   
-  
-  elseif data_set=="HebbWagner_110"
-    # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
+  ##########################################################
+  # ! ! ! ! ! pO2 used as a repetition number ! ! ! ! ! ! 
+  elseif data_set=="HebbWagner_110_more_biases"
+    # TC \in (600 : 20 : 720) ...
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/02 YSZ 110 Ag-Ag/700 a 800 C vice biasu/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+  
+  elseif data_set=="HebbWagner_100"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/04 YSZ 100 Ag-Ag/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+    
+  elseif data_set=="HebbWagner_110"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/02 YSZ 110 Ag-Ag/vsechny teploty a jeden bias/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+    
+  elseif data_set=="HebbWagner_111"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/03 YSZ 111 Ag-Ag/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+      
+  ##########################################################
   
   
   elseif length(data_set) >= 8 && data_set[1:8]=="MONO_110"

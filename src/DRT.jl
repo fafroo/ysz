@@ -229,9 +229,10 @@ function plot_DRT_Rtau(DRT::DRT_struct, to_standard_figure=true, print_bool=fals
   
   
   previos_maximum = (PyPlot.gca()).get_ylim()[2]
-  @show previos_maximum
   
-  ylim(0, max(maximum(peaks_df.R)*1.1, previos_maximum)  )
+  ylim(0, max(
+    (length(peaks_df.R) > 0 ? maximum(peaks_df.R)*1.1 : 0.0001), 
+    previos_maximum)  )
   plot(log10.(peaks_df.C.*peaks_df.R), peaks_df.R, "o")
   grid(true)
 

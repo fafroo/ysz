@@ -21,6 +21,7 @@ mutable struct EIS_simulation <: abstract_simulation
   #
   physical_model_name::String
   #
+  width::Float64
   dx_exp::Float64
   f_range::Tuple
   f_interval::Tuple
@@ -50,7 +51,7 @@ function string(SIM::EIS_simulation)
   return "$(SIM.name)_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
 end
 
-function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_name=EIS_default_physical_model_name, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
+function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_name=EIS_default_physical_model_name, width=0.0005, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
   output = Array{abstract_simulation}(undef,0)
   for TC_item in TC
     for pO2_item in pO2
@@ -64,6 +65,7 @@ function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_n
         #
         this.physical_model_name=physical_model_name
         #
+        this.width = width
         this.dx_exp = dx_exp
         this.f_range = f_range
         this.f_interval = f_interval
@@ -297,7 +299,7 @@ function typical_run_simulation(SIM::EIS_simulation, prms_names_in, prms_values_
       pyplot=(pyplot == 2 ? true : false), 
       EIS_TDS=(SIM.use_TDS > 0 ? true : false), tref=SIM.tref,
       EIS_IS=(SIM.use_TDS > 0 ? false : true), out_df_bool=true, bias=SIM.bias, f_range=SIM.f_range,
-      dx_exp=SIM.dx_exp,      
+      width=SIM.width, dx_exp=SIM.dx_exp,      
       T=TCtoT(SIM.TC), pO2=pO2tosim(SIM.pO2), data_set=SIM.data_set,
       prms_names_in=prms_names_in,
       prms_values_in=prms_values_in,
@@ -404,16 +406,33 @@ function real_Bode_get_normalization_factor(a, b, A, B=1)
   return (a*A + b*B)/(a*a + b*b)
 end
 
-function fitnessFunction(SIM::EIS_simulation, sim_EIS::DataFrame, exp_EIS::DataFrame; relative_error=false)
-        err = 0.0
-        
-        min_imag = Inf     
-        
-        sum_err_real = 0.0
-        sum_err_imag = 0.0        
-        
+function fitnessFunction(SIM::EIS_simulation, sim_EIS::DataFrame, exp_EIS::DataFrame; error_type="normalized")
+        err = 0.0        
         if  exp_EIS.f == sim_EIS.f
-                
+            if error_type=="relative"
+                for row = 1:size(exp_EIS,1)
+                    err += (
+                                      (real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))/
+                                      (real(exp_EIS.Z[row]))
+                                    )^2
+                     err += (                        
+                                       (imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))/
+                                       (imag(exp_EIS.Z[row]))
+                                     )^2 
+
+#                     diff_real = abs(imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))
+#                     diff_imag = abs(real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
+#                     
+#                     diff_real > max_err_real ? max_err_real = diff_real : true
+#                     diff_imag > max_err_imag ? max_err_imag = diff_imag : true
+#                     
+#                     err +=( diff_real^2 + diff_imag^2)
+                end
+            elseif error_type=="normalized"
+                min_imag = Inf     
+                #
+                sum_err_real = 0.0
+                sum_err_imag = 0.0
                 for row = 1:size(exp_EIS,1)
                     if (act_imag = imag(exp_EIS.Z[row])) < min_imag                      
                       min_imag = act_imag
@@ -425,16 +444,8 @@ function fitnessFunction(SIM::EIS_simulation, sim_EIS::DataFrame, exp_EIS::DataF
                     sum_err_imag += (                        
                                       (act_imag - imag(sim_EIS.Z[row]))
                                     )^2 
-
-#                     diff_real = abs(imag(exp_EIS.Z[row]) - imag(sim_EIS.Z[row]))
-#                     diff_imag = abs(real(exp_EIS.Z[row]) - real(sim_EIS.Z[row]))
-#                     
-#                     diff_real > max_err_real ? max_err_real = diff_real : true
-#                     diff_imag > max_err_imag ? max_err_imag = diff_imag : true
-#                     
-#                     err +=( diff_real^2 + diff_imag^2)
                 end
-                
+                #
                 # normalization                
                 real_factor = (
                                   real_Bode_get_normalization_factor(
@@ -449,6 +460,10 @@ function fitnessFunction(SIM::EIS_simulation, sim_EIS::DataFrame, exp_EIS::DataF
                 sum_err_real *= real_factor^2                              
                 #
                 err = sum_err_imag + sum_err_real 
+            else
+                println("ERROR: wrong specification of error_type $(error_type)")
+                return throw(Exception())
+            end
         else
                 println("ERROR: EIS_fitnesFunction: shape mismatch or different *.f values")
                 return Exception()
@@ -536,7 +551,7 @@ function EIS_crop_to_f_interval(EIS_exp, f_interval)
   return filter(row -> (f_interval[1] < row.f) && (row.f < f_interval[2]), EIS_exp)
 end
 
-function EIS_data_preprocessing(EIS_df)
+function EIS_data_preprocessing(EIS_df, trim_inductance=false)
   
   function get_lowest_freq_idx(EIS_df; find_at_least_negative=10)
     lowest_freq_idx = -1
@@ -591,19 +606,22 @@ function EIS_data_preprocessing(EIS_df)
   if x_intersection_freq_idx == -1
     return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
   else
-    # inductance cut off
-    accepted_inductance_real_axis_threshold = 0.00*real(EIS_df.Z[lowest_freq_idx]) + 1.00*real(EIS_df.Z[x_intersection_freq_idx])
-    highest_freq_idx = -1
-    for i in (x_intersection_freq_idx + 1 ):length(EIS_df.f)
-      if real(EIS_df.Z[i]) > accepted_inductance_real_axis_threshold
-        highest_freq_idx = i
-        break
+    # (non)-inductance cut off
+    if trim_inductance
+      highest_freq_idx = x_intersection_freq_idx
+    else
+      accepted_inductance_real_axis_threshold = 0.00*real(EIS_df.Z[lowest_freq_idx]) + 1.00*real(EIS_df.Z[x_intersection_freq_idx])
+      highest_freq_idx = -1
+      for i in (x_intersection_freq_idx + 1 ):length(EIS_df.f)
+        if real(EIS_df.Z[i]) > accepted_inductance_real_axis_threshold
+          highest_freq_idx = i 
+          break
+        end
+      end
+      if highest_freq_idx == -1
+        return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
       end
     end
-    if highest_freq_idx == -1
-      return DataFrame(f = EIS_df.f[lowest_freq_idx:end], Z = EIS_df.Z[lowest_freq_idx:end])
-    end
-
     return DataFrame(f = EIS_df.f[lowest_freq_idx:highest_freq_idx], Z = EIS_df.Z[lowest_freq_idx:highest_freq_idx])
   end
 end

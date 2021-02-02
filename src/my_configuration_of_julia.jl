@@ -23,6 +23,7 @@ Pkg.add("DataFrames")
 Pkg.add("CSV")
 Pkg.add("LeastSquaresOptim")
 Pkg.add("Optim")
+Pkg.add("SparseArrays")
 
 # for NNLS
 Pkg.add("MathProgBase")

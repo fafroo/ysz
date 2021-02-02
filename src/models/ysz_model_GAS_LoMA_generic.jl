@@ -1,4 +1,4 @@
-module ysz_model_GAS_LoMA_Temperature
+module ysz_model_GAS_LoMA_generic
 
 
 
@@ -22,10 +22,12 @@ using PyPlot
 using DataFrames
 using CSV
 using LeastSquaresOptim
+using SparseArrays
 
 const bulk_species = (iphi, iy) = (1, 2)
-const surface_species = (iyAs, iyOs) = (3, 4)
-const surface_names = ("yAs", "yOs")
+const surface_species = (iyAs, iyOs, iphiYSZ) = (3, 4, 5)
+const surface_names = ("yAs", "yOs", "phiYSZ")
+
 
 const index_driving_species = iphi
 
@@ -110,7 +112,11 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     zL::Float64   # average charge number [1]
     yB::Float64   # electroneutral value [1]
     
+    phiLSM::Float64
+    
     phi_eq::Float64 # equilibrium voltage [V]
+    phiS_eq::Float64
+    phiLSM_eq::Float64
     y0_eq::Float64
     yAs_eq::Float64
     yOs_eq::Float64
@@ -193,7 +199,7 @@ function YSZParameters(this)
     this.COmm_B=-Inf
     this.COmm_C=-Inf
     #
-    this.e_fac = 0.0
+    this.e_fac = 0.0    
     
 
     # known
@@ -238,13 +244,14 @@ end
 # end
 
 function equilibrium_boundary_conditions(this::YSZParameters)
-    phi_eq =  (
+    phiS_eq =  (
                 (this.kB*this.T*log(sqrt(this.pO2)*((1-this.yB)/this.yB)) - this.O.DG/2.0 - this.R.DG - this.A.DG)
                 /
                 ((+2*this.e_fac + 2)*this.e0)
               )
+    phiLSM_eq = (1 + this.e_fac)*phiS_eq
     a_yOs = this.pO2^(1/2.0)*exp(-this.O.DG/(2 * this.kB * this.T))
-    a_yAs = a_yOs*exp( -(this.R.DG + 2*this.e_fac*this.e0*phi_eq)/(this.kB * this.T))
+    a_yAs = a_yOs*exp( -(this.R.DG + 2*this.e_fac*this.e0*phiS_eq)/(this.kB * this.T))
     a_y0 = a_yAs*exp( -this.A.DG/(this.kB * this.T))
     
 #     yOs = a_yOs/(1 + a_yOs)
@@ -260,13 +267,15 @@ function equilibrium_boundary_conditions(this::YSZParameters)
 #     @show 1/(1.0 + a_yOs + a_yAs)
     
     if this.separate_vacancy
-      return  phi_eq,  
+      return  phiS_eq,  
+              phiLSM_eq,
               a_y0/(1 + a_y0),    
               a_yAs/(1 + a_yAs),  
               a_yOs/(1 + a_yOs)
     else
       y_V = 1/(1.0 + a_yOs + a_yAs)      
-      return  phi_eq,  
+      return  phiS_eq,
+              phiLSM_eq,
               a_y0/(1 + a_y0),   
               a_yAs*(y_V),   
               a_yOs*(y_V)
@@ -275,10 +284,12 @@ end
 
 # boundary conditions
 function set_typical_boundary_conditions!(sys, parameters::YSZParameters)
-    sys.boundary_values[iphi,1]=parameters.phi_eq
-    sys.boundary_values[iphi,2]=0.0e-3
+    #sys.boundary_values[index_driving_species,1]=parameters.phi_eq
+    #sys.boundary_factors[index_driving_species,1]=VoronoiFVM.Dirichlet
     #
-    sys.boundary_factors[iphi,1]=VoronoiFVM.Dirichlet
+    parameters.phiLSM = parameters.phiLSM_eq
+    #
+    sys.boundary_values[iphi,2]=0.0
     sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
     #
     sys.boundary_values[iy,2]=parameters.yB
@@ -295,7 +306,7 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
     for inode=1:size(inival,2)
         x = coordinates(grid)[inode]
         if x < treshold_for_linear_function
-          inival[iphi, inode] = (((treshold_for_linear_function - x)*parameters.phi_eq)/
+          inival[iphi, inode] = (((treshold_for_linear_function - x)*parameters.phiS_eq)/
                                   treshold_for_linear_function)                                  
           inival[iy, inode] = (((treshold_for_linear_function - x)*parameters.y0_eq + x*parameters.yB)/
                                   treshold_for_linear_function)
@@ -306,6 +317,8 @@ function get_typical_initial_conditions(sys, parameters::YSZParameters)
     end
     inival[iyAs,1] = parameters.yAs_eq
     inival[iyOs,1] = parameters.yOs_eq
+    inival[iphiYSZ,1] = 0.0
+    
     return inival
 end
 
@@ -390,7 +403,12 @@ function YSZParameters_update!(this::YSZParameters)
     this.ML  = (1-this.x_frac)/(1+this.x_frac)*this.mZr + 2*this.x_frac/(1+this.x_frac)*this.mY + this.m_par*this.nu*this.mO
     
     
-    this.phi_eq, this.y0_eq, this.yAs_eq, this.yOs_eq = equilibrium_boundary_conditions(this)
+    this.phiS_eq, this.phiLSM_eq, this.y0_eq, this.yAs_eq, this.yOs_eq = equilibrium_boundary_conditions(this)
+    if index_driving_species==iphi
+      this.phi_eq = this.phiS_eq
+    else
+      this.phi_eq = this.phiLSM_eq
+    end
 
     # the following block computes the right DD according to the right conductivity
     if this.DD < 0.0 && this.conductivity < 0.0
@@ -474,11 +492,11 @@ end
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
       if this.separate_vacancy
-        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL    *0.7
-        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL      *0.7
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL
       else
-        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL    *0.7
-        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL    *0.7
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL
       end
     end
 end
@@ -745,7 +763,8 @@ function electroreaction(this::YSZParameters, u; debug_bool=false)
                             u[iyOs]
                           )
                         ),
-          overvoltage=this.e_fac*2*this.e0*u[iphi]
+          overvoltage=2*this.e0*this.e_fac*(u[iphi] - u[iphiYSZ])
+          #overvoltage=2*this.e0*this.e_fac*u[iphi]          
         )
     else
       the_fac = 0
@@ -809,29 +828,63 @@ end
 
 
 # surface reaction + adsorption
-#function generic_operator!(f, u, node, sys)
-function breaction!(f,u,node,this::YSZParameters)
-    if  node.region==1
-        electroR=electroreaction(this,u)
-        oxide_ads = exponential_oxide_adsorption(this, u)
-        gas_ads = exponential_gas_adsorption(this, u)
+function breaction!(f,u,node,this::YSZParameters)     
+    
+    # u is the array for unknown at some point X -> u = (u[iy], u[iy], u[iAs], u[iOs]}
+    my_u = u    
+            
+    f .= 0.0
+    
+    if node.region==1        
+        oxide_ads = exponential_oxide_adsorption(this, my_u)
+        electroR=electroreaction(this,my_u)
+        gas_ads = exponential_gas_adsorption(this, my_u)
         
-        
-        
-        f[iy]= -this.mO*oxide_ads*0.7
-        
-        
-        
+        f[iy]= - this.mO*oxide_ads
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
         # sign is negative bcs of the equation implementation
         f[iyAs]= this.mO*oxide_ads - this.mO*electroR 
         f[iyOs]= this.mO*electroR - this.mO*2*gas_ads
-        f[iphi]=0
-    else
-        f[iy]=0
-        f[iphi]=0
+        
+        #### E^LSM = zeta E^YSZ
+        f[iphi]= 1e6*(this.phiLSM + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        #### E^LSM = zeta ( E^YSZ + IR )
+        #f[iphi]= 1e6*(this.phiLSM  - u[iphi]*(1 + this.e_fac))
+        
+        # the following equation relates u[iphi] to the u[iphiLSM]
+        #f[iphiLSM] = u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac)
     end
 end
+
+
+function generic_operator!(f, u, sys)    
+    idx=unknown_indices(unknowns(sys))    
+    #
+    f .=0.0
+    # this is inode = 80 ----> position in domain x = 1.83e-8  out of L = 5e-4
+    # phiYSZ = phi(x)/(1 - x/L) ... 1 - x/L = 0.9999634
+    f[idx[iphiYSZ,1]] = (u[idx[iphi,80]])/0.9999634 - u[idx[iphiYSZ, 1]] 
+end
+
+function generic_operator_sparsity(sys)
+    idx=unknown_indices(unknowns(sys))
+    sparsity=spzeros(num_dof(sys),num_dof(sys))
+    sparsity[idx[iphiYSZ,1],idx[iphi,80]]=1
+    sparsity[idx[iphiYSZ,1],idx[iphiYSZ, 1]]=1
+    sparsity
+end
+
+
+
+
+
+
+
+
+
+
+
+
 
 function direct_capacitance(this::YSZParameters, PHI)
     # Clemens' analytic solution
@@ -871,6 +924,18 @@ end
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 #
 # Transient part of measurement functional
 #
@@ -881,7 +946,7 @@ function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEll
     dphi_end = U[iphi, end] - U[iphi, end-1]
     dx_end = X[end] - X[end-1]
     dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.COmm            *0.7 # (e0*zA*nA_s)
+    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.COmm # (e0*zA*nA_s)
     meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
     return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
 end
@@ -890,8 +955,8 @@ end
 # Steady part of measurement functional
 #
 function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
-    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))               *0.7
-    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))                  *0.7
+    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
+    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
 end
 
 
