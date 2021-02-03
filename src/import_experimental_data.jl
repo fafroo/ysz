@@ -119,7 +119,9 @@ end
 
 
 
-function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
+function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens=Dict())
+  ET = extra_tokens
+  #
   pO2=Int64(pO2)
   pO2_Dan = @sprintf("%02g",pO2)
   pO2_Michal = @sprintf("%03g",pO2)
@@ -163,6 +165,17 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110")
   elseif data_set=="HebbWagner_111"
     # TC \in (600 : 20 : 720) ...
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/03 YSZ 111 Ag-Ag/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+      
+      
+      
+  elseif data_set=="HW_TEST"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/03 YSZ 111 Ag-Ag/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(ET["rep"]).z")
+      
+      
+      
+      
+      
       
   ##########################################################
   
