@@ -180,7 +180,7 @@ end
 #
 function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Nothing, alpha_low=0.0, alpha_upp=1.0, with_errors=false, error_type)
   
-  projection_plot_maximum = 0.02
+  projection_plot_maximum = 0.0002
   projection_plot_minimum = 10
   
   function EEC_plot_error_projection(prms_values, prms_names, error)
@@ -188,7 +188,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     prms_length = length(prms_names)
     plot_edge = ceil(sqrt(prms_length))
 
-    if projection_plot_maximum < 0 && error < 20
+    if projection_plot_maximum < error && error < 20
       projection_plot_maximum = error
     end
     
@@ -260,38 +260,30 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   end
   
   function to_optimize(x)    
-
-    
-#     if !(HF_LF_check(prepare_prms(mask, x0, x)))
-#       println("     HF_LF_check is violated !!! ")
-#       return 10000
-#     end
     
     EEC_actual.prms_values = prepare_prms(mask, x0, x)
-    EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
-    EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 1.4)...))
+    EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)        
     
-    SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq", plot_legend=false)[1]
+    err = fitnessFunction(SIM, EIS_EEC, EIS_exp, error_type=error_type)
     
+#     EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 1.4)...))
 #     if check_dramatic_change(x) || true
 #       typical_plot_sim(SIM, EIS_EEC_plot)
 #     end
 #     
 #     PyPlot.show()
 #     figure(11111)
-#     plot([1,2])
-#     pause(0.1)
+     #pause(0.1)
 #     PyPlot.show()
-    
-    
-    err = fitnessFunction(SIM, EIS_EEC, EIS_exp, error_type=error_type)
     
 #     EEC_plot_error_projection(
 #       take_only_masked(mask, EEC_actual.prms_values), 
 #       take_only_masked(mask, EEC_actual.prms_names), 
 #       err)
+#     
+#     println("~~~~~ LM e = $(err)\nx = $(x)")
     
-#   println("~~~~~ LM e = $(err)\nx = $(x)")
+    
     
     if !(check_x_in(x, lowM, uppM))
       #println("    OUT OF THE BOUNDS   \n")
@@ -310,6 +302,8 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     #println("e = $(fitnessFunction(SIM, EIS_EEC, EIS_exp, error_type=error_type))\nx = $(x)")
     return get_EIS_value_from_gf(EIS_EEC, gf)
   end  
+  
+  SIM = EIS_simulation(800, 100, 0, use_DRT=false, plot_option="Bode Nyq", plot_legend=false)[1]
   
   prms_length = length(EEC_actual.prms_values)
   if mask == Nothing
@@ -372,16 +366,21 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
       fit_O = optimize(to_optimize, x0M, #lower=lowM, upper=uppM, 
         #Δ=1000000, 
         #x_tol=1.0e-18,
-        #f_tol=1.0e-18, 
-        #g_tol=1.0e-18
+        #f_tol=1.0e-18,
+        #g_tol=1.0e-18,
         #autodiff=:central,
-        #LevenbergMarquardt(),
+        #Optim.Options(iterations = 10, f_tol=1.0e-18, g_tol=1.0e-31),
+        #LevenbergMarquardt(),                
         #Dogleg(),
         )
       EEC_actual.prms_values = prepare_prms(mask, x0, fit_O.minimizer)  
     end
   end
 
+  
+  
+  @show fit_O
+  
   
   error0 = deepcopy(x0)
   error0 .= -Inf;
@@ -393,6 +392,15 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   end
   return
 end
+
+
+
+
+
+
+
+
+
 
 
 
@@ -716,14 +724,24 @@ end
 function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_tokens=Dict(),                        
                         f_interval=Nothing, succes_fit_threshold = 0.002, error_type="normalized",
                         fixed_prms_names=[], fixed_prms_values=[],
-                        init_values=Nothing, alpha_low=0.2, alpha_upp=1, #fitting_mask=Nothing,
+                        init_values=Nothing, alpha_low=0.2, alpha_upp=1, 
                         EEC_structure="R-L-RCPE-RCPE",
                         plot_bool=false, plot_legend=true, plot_best_initial_guess=false, plot_fit=true, plot_exp=true,
                         show_all_initial_guesses=false,
                         with_errors=false, which_initial_guess="both",
                         use_DRT=false, DRT_draw_semicircles=false,
                         trim_inductance=false,
-                        save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt", save_R1_file=false)
+                        save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt", save_R1_file=false,
+                        EIS_preprocessing_control = EIS_preprocessing_control()
+#                         EIS_preprocessing_control = EIS_preprocessing_control(
+#                           f_interval=Nothing, 
+#                           add_inductance=0,
+#                           trim_inductance=false, 
+#                           outlayers_threshold=5.5,                                    
+#                           use_DRT=false, DRT_control=DRT_control_struct()
+#                         )
+                        
+        )
   ####
   ####  TODO:
   ####  [?] initial values handling (from file, probably)
@@ -889,23 +907,11 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_t
       continue
     end
 
-
-    if f_interval!=Nothing
-      if f_interval == "auto"
-        #typical_plot_exp(SIM, EIS_exp, "! before")
-        EIS_exp = EIS_data_preprocessing(EIS_exp, trim_inductance)
-        #typical_plot_exp(SIM, EIS_exp, "! after")
-      else
-        EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)
-      end
-    end
     
-#     if fitting_mask == Nothing
-#       mask = Array{Int16}(undef, length(EEC_actual.prms_names))
-#       mask .= 1
-#     else
-#       mask = fitting_mask
-#     end
+    
+    
+    
+    EIS_exp = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
 
 ## HERE
     set_fitting_limits_to_EEC_from_EIS_exp!(EEC_actual, EIS_exp)
@@ -1308,11 +1314,12 @@ end
   
   
 function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, 
-                            use_DRT=false, DRT_draw_semicircles=false, plot_legend=false, 
-                            f_interval="auto",
-                            error_type="normalized")
+                            use_DRT=false, DRT_draw_semicircles=false, plot_legend=false,                             
+                            error_type="normalized",
+                            EIS_preprocessing_control = EIS_preprocessing_control()
+                  )
 
-  for   (TC_idx, TC_item) in enumerate(TC), 
+  for (TC_idx, TC_item) in enumerate(TC), 
       (pO2_idx, pO2_item) in enumerate(pO2), 
       (bias_idx, bias_item) in enumerate(bias), 
       (data_set_idx, data_set_item) in enumerate(make_array_from_string(data_set))
@@ -1322,7 +1329,7 @@ function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set,
     SIM = SIM_list[1]
     EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)    
     
-    EIS_exp = f_interval_preprocessing(EIS_exp, f_interval)
+    EIS_exp = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
     typical_plot_exp(SIM, EIS_exp)
     
     

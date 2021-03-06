@@ -93,11 +93,7 @@ using LinearAlgebra
 
 import Base.string
 
-########  import of model_file  ######
-#TODO !!!!
 
-
-######################################
 
 #include("../examples/ysz_experiments.jl")
 
@@ -105,6 +101,9 @@ import Base.string
 include("../src/general_supporting_stuff.jl")
 include("../src/import_experimental_data.jl")
 include("../src/export_simulated_data.jl")
+
+include("../src/DRT.jl")
+include("../src/EIS_preprocessing.jl")
 
 include("../src/simulations/general_simulation.jl")
 include("../src/simulations/CV_simulation.jl")
