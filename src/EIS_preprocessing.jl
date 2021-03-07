@@ -271,7 +271,7 @@ function EIS_preprocessing(EIS_df, EIS_preprocessing_control::EIS_preprocessing_
     #assesing_chaos(new_EIS) #    ----> if there is any useful piece of information?
     new_EIS_df = dropping_really_bad_points(new_EIS_df, EIS_preprocessing_control)      # TODO ->>> implement filtering whole segments out     
     #
-    convolution(new_EIS_df, EIS_preprocessing_control)
+    new_EIS_df = convolution(new_EIS_df, EIS_preprocessing_control)
     #
     EIS_add_inductance!(new_EIS_df, EIS_preprocessing_control)
     

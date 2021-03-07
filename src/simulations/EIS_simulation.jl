@@ -319,8 +319,8 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", use_checknodes=false, plot_legend=true, fig_num=12, DRT_control=Nothing, 
-                  control = EIS_preprocessing_control(
+function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", use_checknodes=false, plot_legend=true, fig_num=12, DRT_control=DRT_control_struct(), use_DRT=true,                                
+                  EIS_preprocessing_control = EIS_preprocessing_control(
                                   f_interval=Nothing, 
                                   add_inductance=0,
                                   trim_inductance=false, 
@@ -328,7 +328,6 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
                                   use_DRT=false, DRT_control=DRT_control_struct()
                   )
           )  
-  
   EIS_exp = DataFrame()
   EIS_exp_NEW = DataFrame()
   for TC_item in TC
@@ -342,10 +341,11 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
           EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
         end
                                     
-        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp, "")
-        
+        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, DRT_control=DRT_control, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp, "")
+        pause(2.0)
+        @show EIS_preprocessing_control
         # NEW branch                
-        EIS_exp_NEW = EIS_preprocessing(EIS_exp, control)
+        EIS_exp_NEW = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
         #  
         typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp_NEW, "")       
       end
@@ -514,26 +514,6 @@ function EIS_get_checknodes_short()
         1.0e+2,
         1.0e+3
     )
-end
-
-function EIS_get_checknodes_geometrical(start_n, end_n, n_fac)
-    # frequency nodes to compare
-    # must be sorted upwards
-    w_list = zeros(0)
-    w = start_n
-    if start_n == end_n
-            append!(w_list, start_n)
-            return w_list
-    end
-    if n_fac <= 1 || start_n > end_n
-        println("ERROR: get_checknodes: n_fac <= 1 || start_n > end_n")
-        return throw(Exception)
-    end
-    while w < end_n
-        append!(w_list, w)
-        w *= n_fac
-    end    
-    return w_list
 end
 
 function initialize_trend_tuples(SIM::EIS_simulation, EIS_ref::DataFrame)

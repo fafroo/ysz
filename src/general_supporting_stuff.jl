@@ -188,3 +188,22 @@ function quadratic_template(T, A, B, C)
 end
 
 
+function EIS_get_checknodes_geometrical(start_n, end_n, n_fac)
+    # frequency nodes to compare
+    # must be sorted upwards
+    w_list = zeros(0)
+    w = start_n
+    if start_n == end_n
+            append!(w_list, start_n)
+            return w_list
+    end
+    if n_fac <= 1 || start_n > end_n
+        println("ERROR: get_checknodes: n_fac <= 1 || start_n > end_n")
+        return throw(Exception)
+    end
+    while w < end_n
+        append!(w_list, w)
+        w *= n_fac
+    end    
+    return w_list
+end

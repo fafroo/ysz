@@ -369,7 +369,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
         #f_tol=1.0e-18,
         #g_tol=1.0e-18,
         #autodiff=:central,
-        #Optim.Options(iterations = 10, f_tol=1.0e-18, g_tol=1.0e-31),
+        Optim.Options(iterations = 4000, f_tol=1.0e-18, g_tol=1.0e-621),
         #LevenbergMarquardt(),                
         #Dogleg(),
         )
