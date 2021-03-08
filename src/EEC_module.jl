@@ -379,7 +379,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
 
   
   
-  @show fit_O
+  #@show fit_O
   
   
   error0 = deepcopy(x0)
@@ -733,12 +733,13 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_t
                         trim_inductance=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt", save_R1_file=false,
                         EIS_preprocessing_control = EIS_preprocessing_control()
-#                         EIS_preprocessing_control = EIS_preprocessing_control(
-#                           f_interval=Nothing, 
-#                           add_inductance=0,
-#                           trim_inductance=false, 
-#                           outlayers_threshold=5.5,                                    
-#                           use_DRT=false, DRT_control=DRT_control_struct()
+                          ,EIS_preprocessing_control = ysz_fitting.EIS_preprocessing_control(
+                                  f_interval=Nothing, 
+                                  add_inductance=0,
+                                  trim_inductance=false, 
+                                  outlayers_threshold=5.5,                                    
+                                  use_DRT=false, DRT_control=ysz_fitting.DRT_control_struct()
+                           )
 #                         )
                         
         )
