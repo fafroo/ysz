@@ -156,9 +156,18 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
     # TC \in (600 : 20 : 720) ...
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/02 YSZ 110 Ag-Ag/700 a 800 C vice biasu/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
   
-  elseif data_set=="HebbWagner_111_more_biases"    
-    # TC \in (600 : 20 : 720) ...
-    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/02 YSZ 110 Ag-Ag/700 a 800 C vice biasu/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+  elseif data_set=="HebbWagner_111_more_biases"
+    # TC \in (600 : 100 : 700) ...
+    if bias < 0.3 
+      backwards_tag = "backwards_"
+    else  
+      backwards_tag = ""  
+    end
+    if bias == 0
+      bias="0"
+    end
+    
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/03 YSZ 111 Ag-Ag/$(TC) C/multibiasy/$(backwards_tag)EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
   
   elseif data_set=="HebbWagner_100"
     # TC \in (600 : 20 : 720) ...

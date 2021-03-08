@@ -369,7 +369,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
         #f_tol=1.0e-18,
         #g_tol=1.0e-18,
         #autodiff=:central,
-        Optim.Options(iterations = 4000, f_tol=1.0e-18, g_tol=1.0e-621),
+        Optim.Options(iterations = 2000, f_tol=1.0e-18, g_tol=1.0e-621),
         #LevenbergMarquardt(),                
         #Dogleg(),
         )
@@ -555,7 +555,7 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
     upper_limits[3 + (i-1)*3] = width*2    
     
     #C
-    lower_limits[4 + (i-1)*3] = -Inf
+    lower_limits[4 + (i-1)*3] = 0.0
     upper_limits[4 + (i-1)*3] = 10    
     
     #alpha
@@ -665,10 +665,8 @@ mutable struct EEC_data_holder_struct
   TC
   pO2
   bias
-  extra_tokens_names
-  extra_tokens_lists
   data_set
-  #
+  
   prms_names
   # indexing of data: [TC, pO2, bias, data_set, prms_values]
   data::Array{Any}
@@ -676,34 +674,24 @@ mutable struct EEC_data_holder_struct
   EEC_data_holder_struct() = new()
 end
 
-function EEC_data_holder_struct(TC, pO2, bias, extra_tokens_names, extra_tokens_lists, data_set, prms_names)
+function EEC_data_holder_struct(TC, pO2, bias, data_set, prms_names)
   this = EEC_data_holder_struct()
   this.TC = TC
   this.pO2 = pO2
   this.bias = bias
-  this.extra_tokens_names = extra_tokens_names
-  this.extra_tokens_lists = extra_tokens_lists
   this.data_set = make_array_from_string(data_set)
-  #
   this.prms_names = prms_names
   
-  ET_length_product = 1
-  for list in extra_tokens_lists
-    ET_length_product *= length(list)
-  end
-  
-  this.data = Array{Any}(undef, (length(this.TC), length(this.pO2), length(this.bias), ET_length_product, length(this.data_set), length(this.prms_names)))
+  this.data = Array{Any}(undef, (length(this.TC), length(this.pO2), length(this.bias), length(this.data_set), length(this.prms_names)))
   return this
 end
 
 
 
-function save_EEC_prms_item_to_file(TC, pO2, bias, ET_names, ET_values, data_set, 
-                                    prms_names, prms_values, 
-                                    saving_destination; append=true, save_only_R1=false)
+function save_EEC_prms_item_to_file(TC, pO2, bias, data_set, prms_names, prms_values, saving_destination; append=true, save_only_R1=false)
 
-  full_prms_names = ("TC", "pO2", "bias", (ET_names)..., "data_set", (prms_names)...)
-  full_prms_values = (TC, pO2, bias, (ET_values)..., data_set, prms_values...)
+  full_prms_names = ("TC", "pO2", "bias", "data_set", (prms_names)...)
+  full_prms_values = (TC, pO2, bias, data_set, prms_values...)
 
   df_out = DataFrame()
     
@@ -721,7 +709,7 @@ end
         
 
 
-function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_tokens=Dict(),                        
+function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         f_interval=Nothing, succes_fit_threshold = 0.002, error_type="normalized",
                         fixed_prms_names=[], fixed_prms_values=[],
                         init_values=Nothing, alpha_low=0.2, alpha_upp=1, 
@@ -733,13 +721,13 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_t
                         trim_inductance=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt", save_R1_file=false,
                         EIS_preprocessing_control = EIS_preprocessing_control()
-                          ,EIS_preprocessing_control = ysz_fitting.EIS_preprocessing_control(
-                                  f_interval=Nothing, 
-                                  add_inductance=0,
-                                  trim_inductance=false, 
-                                  outlayers_threshold=5.5,                                    
-                                  use_DRT=false, DRT_control=ysz_fitting.DRT_control_struct()
-                           )
+#                           ,EIS_preprocessing_control = ysz_fitting.EIS_preprocessing_control(
+#                                   f_interval=Nothing, 
+#                                   add_inductance=0,
+#                                   trim_inductance=false, 
+#                                   outlayers_threshold=5.5,                                    
+#                                   use_DRT=false, DRT_control=ysz_fitting.DRT_control_struct()
+#                            )
 #                         )
                         
         )
@@ -816,68 +804,31 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_t
     end
   end
   
-  function TO_STR(dict)
-    if length(dict)==0
-      return ""
-    else
-      return "$(dict) and"
-    end
-  end
-  
-                                      ####
-                                    ############
-  ########### TODO ... make it better! please!
-  extra_tokens_lists = []
-  extra_tokens_names = []
-  for (key, list) in extra_tokens
-    push!(extra_tokens_lists, list)
-    push!(extra_tokens_names, key)
-  end
-  
-  extra_tokens_dict_list = []
-  
-  function make_extra_tokens_dict_lists(actual_extra_tokens_set)
-    push!(extra_tokens_dict_list, Dict(extra_tokens_names .=> actual_extra_tokens_set))
-  end
-  
-  for_each_prms_in_prms_lists(extra_tokens_lists, make_extra_tokens_dict_lists)
-  ################ ##########
-                                    #################
-                                    ############
-  
   EEC_actual = get_EEC(EEC_structure)
       
   data_set = make_array_from_string(data_set)  
-  EEC_data_holder = EEC_data_holder_struct(TC, pO2, bias, extra_tokens_names, extra_tokens_lists, data_set, EEC_actual.prms_names)
+  EEC_data_holder = EEC_data_holder_struct(TC, pO2, bias, data_set, EEC_actual.prms_names)
   
   warning_buffer = ""
   
   if save_file_bool 
     mkpath(save_to_folder)
     saving_destination = save_to_folder*file_name
-    save_EEC_prms_item_to_file([], [], [], extra_tokens_names, [], [], EEC_actual.prms_names, [], saving_destination, append=false)
+    save_EEC_prms_item_to_file([], [], [], [], EEC_actual.prms_names, [], saving_destination, append=false)
     if save_R1_file
       R1_file_name = split(file_name, '.')[1]*"_R1."*split(file_name, '.')[2]
       R1_saving_destination = save_to_folder*R1_file_name
-      save_EEC_prms_item_to_file([], [], [], extra_tokens_names, [], [], EEC_actual.prms_names, [], R1_saving_destination, append=false, save_only_R1=true)
+      save_EEC_prms_item_to_file([], [], [], [], EEC_actual.prms_names, [], R1_saving_destination, append=false, save_only_R1=true)
     end
   end
   
   cycle_number = 0
   previous_bias = Inf
   
-  
   for   (TC_idx, TC_item) in enumerate(TC), 
         (pO2_idx, pO2_item) in enumerate(pO2), 
-        (bias_idx, bias_item) in enumerate(bias),
-        (extra_tokens_idx, extra_tokens_item) in enumerate(extra_tokens_dict_list),
+        (bias_idx, bias_item) in enumerate(bias), 
         (data_set_idx, data_set_item) in enumerate(data_set)
-    
-    extra_tokens_item_values = []
-    for (key, value) in extra_tokens_item
-      push!(extra_tokens_item_values, value)
-    end
-        
     cycle_number += 1
 
   
@@ -890,18 +841,18 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_t
     
     
     
-    try      
-      EIS_exp = ysz_fitting.import_EIStoDataFrame(TC=SIM.TC, pO2=SIM.pO2, bias=SIM.bias, data_set=SIM.data_set, extra_tokens=extra_tokens_item)
+    try
+      EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)
     catch 
-      warning_buffer *= " ->->-> ERROR: file for $(TO_STR(extra_tokens_item)) (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) ... NOT FOUND! \n"
+      warning_buffer *= " ->->-> ERROR: file for (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) ... NOT FOUND! \n"
       missing_array = Array{Any}(undef, length(EEC_actual.prms_names))
       missing_array .= Missing
       
-      EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, extra_tokens_idx, data_set_idx, :] = deepcopy(missing_array)
+      EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(missing_array)
       if save_file_bool
-        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, extra_tokens_names, extra_tokens_item_values, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*file_name)
+        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*file_name)
         if save_R1_file
-          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, extra_tokens_names, extra_tokens_item_values, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*R1_file_name, save_only_R1=true)
+          save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*R1_file_name, save_only_R1=true)
         end
       end
       cycle_number += -1
@@ -978,7 +929,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_t
         if show_all_initial_guesses && !(save_file_bool)
           println(" --------- $(init_values_idx) --------- ")
                   
-          output_string = "========== $(TO_STR(extra_tokens_item)) (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) ==========\n"
+          output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) ==========\n"
           output_string *= "$(get_string_EEC_prms(EEC_actual))"
         
           println(output_string)
@@ -998,7 +949,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_t
       if show_all_initial_guesses
         println(" ------------ BEST ---------- ")
       end
-      output_string = "========== $(TO_STR(extra_tokens_item)) (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) ==========\n"
+      output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) ==========\n"
       output_string *= "$(get_string_EEC_prms(EEC_actual))"
       
       println(output_string)
@@ -1025,17 +976,17 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110", extra_t
     end
     
     if save_file_bool
-      save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, extra_tokens_names, extra_tokens_item_values, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*file_name)
+      save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*file_name)
       if save_R1_file        
-        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, extra_tokens_names, extra_tokens_item_values, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*R1_file_name, save_only_R1=true)    
+        save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, EEC_actual.prms_values, save_to_folder*R1_file_name, save_only_R1=true)    
       end
     end
     
-    EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, extra_tokens_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
+    EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, :] = deepcopy(EEC_actual.prms_values)
     
     
     if !(succesful_fit(actual_error, EIS_EEC, EIS_exp, error_type))
-      warning_buffer *="WARNING: $(TO_STR(extra_tokens_item)) (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! // error $(actual_error) > defined threshold $(succes_fit_threshold) //\n"
+      warning_buffer *="WARNING: (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) maybe NOT CONVERGED !!! // error $(actual_error) > defined threshold $(succes_fit_threshold) //\n"
       # TODO ... optionally save picture of the result for humanous check
       # or this reports can go to another error_log_file.txt
     end
@@ -1317,6 +1268,7 @@ end
 function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set, 
                             use_DRT=false, DRT_draw_semicircles=false, plot_legend=false,                             
                             error_type="normalized",
+                            EEC_structure="R-L-RCPE-RCPE",
                             EIS_preprocessing_control = EIS_preprocessing_control()
                   )
 
@@ -1346,7 +1298,7 @@ function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set,
           find_idx_in_list(data_set_item, EEC_data_holder.data_set),
           : ])
     
-    EEC_actual = get_EEC("R-L-RCPE-RCPE")
+    EEC_actual = get_EEC(EEC_structure)
     EEC_actual.prms_values = prms_values
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range = EIS_exp.f)
     

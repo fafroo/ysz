@@ -341,13 +341,12 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
           EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
         end
                                     
-        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, DRT_control=DRT_control, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp, "")
-        pause(2.0)
-        @show EIS_preprocessing_control
+        #typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, DRT_control=DRT_control, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp, "")        
+        
         # NEW branch                
         EIS_exp_NEW = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
         #  
-        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp_NEW, "")       
+        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp_NEW, "")       
       end
     end
   end
