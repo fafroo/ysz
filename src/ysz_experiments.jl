@@ -203,7 +203,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
     
-    porosity = 0.0
+    porosity = 0.3
     if data_set == Nothing
       AreaEllyt == 1.0    # random value
     else
