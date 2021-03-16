@@ -130,12 +130,12 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
   #
   bias=Float64(bias)
     bias_mV = Int32(bias*1000)
-  if abs(bias_mV) < 10
+  if abs(bias_mV) < 10 && data_set!="DAN_kapacity"
     bias_mV = "0_1"
   end
   #
   if length(data_set) > 3 && (data_set[end-3 : end-1] == "OCV")
-    bias_mv = "0_"*data_set[end]
+    bias_mV = "0_"*data_set[end]
   end
   #
   if length(data_set) >= 4 && data_set[1:4]=="POLY"
@@ -222,6 +222,17 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
       ocp_token = ""
     end
     fNAME=string("../snehurka/experimental_data_PSS/K07/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")  
+  
+  elseif data_set=="DAN_kapacity"
+    if bias == 0
+      ocp_token = "_ocp"
+    else
+      ocp_token = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/PolySymAgAg/$(TC) C/eis_$(bias_mV).z")  
+  
+  
+  
   else
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/$(data_set)")
   end

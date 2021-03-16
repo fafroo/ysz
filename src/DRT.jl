@@ -2,7 +2,7 @@ using Printf
 using PyPlot
 #using Plots
 using DataFrames
-using LeastSquaresOptim
+#using LeastSquaresOptim
 
 using NNLS
 using LinearAlgebra
@@ -290,7 +290,7 @@ function construct_A_matrix_and_b(f_nodes, tau_range, Z, lambda)
   end
 #   @show tau_range
 #   @show f_nodes
-  
+    
   A = Matrix{Float64}(undef, n_rows, n_cols)
   b = Vector{Float64}(undef, n_rows)
   
@@ -341,7 +341,10 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
   (A, b, N_f, N_tau) = construct_A_matrix_and_b(EIS_df.f, tau_range, EIS_df.Z, control.lambda)
   
   work_l = NNLSWorkspace(A, b);
+  
   solution = solve!(work_l)
+  #max_iter = 1000
+  #solution = solve!(work_l, max_iter)
   
   if solution[1] > 0.000001
     println(" !!!!!!!!!!!!!!!!!!!!!!!  Low frequency adjustment ---------------------- ")

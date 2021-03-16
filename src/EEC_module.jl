@@ -272,16 +272,14 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
 #     end
 #     
 #     PyPlot.show()
-#     figure(11111)
-     #pause(0.1)
-#     PyPlot.show()
-    
+#     pause(0.1)
+      
 #     EEC_plot_error_projection(
 #       take_only_masked(mask, EEC_actual.prms_values), 
 #       take_only_masked(mask, EEC_actual.prms_names), 
 #       err)
-#     
-#     println("~~~~~ LM e = $(err)\nx = $(x)")
+    
+     println("~~~~~ LM e = $(err)\nx = $(x)")
     
     
     
@@ -338,7 +336,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   #######################################
   x0M, lowM, uppM = prepare_masked_stuff(mask, x0, lower_bounds, upper_bounds)
   #@show lowM
-  #@show uppM
+  #@show uppM  
  
   x_previous = x0M
  
@@ -369,10 +367,13 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
         #f_tol=1.0e-18,
         #g_tol=1.0e-18,
         #autodiff=:central,
-        Optim.Options(iterations = 2000, f_tol=1.0e-18, g_tol=1.0e-621),
+        Optim.Options(iterations = 5000, f_tol=1.0e-18, g_tol=1.0e-21),
+        #Optim.NelderMead(
+        #  initial_simplex = Optim.AffineSimplexer()        
+        #)
         #LevenbergMarquardt(),                
         #Dogleg(),
-        )
+      )
       EEC_actual.prms_values = prepare_prms(mask, x0, fit_O.minimizer)  
     end
   end
@@ -471,7 +472,7 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
     #@show  imag(EIS_exp.Z[end])
     output[2] = imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units)
   else
-    output[2] = 1.0
+    output[2] = 0.0
   end
   
   RCPE_count = get_count_of_RCPEs(EEC)
@@ -543,10 +544,15 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
   lower_limits[1] = left/2
   upper_limits[1] = right
   
-  # L2
-  lower_limits[2] = (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))/10
-  upper_limits[2] = (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))*10
-
+  # L2    
+  if imag(EIS_exp.Z[end]) < 0.0
+    lower_limits[2] = -0.1
+    upper_limits[2] = 0.1
+  else
+    lower_limits[2] = max(-0.1, (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))/10 )
+    upper_limits[2] = max(0.1, (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))*10 )  
+  end
+  
   RCPE_count = get_count_of_RCPEs(EEC)
   
   for i in 1:RCPE_count

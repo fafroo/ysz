@@ -20,6 +20,7 @@ using PyPlot
 
 mutable struct EIS_preprocessing_control
   f_interval
+  scale_factor
   add_inductance
   trim_inductance
   outlayers_threshold
@@ -34,14 +35,16 @@ end
 function EIS_preprocessing_control(;
                                     f_interval=Nothing, 
                                     add_inductance=0, 
+                                    scale_factor=Nothing,
                                     trim_inductance=false, 
-                                    outlayers_threshold=5.5,                                    
+                                    outlayers_threshold=1.5,                                    
                                     use_DRT=false, DRT_control=DRT_control_struct(),
                                     #
                                     debug_plot=false
                                     )
   this = EIS_preprocessing_control(1)
   this.f_interval = f_interval
+  this.scale_factor = scale_factor
   this.add_inductance = add_inductance
   this.trim_inductance = trim_inductance
   this.outlayers_threshold = outlayers_threshold
@@ -52,6 +55,8 @@ function EIS_preprocessing_control(;
   return this
 end
 
+# procedure CODING
+# - f_interval
 
 ##
 
@@ -259,16 +264,25 @@ function convolution(EIS_df, EIS_preprocessing_control)
   end
 end
 
+function EIS_scale_data(EIS_df, EIS_preprocessing_control)
+  if EIS_preprocessing_control.scale_factor == Nothing
+    return EIS_df
+  else
+    return DataFrame(f = EIS_df.f, Z = EIS_preprocessing_control.scale_factor .* EIS_df.Z)
+  end
+end
 
-# NEW version
+
 function EIS_preprocessing(EIS_df, EIS_preprocessing_control::EIS_preprocessing_control)            
     new_EIS_df = deepcopy(EIS_df)
     
-    new_EIS_df = f_interval_trim(new_EIS_df, EIS_preprocessing_control)    
+    new_EIS_df = f_interval_trim(new_EIS_df, EIS_preprocessing_control)
+    #
+    new_EIS_df = EIS_scale_data(new_EIS_df, EIS_preprocessing_control)
     #
     #dropping_specified_points!(new_EIS_df, EIS_preprocessing_control)         --->> IMPORTANT
     #
-    #assesing_chaos(new_EIS) #    ----> if there is any useful piece of information?
+    #assesing_chaos(new_EIS) #    ----> if there is even any useful piece of information?
     new_EIS_df = dropping_really_bad_points(new_EIS_df, EIS_preprocessing_control)      # TODO ->>> implement filtering whole segments out     
     #
     new_EIS_df = convolution(new_EIS_df, EIS_preprocessing_control)
@@ -277,34 +291,6 @@ function EIS_preprocessing(EIS_df, EIS_preprocessing_control::EIS_preprocessing_
     
     return new_EIS_df
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## TODO ... erease ... after some time
-function EIS_add_inductance(EIS_df::DataFrame, L)
-  EIS_out = deepcopy(EIS_df)
-  for (i, f) in enumerate(EIS_df.f)
-      EIS_out.Z[i] += im*2*pi*f*L
-  end
-  return EIS_out
-end
-
-
-
-
-
-
 
 
 

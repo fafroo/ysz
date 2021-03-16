@@ -110,6 +110,8 @@ include("../src/simulations/CV_simulation.jl")
 include("../src/simulations/EIS_simulation.jl")
 include("../src/simulations/CAP_simulation.jl")
 
+include("../src/EIS_preprocessing_tool.jl")
+
 include("../src/par_study.jl")
 #include("../src/interpolation_fitting.jl")
 include("../src/EEC_module.jl")
