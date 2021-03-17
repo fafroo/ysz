@@ -118,8 +118,8 @@ include("../src/EEC_module.jl")
 
 
 
-function simple_run(SIM_list=Nothing; TC=800, pO2=1.0, bias=0.0, data_set="MONO_110", simulations=Array{String}(undef, 0),
-                    fitness_factors=Nothing, physical_model_name="ysz_model_GAS_LoMA_Temperature", 
+function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=Nothing, data_set=Nothing, simulations=Array{String}(undef, 0),
+                    fitness_factors=Nothing, physical_model_name=Nothing, 
                         pyplot=0, use_experiment=true, prms_names=[], prms_values=[], 
                         test=false, save_files=false, save_dir="default",
                         line_color_idx = 1, evaluate_temp=false
@@ -237,14 +237,6 @@ function simple_run(SIM_list=Nothing; TC=800, pO2=1.0, bias=0.0, data_set="MONO_
   end
 end
 
-
-# useful wrap
-# function simple_run(;, simulations=Array{String}(undef, 0), pyplot=0, use_experiment=true, prms_values=[], prms_names=[], 
-#                          test=false, save_files=false, save_dir="default")
-# 
-#     simple_run(get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name); pyplot=pyplot, use_experiment=use_experiment, prms_values=prms_values, prms_names=prms_names, 
-#                         test=test, save_files=save_files, save_dir=save_dir)
-# end
 
 
 ###########################################################

@@ -25,11 +25,10 @@ using LeastSquaresOptim
 using SparseArrays
 
 const bulk_species = (iphi, iy) = (1, 2)
-const surface_species = (iyAs, iyOs, iphiYSZ) = (3, 4, 5)
-const surface_names = ("yAs", "yOs", "phiYSZ")
+const surface_species = (iyAs, iyOs, iphiYSZ, iphiLSM) = (3, 4, 5, 6)
+const surface_names = ("yAs", "yOs", "phiYSZ", "phiLSM")
 
-
-const index_driving_species = iphi
+const index_driving_species = iphiLSM
 
 
 include("../../src/general_supporting_stuff.jl")
@@ -56,6 +55,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     # switches
     separate_vacancy::Bool
     weird_DD::Bool
+    unknown_phiLSM_bool::Bool
     
     # reactions
     A::reaction_struct    # oxide adsorption from YSZ
@@ -132,6 +132,7 @@ function YSZParameters(this)
     #swithes
     this.separate_vacancy = true
     this.weird_DD = true
+    this.unknown_phiLSM_bool = true
     
     # experimental conditions
     this.pO2=1.0                   # O2 atmosphere 
@@ -199,7 +200,7 @@ function YSZParameters(this)
     this.COmm_B=-Inf
     this.COmm_C=-Inf
     #
-    this.e_fac = 0.0    
+    this.e_fac = 0.0
     
 
     # known
@@ -284,10 +285,12 @@ end
 
 # boundary conditions
 function set_typical_boundary_conditions!(sys, parameters::YSZParameters)
-    #sys.boundary_values[index_driving_species,1]=parameters.phi_eq
-    #sys.boundary_factors[index_driving_species,1]=VoronoiFVM.Dirichlet
-    #
-    parameters.phiLSM = parameters.phiLSM_eq
+    if parameters.unknown_phiLSM_bool
+      sys.boundary_values[index_driving_species,1]=parameters.phi_eq
+      sys.boundary_factors[index_driving_species,1]=VoronoiFVM.Dirichlet
+    else
+      parameters.phiLSM = parameters.phiLSM_eq
+    end
     #
     sys.boundary_values[iphi,2]=0.0
     sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
@@ -847,7 +850,11 @@ function breaction!(f,u,node,this::YSZParameters)
         f[iyOs]= this.mO*electroR - this.mO*2*gas_ads
         
         #### E^LSM = zeta E^YSZ
-        f[iphi]= 1e6*(this.phiLSM + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        if this.unknown_phiLSM_bool
+          f[iphi]= 1e6*(u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        else
+          f[iphi]= 1e6*(this.phiLSM + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        end
         #### E^LSM = zeta ( E^YSZ + IR )
         #f[iphi]= 1e6*(this.phiLSM  - u[iphi]*(1 + this.e_fac))
         
