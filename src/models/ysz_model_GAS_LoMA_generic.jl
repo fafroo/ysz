@@ -35,16 +35,16 @@ include("../../src/general_supporting_stuff.jl")
 
 
 mutable struct reaction_struct
-  r::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
+  r::Float64   # surface reaction coefficient [ m^-2 s^-1 ]
   r_A::Float64
   r_B::Float64
   r_C::Float64
-  DG::Float64 # difference of gibbs free energy of adsorption  [ J ]
+  DG::Float64 # difference of gibbs free energy of reaction  [ J ]
   DG_A::Float64
   DG_B::Float64
   DG_C::Float64
-  beta::Float64 # symmetry of the adsorption    
-  S::Float64 # stechiometry compensatoin of the adsorption
+  beta::Float64 # symmetry of the reaction
+  S::Float64 # stechiometry compensatoin of the reaction
   exp::Float64 # bool deciding if EXP should be used instead of LoMA
   #
   
@@ -833,15 +833,14 @@ end
 # surface reaction + adsorption
 function breaction!(f,u,node,this::YSZParameters)     
     
-    # u is the array for unknown at some point X -> u = (u[iy], u[iy], u[iAs], u[iOs]}
-    my_u = u    
+    # u is the array for unknown at some point X -> u = (u[iy], u[iy], u[iAs], u[iOs]}  
             
     f .= 0.0
     
     if node.region==1        
-        oxide_ads = exponential_oxide_adsorption(this, my_u)
-        electroR=electroreaction(this,my_u)
-        gas_ads = exponential_gas_adsorption(this, my_u)
+        oxide_ads = exponential_oxide_adsorption(this, u)
+        electroR=electroreaction(this,u)
+        gas_ads = exponential_gas_adsorption(this, u)
         
         f[iy]= - this.mO*oxide_ads
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf

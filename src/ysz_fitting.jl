@@ -118,7 +118,7 @@ include("../src/EEC_module.jl")
 
 
 
-function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=Nothing, data_set=Nothing, simulations=Array{String}(undef, 0),
+function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=0.0, data_set=Nothing, simulations=Array{String}(undef, 0),
                     fitness_factors=Nothing, physical_model_name=Nothing, 
                         pyplot=0, use_experiment=true, prms_names=[], prms_values=[], 
                         test=false, save_files=false, save_dir="default",
@@ -133,7 +133,8 @@ function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=Nothing, dat
         fitness_factors = aux_array
       end
       SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name)
-    catch
+    catch e
+      println(e)
       println("ERROR: please define TC, pO2, bias, data_set, simulations ... OR ... define SIM_fitting")
       return throw(Exception)
     end

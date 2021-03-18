@@ -401,6 +401,8 @@ function run_new(;physical_model_name, # ="ysz_model_GAS_LoMA_Temperature",
 ################
 
     #@show parameters.phi_eq
+    #@show parameters.phiS_eq
+    #@show parameters.phiLSM_eq
     
     
     
@@ -512,7 +514,7 @@ function run_new(;physical_model_name, # ="ysz_model_GAS_LoMA_Temperature",
                 # Here, we use the derivatives of the measurement functional
                 zfreq=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval,dmeas_stdy, dmeas_tran)
                 inductance = im*parameters.L*w
-                push!(z_freqdomain, inductance + (1.0/zfreq))
+                push!(z_freqdomain, inductance + (1.0/zfreq) )#   /(1 + parameters.e_fac))
                 print_bool && @show zfreq
             end
             
