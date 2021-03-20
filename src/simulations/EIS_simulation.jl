@@ -187,10 +187,10 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     
     if SIM.DRT_draw_semicircles
       R_ohm_auxilary = DRT_actual.R_ohm
+      SIM_aux = deepcopy(SIM)
+      SIM_aux.use_DRT = false
       for i in 1:size(DRT_actual.peaks_df, 1)
         EIS_RC = EIS_get_RC_CPE_elements(DRT_actual.peaks_df.R[i], DRT_actual.peaks_df.C[i], 0, 1, 1, R_ohm_auxilary, f_range=SIM.f_range)
-        SIM_aux = deepcopy(SIM)
-        SIM_aux.use_DRT = false
         typical_plot_general(SIM_aux, EIS_RC, "", "", true, marker_style=marker_style)
         R_ohm_auxilary += DRT_actual.peaks_df.R[i]
       end
@@ -199,6 +199,7 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     if SIM.DRT_backward_check
       typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false, fig_num=SIM.fig_num, plot_option=SIM.plot_option)..., DRT_actual.EIS_df, "! DRT_backward_check")
     end
+    return DRT_actual
   else    
     if occursin("DRT", SIM.plot_option)
       s5 = subplot(num_rows + 25)
@@ -215,6 +216,7 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
       s4 = subplot(num_rows + 26)
       plot([])
     end
+    return
   end
 end
 

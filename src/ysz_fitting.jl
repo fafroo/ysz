@@ -117,6 +117,23 @@ include("../src/par_study.jl")
 include("../src/EEC_module.jl")
 
 
+function construct_SIM_list(;TC=Nothing, pO2=Nothing, bias=0.0, data_set=Nothing, simulations=Array{String}(undef, 0),
+                    fitness_factors=Nothing, physical_model_name=Nothing)
+  SIM_list = []
+  try
+    if fitness_factors == Nothing
+      aux_array = zeros(length(simulations))
+      aux_array .= 1
+      fitness_factors = aux_array
+    end
+    SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name)
+  catch e
+    println(e)
+    println("ERROR: please define TC, pO2, bias, data_set, simulations ... OR ... define SIM_fitting")
+    return throw(Exception)
+  end
+  return SIM_list
+end
 
 function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=0.0, data_set=Nothing, simulations=Array{String}(undef, 0),
                     fitness_factors=Nothing, physical_model_name=Nothing, 
@@ -126,18 +143,8 @@ function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=0.0, data_se
                         )
   # here starts the true body
   if SIM_list==Nothing
-    try
-      if fitness_factors == Nothing
-        aux_array = zeros(length(simulations))
-        aux_array .= 1
-        fitness_factors = aux_array
-      end
-      SIM_list = get_SIM_list_rectangle(TC, pO2, bias, data_set, simulations, fitness_factors, physical_model_name)
-    catch e
-      println(e)
-      println("ERROR: please define TC, pO2, bias, data_set, simulations ... OR ... define SIM_fitting")
-      return throw(Exception)
-    end
+    SIM_list = construct_SIM_list(TC=TC, pO2=pO2, bias=bias, data_set=data_set, simulations=simulations, 
+                                    fitness_factors=fitness_factor, physical_model_name=physical_model_name)
   end
   
   save_path="../data/simple_run/"*save_dir
@@ -257,10 +264,10 @@ end
 
 
 
-function test_DRT(;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="MONO_110", 
+function test_DRT(SIM_list=Nothing;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="MONO_110", physical_model_name=Nothing,
 tau_min_fac=10, tau_max_fac=10, tau_range_fac=2,
-peak_merge_tol=0.0, plot_legend=true, fig_num=EIS_standard_figure_num, plot_bool=true,
-CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true)
+peak_merge_tol=0.0, fig_num=EIS_standard_figure_num, plot_bool=true,
+CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_num = 101)
   
 
   if data_set=="POLY_OCV_test"
@@ -270,40 +277,27 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true)
     data_set_list = [data_set]
   end
   
-  if CAP_comparison
-    if CAP_plot_CAP_CV
-      prms_names_CAP = (prms_names..., CAP_bottleneck_prm)
-      prms_values_CAP = (prms_values..., 1)
-      ysz_fitting.simple_run(CAP_simulation(TC, pO2, analytical=false, voltrate=1.0e-5, upp_bound=maximum(bias), low_bound=minimum(bias)), 
-                            pyplot=1, prms_names=prms_names_CAP, prms_values=prms_values_CAP, use_experiment=false)
-      CAP_plot_num = gcf().number
-    else
-      CAP_plot_num = 101
-    end
+  if CAP_comparison        
     CAP_holder_width = 10
     CAP_holder = DataFrame(bias=[], C1=[], C2=[], C3=[], C4=[], C5=[], C6=[], C7=[], C8=[], C9=[], C10=[])
-  
-  end
-  
-  for TC_item in TC, pO2_item in pO2, bias_item in bias, lambda_item in lambda, data_set_item in data_set_list
+  end 
 
-      
+  if SIM_list==Nothing
+    SIM_list = construct_SIM_list(TC=TC, pO2=pO2, bias=bias, data_set=data_set, simulations=["EIS"], 
+                                    physical_model_name=physical_model_name)
+  end
     
-    
+  for SIM in SIM_list, lambda_item in lambda
     # to add .... , tau_min_fac=tau_min_fac, tau_max_fac=tau_max_fac, tau_range_fac=tau_range_fac
-    DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol)
-    
-    SIM_list = EIS_simulation(TC_item, pO2_item, bias_item, data_set=data_set_item, DRT_draw_semicircles=draw_semicircles, 
-                DRT_control=DRT_control, plot_option=plot_option, fig_num=fig_num, f_range=f_range, plot_legend=plot_legend)
-    SIM = SIM_list[1]
-    
+    DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol, Nothing)
+    SIM.DRT_control = DRT_control
     #@show SIM
     
     if mode=="EEC"
       EIS_df = EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, R_ohm, f_range=f_range)
       plot_bool && typical_plot_sim(SIM, EIS_df, "! EEC ($R1, $C1) ($R2, $C2, $alpha)")
     elseif mode=="sim"
-      EIS_df = ysz_fitting.simple_run(SIM_list, pyplot=(plot_bool ? 1 : 0), 
+      EIS_df = ysz_fitting.simple_run([SIM], pyplot=(plot_bool ? 1 : 0), 
         prms_names=prms_names, 
         prms_values=prms_values, use_experiment=false)
     elseif mode=="exp"
@@ -318,10 +312,9 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true)
 
     if CAP_comparison
       DRT_actual = get_DRT(EIS_df, DRT_control)
-      
-      
+
       current_line = Array{Float32}(undef, CAP_holder_width+1)
-      current_line[1] = bias_item
+      current_line[1] = SIM.bias
       for i in 1:CAP_holder_width
         if i <= length(DRT_actual.peaks_df.C)
           current_line[i+1] = DRT_actual.peaks_df.C[i]
@@ -332,21 +325,14 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true)
       push!(CAP_holder, current_line)
     end
     
-    
     if backward_check
       DRT_actual = get_DRT(EIS_df, DRT_control)
       plot_bool && println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
       plot_bool && typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false, DRT_control=DRT_control, plot_option=plot_option)..., DRT_actual.EIS_df, "! DRT_backward_check")
-      
-#       DRT_actual = get_DRT(EIS_df, lambda_item, debug_mode=true)
-#       println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
-#       
-#       plot_DRT_h(DRT_actual)
-#       typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false)..., DRT_actual.EIS_df, "! DRT_backward_check")
     end
   end
   
-  if CAP_comparison
+  if CAP_comparison    
     figure(CAP_plot_num)
     title("Capacitance VS Bias")
     xlabel("\$\\eta\$ [V]")
@@ -364,9 +350,29 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true)
       
       plot(current_bias_range, current_C_range, "-x")
     end 
-  end
     
-  #return DRT_actual
+    if CAP_plot_CAP_CV
+      TC    = []
+      pO2   = []   
+      bias  = []
+      for SIM in SIM_list
+        push!(TC, SIM.TC)
+        push!(pO2, SIM.pO2)
+        push!(bias, SIM.bias)
+      end
+      
+      prms_names_CAP = (prms_names..., CAP_bottleneck_prm)
+      prms_values_CAP = (prms_values..., 1)
+      ysz_fitting.simple_run(CAP_simulation(TC, pO2, analytical=false, voltrate=1.0e-5, upp_bound=maximum(bias), low_bound=minimum(bias)), 
+                            pyplot=1, prms_names=prms_names_CAP, f_range=f_range, prms_values=prms_values_CAP, use_experiment=false)
+      CAP_plot_num = gcf().number
+    end
+
+#       if CAP_plot_analytical
+#         TODO !!!
+#       end
+  end
+  
   return
 end
 

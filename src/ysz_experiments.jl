@@ -160,8 +160,8 @@ function run_new(;physical_model_name, # ="ysz_model_GAS_LoMA_Temperature",
       for (round, ramp_nodes) in enumerate(ramp_nodes_list)
         
         control.damp_growth=damp_growth_in_round[round]        
-                
-        for phi_ramp in (ramp_nodes == 0 ? phiS : collect(phi_ramp_solved : (phiS - phiS0)/ramp_nodes : phiS))
+        actual_ramp_step = ( (phiS - phiS0) > 1e-8 ?  (phiS - phiS0) : 1.0 )
+        for phi_ramp in (ramp_nodes == 0 ? phiS : collect(phi_ramp_solved : actual_ramp_step/ramp_nodes : phiS))
             try              
               if verbose
                 @show phi_ramp                
@@ -334,7 +334,9 @@ function run_new(;physical_model_name, # ="ysz_model_GAS_LoMA_Temperature",
     phi0 = parameters.phi_eq
 
     if extended_LSM_domain_mode
-      ZETA_fac = 1
+      # TODO --- change
+      #ZETA_fac = 1
+      ZETA_fac = (1 + parameters.e_fac)
     else
       ZETA_fac = (1 + parameters.e_fac)
     end
