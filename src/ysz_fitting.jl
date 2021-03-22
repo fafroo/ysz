@@ -144,7 +144,7 @@ function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=0.0, data_se
   # here starts the true body
   if SIM_list==Nothing
     SIM_list = construct_SIM_list(TC=TC, pO2=pO2, bias=bias, data_set=data_set, simulations=simulations, 
-                                    fitness_factors=fitness_factor, physical_model_name=physical_model_name)
+                                    fitness_factors=fitness_factors, physical_model_name=physical_model_name)
   end
   
   save_path="../data/simple_run/"*save_dir

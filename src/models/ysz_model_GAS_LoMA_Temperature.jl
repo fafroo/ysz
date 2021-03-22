@@ -829,10 +829,8 @@ end
 
 function direct_capacitance(this::YSZParameters, PHI)
     # Clemens' analytic solution
-    #printfields(this)
-    
-    PHI
-    #PHI=collect(-1:0.01:1) # PHI = phi_B-phi_S, so domain as phi_S goes with minus
+        
+    PHI    
     my_eps = 0.001
     for i in collect(1:length(PHI))
         if abs(PHI[i]) < my_eps
@@ -856,7 +854,7 @@ function direct_capacitance(this::YSZParameters, PHI)
            )
          );
     #
-    Y  = yB/(1-yB)*exp.(- this.DGA/this.kB/this.T .- this.zA*this.e0/this.kB/this.T*PHI);
+    Y  = yB/(1-yB)*exp.(- this.A.DG/this.kB/this.T .- this.zA*this.e0/this.kB/this.T*PHI);
     #
     CS = this.zA^2*this.e0^2/this.kB/this.T/this.areaL*this.COmm*Y./((1.0.+Y).^2);
     CBL  = nF./F;

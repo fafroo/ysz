@@ -47,7 +47,7 @@ include("../prototypes/timedomain_impedance.jl")
 
 
 
-function run_new(;physical_model_name, # ="ysz_model_GAS_LoMA_Temperature",
+function run_new(;physical_model_name,
                 test=false, test_from_above=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
@@ -205,7 +205,7 @@ function run_new(;physical_model_name, # ="ysz_model_GAS_LoMA_Temperature",
     
     porosity = 0.3
     if data_set == Nothing
-      AreaEllyt == 1.0    # random value
+      AreaEllyt = 1.0    # random value
     else
       if data_set == "OLD_MONO_100"
         AreaEllyt = 0.00011309724 * (1-porosity)       # m^2 (geometrical area)*(1 - porosity)
