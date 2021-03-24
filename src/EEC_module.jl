@@ -279,7 +279,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
 #       take_only_masked(mask, EEC_actual.prms_names), 
 #       err)
     
-     println("~~~~~ LM e = $(err)\nx = $(x)")
+     #println("~~~~~ LM e = $(err)\nx = $(x)")
     
     
     

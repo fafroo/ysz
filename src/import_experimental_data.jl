@@ -188,8 +188,14 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/03 YSZ 111 Ag-Ag/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(ET["rep"]).z")
       
       
-      
-      
+  elseif data_set=="HebbWagner_111_2nd"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/06 YSZ 111 Ag-Ag/!data/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+        
+  elseif data_set=="HebbWagner_110_2nd"
+    # TC \in (600 : 20 : 720) ...
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/07 YSZ 110 Ag-Ag/!data/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
+       
       
       
   ##########################################################
