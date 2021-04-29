@@ -475,7 +475,7 @@ function fitnessFunction(SIM::EIS_simulation, sim_EIS::DataFrame, exp_EIS::DataF
                 sum_err_imag *= imag_factor^2
                 sum_err_real *= real_factor^2                              
                 #
-                err = sum_err_imag + sum_err_real 
+                err = 1.5*sum_err_imag + sum_err_real 
             else
                 println("ERROR: wrong specification of error_type $(error_type)")
                 return throw(Exception())

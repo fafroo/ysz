@@ -314,7 +314,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   
   lower_bounds = Array{Float32}(undef, prms_length)
   upper_bounds = Array{Float32}(undef, prms_length)
-  lower_bounds_threshold = 0.000005
+  lower_bounds_threshold = 5e-9
   for (i, name) in enumerate(EEC_actual.prms_names)
       if occursin("alpha", name)
         lower_bounds[i] = max(alpha_low, lower_bounds_threshold)
@@ -367,7 +367,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
         #f_tol=1.0e-18,
         #g_tol=1.0e-18,
         #autodiff=:central,
-        Optim.Options(iterations = 5000, f_tol=1.0e-18, g_tol=1.0e-21),
+        Optim.Options(iterations = 2000, f_tol=1.0e-18, g_tol=1.0e-21),
         #Optim.NelderMead(
         #  initial_simplex = Optim.AffineSimplexer()        
         #)

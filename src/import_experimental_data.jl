@@ -123,15 +123,22 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
   ET = extra_tokens
   #
   pO2=Int64(pO2)
+  pO2_2_digits = @sprintf("%01g",pO2)
   pO2_Dan = @sprintf("%02g",pO2)
   pO2_Michal = @sprintf("%03g",pO2)
   #
   TC=Int64(TC)
   #
   bias=Float64(bias)
-    bias_mV = Int32(bias*1000)
+  bias_mV = Int32(bias*1000)
   if abs(bias_mV) < 10 && data_set!="DAN_kapacity"
     bias_mV = "0_1"
+  end
+  #
+  if bias == 0.0
+    ocp_token = "_ocp"
+  else
+    ocp_token = ""
   end
   #
   if length(data_set) > 3 && (data_set[end-3 : end-1] == "OCV")
@@ -196,7 +203,56 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
     # TC \in (600 : 20 : 720) ...
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/07 YSZ 110 Ag-Ag/!data/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(pO2).z")
        
-      
+  
+  elseif data_set=="HebbWagner_100_GOLD"
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/09 YSZ100 - Au-Au/$(TC) C/EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")
+  
+  elseif data_set=="HebbWagner_100_GOLD_backward"
+    backward_string = "backward_"
+    if ocp_token != ""
+      ocp_token = "_ocp_konec"
+      backward_string = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/09 YSZ100 - Au-Au/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")
+    
+  ##  
+    
+  elseif data_set=="HebbWagner_110_GOLD"
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/10 YSZ 110 - Au-Au/druhe mereni/$(TC) C/EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")
+  
+  elseif data_set=="HebbWagner_110_GOLD_backward"
+    backward_string = "backward_"
+    if ocp_token != ""
+      ocp_token = "_ocp_konec"
+      backward_string = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/10 YSZ 110 - Au-Au/druhe mereni/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")  
+
+  ##  
+    
+  elseif data_set=="HebbWagner_111_GOLD"
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 1/$(TC) C/EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")
+  
+  elseif data_set=="HebbWagner_111_GOLD_backward"
+    backward_string = "backward_"
+    if ocp_token != ""
+      ocp_token = "_ocp_konec"
+      backward_string = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 1/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")  
+    
+  ##  
+    
+  elseif data_set=="HebbWagner_111_GOLD_2"
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 2/$(TC) C/EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")
+  
+  elseif data_set=="HebbWagner_111_GOLD_2_backward"
+    backward_string = "backward_"
+    if ocp_token != ""
+      ocp_token = "_ocp_konec"
+      backward_string = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 2/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")    
       
   ##########################################################
   
@@ -206,35 +262,15 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
   elseif data_set=="OLD_MONO_100"
     fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/$(TC)C/100 $(TC)C $(pO2_Dan)% do 1V/is $(bias)DC 50AC.z")
   elseif data_set=="MICHAL"
-    if bias == 0
-      ocp_token = "_ocp"
-    else
-      ocp_token = ""
-    end
     fNAME=string("../snehurka/experimental_data_PSS/K4/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")
   
   elseif data_set=="K06"
-    if bias == 0
-      ocp_token = "_ocp"
-    else
-      ocp_token = ""
-    end
     fNAME=string("../snehurka/experimental_data_PSS/K06/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")
   
   elseif data_set=="K07"
-    if bias == 0
-      ocp_token = "_ocp"
-    else
-      ocp_token = ""
-    end
     fNAME=string("../snehurka/experimental_data_PSS/K07/$(TC) C/$(pO2_Michal) O2/EIS_$(bias)DC_50AC$(ocp_token).z")  
   
   elseif data_set=="DAN_kapacity"
-    if bias == 0
-      ocp_token = "_ocp"
-    else
-      ocp_token = ""
-    end
     fNAME=string("../snehurka/experimental_data_PSS/PolySymAgAg/$(TC) C/eis_$(bias_mV).z")  
   
   
