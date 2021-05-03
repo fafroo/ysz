@@ -716,6 +716,7 @@ end
 
 
 function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
+                        EIS_input=Nothing,
                         f_interval=Nothing, succes_fit_threshold = 0.002, error_type="normalized",
                         fixed_prms_names=[], fixed_prms_values=[],
                         init_values=Nothing, alpha_low=0.2, alpha_upp=1, 
@@ -848,7 +849,12 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     
     
     try
-      EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)
+      if EIS_input != Nothing
+        ########### TODO !!! very ugly solution !!!
+        EIS_exp = EIS_input
+      else
+        EIS_exp = ysz_fitting.import_data_to_DataFrame(SIM)
+      end
     catch 
       warning_buffer *= " ->->-> ERROR: file for (TC, pO2, bias, data_set_item) = ($(TC_item), $(pO2_item), $bias_item, $data_set_item) ... NOT FOUND! \n"
       missing_array = Array{Any}(undef, length(EEC_actual.prms_names))
@@ -1153,7 +1159,15 @@ function plot_EEC_data_general(EEC_data_holder;
       x_name_idx = i
     end
   end
-  y_name_idx = findall(x -> x==y_name, EEC_data_holder.prms_names)[1]
+  
+  serial_capacities_mode = false
+  if y_name == "C3 & C4"
+    serial_capacities_mode = true
+    C3_idx = 4
+    C4_idx = 7    
+  else
+    y_name_idx = findall(x -> x==y_name, EEC_data_holder.prms_names)[1]    
+  end
   
   
   range_list[1] = make_range_list("TC", TC_interval)
@@ -1180,8 +1194,32 @@ function plot_EEC_data_general(EEC_data_holder;
         EEC_data_holder, 
         Symbol(identifier_list[x_name_idx])
       )[range_list[x_name_idx]]
-    y_to_plot = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, y_name_idx]
-    valid_idxs = map( x -> x != Missing, y_to_plot)
+    if serial_capacities_mode
+      C3_plot_list = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, C3_idx]
+      C4_plot_list = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, C4_idx]
+      
+      for (i, item) in enumerate(C3_plot_list)
+          if C3_plot_list[i] == Missing
+            C3_plot_list[i] = missing
+          end
+          if C4_plot_list[i] == Missing
+            C4_plot_list[i] = missing
+          end          
+      end
+            
+      y_to_plot = 1.0 ./(1.0 ./C3_plot_list + 1.0 ./C4_plot_list)
+    
+    else
+      y_to_plot = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, y_name_idx]
+      
+      for (i, item) in enumerate(y_to_plot)
+        if y_to_plot[i] == Missing
+          y_to_plot[i] = missing
+        end
+      end
+    end        
+        
+    valid_idxs = map( x -> typeof(x) != Missing, y_to_plot)    
     
     plot(
       x_to_plot[valid_idxs], 
