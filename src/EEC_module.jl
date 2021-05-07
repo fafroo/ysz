@@ -279,12 +279,14 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
 #       take_only_masked(mask, EEC_actual.prms_names), 
 #       err)
     
-     #println("~~~~~ LM e = $(err)\nx = $(x)")
+#      println("~~~~~ LM e = $(err)\nx = $(x)")
     
     
     
     if !(check_x_in(x, lowM, uppM))
-      #println("    OUT OF THE BOUNDS   \n")
+      
+#      println("    OUT OF THE BOUNDS   \n")
+      
       return 1000
     end
     
@@ -324,11 +326,11 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
         upper_bounds[i] = Inf
       end
   end
-  
   for (i, name) in enumerate(EEC_actual.prms_names)
     lower_bounds[i] = max(lower_bounds[i], EEC_actual.lower_limits_for_fitting[i])
     upper_bounds[i] = min(upper_bounds[i], EEC_actual.upper_limits_for_fitting[i])
   end
+
   
   #######################################
   #######################################
@@ -558,7 +560,7 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
   for i in 1:RCPE_count
     #R
     lower_limits[3 + (i-1)*3] = -Inf
-    upper_limits[3 + (i-1)*3] = width*2    
+    upper_limits[3 + (i-1)*3] = Inf # width*2   
     
     #C
     lower_limits[4 + (i-1)*3] = 0.0
@@ -757,6 +759,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   ####  [ ] !!! 750, 100, 0.0, "MONO_110" dost blbe trefuje nizke frekvence
   ####  [ ] !!! kolem TC 800, MONO_110 se dejou divne veci v R1
   
+  ####  [ ] EEC_structure by melo obsahovat strukturu obvodu
   
   ########## Questions
   ####  [x] Jak se mam zachovat, kdyz fit neni dobry? Mam proste preskocit, nic nezapisovat do souboru a jet dal? Nebo zapsat a warning?
@@ -1088,15 +1091,16 @@ function load_EEC_data_holder(;folder="../data/EEC/", file_name="default.txt")
   end
   
   saving_destination = folder*file_name
-  data_df = CSV.read(saving_destination)
+  #data_df = CSV.read(saving_destination)
+  data_df = CSV.File(saving_destination) |> DataFrame
   
   TC_list, TC_repet, TC_per = get_unique_list_and_repetitivity_and_period(data_df.TC)
   pO2_list, pO2_repet, pO2_per = get_unique_list_and_repetitivity_and_period(data_df.pO2)
   bias_list, bias_repet, bias_per = get_unique_list_and_repetitivity_and_period(data_df.bias)
   data_set_list, data_set_repet, data_set_per = get_unique_list_and_repetitivity_and_period(data_df.data_set)
-  
-  
-  EEC_data_holder = EEC_data_holder_struct(TC_list, pO2_list, bias_list, data_set_list, ["R1", "L2", "R3", "C3", "alpha3", "R4", "C4", "alpha4"])
+    
+  @show names(data_df)[5 : end]  
+  EEC_data_holder = EEC_data_holder_struct(TC_list, pO2_list, bias_list, data_set_list, names(data_df)[5 : end])
   
   overall_counter = 0
   for (TC_idx, TC_item) in enumerate(EEC_data_holder.TC), 
@@ -1106,7 +1110,13 @@ function load_EEC_data_holder(;folder="../data/EEC/", file_name="default.txt")
     
     overall_counter += 1
     for (prm_name_idx, prm_name) in enumerate(EEC_data_holder.prms_names)    
-      EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, prm_name_idx] = data_df[overall_counter, Symbol(prm_name)]
+      token = data_df[overall_counter, Symbol(prm_name)]            
+      if ((token == "Missing") || (token == "missing"))
+        token = Missing        
+      else
+        token = parse(Float32, token)
+      end
+      EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, prm_name_idx] = token
     end
   end
   return EEC_data_holder
@@ -1123,7 +1133,9 @@ function plot_EEC_data_general(EEC_data_holder;
                                 data_set = Nothing,                              
                                 #
                                 fig_num=102, 
-                                plot_legend=true, plot_all_prms=true)
+                                plot_legend=true, plot_all_prms=true,
+                                reversed_x = false
+                                )
   
   function make_range_list(prm_name, interval)
     output_list = []
@@ -1217,14 +1229,14 @@ function plot_EEC_data_general(EEC_data_holder;
           y_to_plot[i] = missing
         end
       end
-    end        
+    end
         
     valid_idxs = map( x -> typeof(x) != Missing, y_to_plot)    
     
-    plot(
-      x_to_plot[valid_idxs], 
-      y_to_plot[valid_idxs],
-      label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))",
+    plot(    
+      reversed_x ? reverse(x_to_plot[valid_idxs]) : x_to_plot[valid_idxs] , 
+      y_to_plot[valid_idxs] ,
+      label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))"*"$(reversed_x ? "rev" : "")",
       "-x"
     )
   end
