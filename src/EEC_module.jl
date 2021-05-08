@@ -20,7 +20,7 @@ using LsqFit
 # # # list of initial guesses (maybe from a file???)
 # # # data_set_string + experimental conditions
 # 
-# EEC_data struct 
+# EEC_data struct
 #   function, 
 #   list of parameters (strings), 
 #   string representing EEC_structure
@@ -1071,9 +1071,9 @@ function load_EEC_data_holder(;folder="../data/EEC/", file_name="default.txt")
       end
     end
     if repetitivity == -1
-      return list[1], 0, 0
+      return list[1:1], 0, 0
     end
-    
+        
     # how long does it take to arrive at the same item
     period = -1
     for (i, item) in enumerate(list[1 : repetitivity : length(list)])
@@ -1082,11 +1082,10 @@ function load_EEC_data_holder(;folder="../data/EEC/", file_name="default.txt")
         period = repetitivity*(i-1)
         break
       end
-    end
+    end    
     if period == -1
       period = length(list)
     end
-    
     list[1 : repetitivity : period], repetitivity, period
   end
   
@@ -1166,19 +1165,27 @@ function plot_EEC_data_general(EEC_data_holder;
   x_name_idx = -1
   identifier_list = ["TC", "pO2", "bias", "data_set"]
   range_list = Array{Any}(undef, 4)
+  range_idx_list = Array{Any}(undef, 4)
   for i in 1:4
     if x_name == identifier_list[i]
       x_name_idx = i
     end
   end
-  
-  serial_capacities_mode = false
-  if y_name == "C3 & C4"
-    serial_capacities_mode = true
-    C3_idx = 4
-    C4_idx = 7    
+    
+  if y_name == "C3&C4"    
+    plot_template = "1.0/(1/C3 + 1/ C4)"
+  elseif (length(y_name) >= 5) && (y_name[1:5] == "(CPE)")
+    if y_name[6:end] == "C3"          
+      plot_template = "((C3*R3)^(1.0/alpha3))/R3"
+    end
+    if y_name[6:end] == "C4"          
+      plot_template = "((C4*R4)^(1.0/alpha4))/R4"
+    end
+    if y_name[6:end] == "C3&C4"          
+      plot_template = "1.0  /  (1/(((C3*R3)^(1.0/alpha3))/R3)   +    1/(((C4*R4)^(1.0/alpha4))/R4))"
+    end
   else
-    y_name_idx = findall(x -> x==y_name, EEC_data_holder.prms_names)[1]    
+    plot_template = y_name
   end
   
   
@@ -1196,6 +1203,21 @@ function plot_EEC_data_general(EEC_data_holder;
   xlabel(x_name)
   ylabel(y_name)
   
+  function get_plot_list_from_template(plot_template, EEC_data_holder, TC_idx, pO2_idx, bias_idx, data_set_idx)    
+    output_length = length(TC_idx)*length(pO2_idx)*length(bias_idx)*length(data_set_idx)
+    substitued_template_list = Array{Any}(undef, output_length)
+    substitued_template_list .= deepcopy(plot_template)
+    
+    for (prm_idx, prm) in enumerate(EEC_data_holder.prms_names)
+      active_prm_vs_x_name_list = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, prm_idx]  
+      active_prm_vs_x_name_list = replace(active_prm_vs_x_name_list, Missing => missing)      
+      for (value_idx, value) in enumerate(active_prm_vs_x_name_list)
+        substitued_template_list[value_idx] = replace(substitued_template_list[value_idx], prm => value)
+      end
+    end    
+    return eval.(Meta.parse.(substitued_template_list))
+  end
+  
   y_to_plot = []
   for TC_idx in (x_name_idx != 1 ? range_list[1] : [range_list[1]]),
       pO2_idx in (x_name_idx != 2 ? range_list[2] : [range_list[2]]),
@@ -1206,33 +1228,10 @@ function plot_EEC_data_general(EEC_data_holder;
         EEC_data_holder, 
         Symbol(identifier_list[x_name_idx])
       )[range_list[x_name_idx]]
-    if serial_capacities_mode
-      C3_plot_list = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, C3_idx]
-      C4_plot_list = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, C4_idx]
-      
-      for (i, item) in enumerate(C3_plot_list)
-          if C3_plot_list[i] == Missing
-            C3_plot_list[i] = missing
-          end
-          if C4_plot_list[i] == Missing
-            C4_plot_list[i] = missing
-          end          
-      end
-            
-      y_to_plot = 1.0 ./(1.0 ./C3_plot_list + 1.0 ./C4_plot_list)
-    
-    else
-      y_to_plot = EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, y_name_idx]
-      
-      for (i, item) in enumerate(y_to_plot)
-        if y_to_plot[i] == Missing
-          y_to_plot[i] = missing
-        end
-      end
-    end
+               
+    y_to_plot = get_plot_list_from_template(plot_template, EEC_data_holder, TC_idx, pO2_idx, bias_idx, data_set_idx)
         
     valid_idxs = map( x -> typeof(x) != Missing, y_to_plot)    
-    
     plot(    
       reversed_x ? reverse(x_to_plot[valid_idxs]) : x_to_plot[valid_idxs] , 
       y_to_plot[valid_idxs] ,
@@ -1253,8 +1252,13 @@ function plot_EEC_data_general(EEC_data_holder;
       bias_step = 666
     end
     bias_aux_string = (length(THE_list) < 8 ? THE_list : "collect($(THE_list[1]) : $(bias_step) : $(THE_list[end]))")
-    
+    @show range_list[1]
+    @show range_list[2]
+    @show EEC_data_holder.pO2
+    @show EEC_data_holder.pO2[range_list[2]]
     title("TC=$(EEC_data_holder.TC[range_list[1]])    pO2=$(EEC_data_holder.pO2[range_list[2]])\nbias=$(bias_aux_string)    data_set=$(EEC_data_holder.data_set[range_list[4]]) ", fontsize=10)
+    
+#     title("TC=$(EEC_data_holder.TC[range_list[1]])    pO2=$(EEC_data_holder.pO2[range_list[2]])\nbias=$(bias_aux_string)    data_set=$(EEC_data_holder.data_set[range_list[4]]) ", fontsize=10)
   else
     title(y_name*"  vs  "*x_name)    
   end
