@@ -83,6 +83,8 @@ function get_EEC(EEC_structure)
       append!(prms_names, ["L$(i)"])
     elseif token=="C"
       append!(prms_names, ["C$(i)"])  
+    elseif token=="RCPE(tilt)"
+      append!(prms_names, ["R$(i)", "C$(i)", "alpha$(i)"])
     elseif token=="RCPE"
       append!(prms_names, ["R$(i)", "C$(i)", "alpha$(i)"])
     elseif token=="RC"
@@ -114,6 +116,8 @@ function evaluate_EEC(EEC::EEC_data_struct, omega)
       total_Z += im*omega*g(EEC, "L$(i)")*L_units      
     elseif token=="C"
       total_Z += 1/(im*omega*g(EEC, "C$(i)"))
+    elseif token=="RCPE(tilt)"
+      total_Z += g(EEC, "R$(i)")    /( 1 + g(EEC, "R$(i)") * g(EEC, "C$(i)") * (im*omega)^(g(EEC, "alpha$(i)")) )
     elseif token=="RCPE"
       total_Z += g(EEC, "R$(i)")    /( 1 + (g(EEC, "R$(i)") * g(EEC, "C$(i)") * im*omega)^(g(EEC, "alpha$(i)")) )
     elseif token=="RC"
@@ -1184,6 +1188,10 @@ function plot_EEC_data_general(EEC_data_holder;
     if y_name[6:end] == "C3&C4"          
       plot_template = "1.0  /  (1/(((C3*R3)^(1.0/alpha3))/R3)   +    1/(((C4*R4)^(1.0/alpha4))/R4))"
     end
+  elseif (length(y_name) >= 8) && (y_name[1:8] == "(CPEsin)")
+    if y_name[9:end] == "C3"          
+      plot_template = "(((C3*R3)^(1.0/alpha3))/R3 )*sin(alpha3*pi/2)"
+    end
   else
     plot_template = y_name
   end
@@ -1251,11 +1259,7 @@ function plot_EEC_data_general(EEC_data_holder;
     else
       bias_step = 666
     end
-    bias_aux_string = (length(THE_list) < 8 ? THE_list : "collect($(THE_list[1]) : $(bias_step) : $(THE_list[end]))")
-    @show range_list[1]
-    @show range_list[2]
-    @show EEC_data_holder.pO2
-    @show EEC_data_holder.pO2[range_list[2]]
+    bias_aux_string = (length(THE_list) < 8 ? THE_list : "collect($(THE_list[1]) : $(bias_step) : $(THE_list[end]))")    
     title("TC=$(EEC_data_holder.TC[range_list[1]])    pO2=$(EEC_data_holder.pO2[range_list[2]])\nbias=$(bias_aux_string)    data_set=$(EEC_data_holder.data_set[range_list[4]]) ", fontsize=10)
     
 #     title("TC=$(EEC_data_holder.TC[range_list[1]])    pO2=$(EEC_data_holder.pO2[range_list[2]])\nbias=$(bias_aux_string)    data_set=$(EEC_data_holder.data_set[range_list[4]]) ", fontsize=10)
