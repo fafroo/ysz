@@ -12,31 +12,26 @@ ysz_fitting.view_EEC(
 # fixed_prms_values example              
 computed_data = ysz_fitting.run_EEC_fitting(TC=[700,], pO2=[100], bias=collect(-0.0 : -0.2 : -0.4), data_set=["MONO_110"], 
            #   extra_tokens=Dict("rep"=>[1,2], "shaky_table" => ["on", "off"]),
-              f_interval="auto", succes_fit_threshold=0.007, trim_inductance=false,
+              succes_fit_threshold=0.007, error_type="normalized",
+              EEC_structure="R-L-RCPE-RCPE",
               #init_values = [0.69402504, 1.6663523, 0.033978099, 0.05, 0.8, 0.012615565, 0.05, 0.9],
               fixed_prms_names=["L2"], fixed_prms_values=[1.75],
               alpha_low=0.2, alpha_upp=1,            
               which_initial_guess="both",
               save_file_bool=false, file_name="test_alg.txt", save_R1_file=false,
-              plot_bool=true, plot_legend=true, plot_best_initial_guess=false, plot_fit=true,
-              show_all_initial_guesses=true,
-              use_DRT=false);
+              plot_bool=true, plot_legend=true, DRT_draw_semicircles=false, plot_fit=true, use_DRT=false, plot_exp=true,
+              plot_best_initial_guess=true, show_all_initial_guesses=false,
+              EIS_preprocessing_control = ysz_fitting.EIS_preprocessing_control(
+                                  f_interval=(-Inf, 500), 
+                                  #add_inductance=0,
+                                  #scale_factor=1.0,
+                                  #trim_inductance=true, 
+                                  outlayers_threshold=1.5,                                    
+                                  use_DRT=false, DRT_control=ysz_fitting.DRT_control_struct()
+                           )
+              );
 
 ### Notes:
-### - extra_tokens -> you can specify additional parameters to import specific file. For example. 
-###         (i) repetitions of experiment ... "rep" => [1,2]
-###         (ii) if there was some shaky_table ... "shaky_table" => ["on", "off"]  
-###               (**) you can specify string of characters, not only numbers
-###   * syntax for this parameter in terminal is then
-###       -> extra_tokens=Dict("rep"=>[1,2],     "shaky_table" => ["on", "off"])
-###   * and you can use this additional parameters in defining the path in "import_experimental_data.jl" file. For example
-###       -> fNAME = string("(........)/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(extra_tokens["rep"]).z")
-###     or with shorter form
-###       -> fNAME = string("(........)/$(TC) C/EIS $(bias)V v ref 50mV amplituda_Rp0$(ET["rep"]).z")
-###     In this case, all predefined possibilities for "rep" will be investigated, i.e. [1,2]
-###   * if you do not use some extra token (i.e. "shaky_table") in the importing path, both variants (i.e. ["on", "off"]) will be   
-###     anyway investigated (fitted) and written in the output file. But the investigated data will be exactly the same for both cases.
-###     Which means... meaningless waste of computation resoures :)
 ### 
 ### - run_EEC_fitting works at the time for structrure "R-L-{(RCPE-)_Ntimes}{-C}" EEC
 ### - parameters are ["R1", "L2", "R3", "C3", "alpha3", "R4", "C4", "alpha4", ..., C(2 + 3*N + 1)]
@@ -68,7 +63,9 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[700,], pO2=[100], bias=collect(-
 ### - save_R1_file -> if true, it saves file with only one column with R1 values. The name is "$(file_name)_R1" (before the extension)
 ### - fixed_prms_names: defines which parameters should NOT be fitted. e.g. ["R1", "L2"]
 ### - fixed_prms_values: defines the values of the fixed_prms_names. e.g. [0.4, 1.4e-6]    
-### - alpha_low=0.2, alpha_upp=1.0 (default values) defines lower and upper bound for fitting alphas         
+### - alpha_low=0.2, alpha_upp=1.0 (default values) defines lower and upper bound for fitting alphas  
+###  
+### - EIS_processing_control process each EIS data before fitting - detailed documentation is in EIS_preprocessing_usage.jl       
 
 # saving and loading
 ysz_fitting.save_EEC_data_holder(computed_data, folder="../data/EEC/", file_name="default.txt")
@@ -77,15 +74,14 @@ computed_data2 = ysz_fitting.load_EEC_data_holder(folder="../data/EEC/", file_na
 
                       
 # view of the results
-R1_data = ysz_fitting.plot_EEC_data_general(computed_data, x_name="bias", y_name="R1",
+combined_data = ysz_fitting.plot_EEC_data_general(computed_data, x_name="bias", y_name="10*R1 + C3^2",
                                             TC_interval = [700, 850],
                                             pO2_interval = [0, 100],
                                             bias_interval = [-Inf, Inf],
-                                            data_set = Nothing,                              
+                                            data_set = Nothing,                         
                                             #
                                             fig_num=102,
-                                            plot_legend=true, plot_all_prms=true);
-            
+                                            plot_legend=true, plot_all_prms=true);                                            
 ### Notes:
 ### - computed_data are precomputed results
 ### - x_name defines what should be on x-axis
