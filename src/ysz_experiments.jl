@@ -47,7 +47,7 @@ include("../prototypes/timedomain_impedance.jl")
 
 
 
-function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
+function run_new(;physical_model_name,
                 test=false, test_from_above=false, print_bool=false, debug_print_bool=false, out_df_bool=false,
                 verbose=false, pyplot=false, pyplot_finall=false, save_files=false,
                 width=0.0005, dx_exp=-9,
@@ -72,14 +72,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
 
     
     if physical_model_name=="ysz_model_GAS_LoMA_generic"      
-      if EIS_IS
-        physical_model_name="ysz_model_GAS_LoMA_Temperature"
-        generic_mode = false
-      else
-        generic_mode = true   
-      end
+      extended_LSM_domain_mode=true
     else
-      generic_mode = false
+      extended_LSM_domain_mode = false
     end
     
     #model_symbol = eval(Symbol(model_label))
@@ -92,9 +87,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     iy = model_symbol.iy
     iyAs = model_symbol.iyAs
     iyOs = model_symbol.iyOs
-    if generic_mode
-      iphiYSZ = model_symbol.iphiYSZ
-    end
+#     if extended_LSM_domain_mode
+#       iphiYSZ = model_symbol.iphiYSZ
+#     end
     index_driving_species = model_symbol.index_driving_species
     
     
@@ -116,7 +111,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
       PyPlot.grid()
       
       PyPlot.subplot(212)
-      if generic_mode
+      if extended_LSM_domain_mode
         for i in [3]
           PyPlot.plot(0,U[surface_species[i],1],marker, markersize=point_marker_size, label=surface_names[i])
         end
@@ -128,14 +123,19 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
       PyPlot.grid()
     end
     
-    function set_eta(phiS)
-      if generic_mode
-        # E^LSM =  zeta*E^YSZ
-        sys.physics.data.phiLSM = parameters.phiLSM_eq + phiS*ZETA_fac
-      else
-        # E^LSM =  zeta* ( E^YSZ + IR )
-        sys.boundary_values[index_driving_species, 1]=parameters.phi_eq + phiS
-      end
+    function set_eta(eta)
+      sys.boundary_values[index_driving_species, 1] = parameters.phi_eq + eta
+#       if extended_LSM_domain_mode
+#         # E^LSM =  zeta*E^YSZ
+#         # but more important is ->     index_driving_species = iphiLSM
+#         
+#         sys.boundary_values[index_driving_species, 1] = parameters.phiLSM_eq + eta*ZETA_fac   
+#       else
+#         # E^LSM =  zeta* ( E^YSZ + IR )
+#         # but more important is ->     index_driving_species = iphiS
+#         
+#         sys.boundary_values[index_driving_species, 1] = parameters.phi_eq + eta
+#       end
     end
     
     function ramp_to_phiS!(U, U0, phiS, phiS0;                          
@@ -160,8 +160,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
       for (round, ramp_nodes) in enumerate(ramp_nodes_list)
         
         control.damp_growth=damp_growth_in_round[round]        
-                
-        for phi_ramp in (ramp_nodes == 0 ? phiS : collect(phi_ramp_solved : (phiS - phiS0)/ramp_nodes : phiS))
+        actual_ramp_step = ( (phiS - phiS0) > 1e-8 ?  (phiS - phiS0) : 1.0 )
+        for phi_ramp in (ramp_nodes == 0 ? phiS : collect(phi_ramp_solved : actual_ramp_step/ramp_nodes : phiS))
             try              
               if verbose
                 @show phi_ramp                
@@ -203,9 +203,9 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
     
-    porosity = 0.0
+    porosity = 0.3
     if data_set == Nothing
-      AreaEllyt == 1.0    # random value
+      AreaEllyt = 1.0    # random value
     else
       if data_set == "OLD_MONO_100"
         AreaEllyt = 0.00011309724 * (1-porosity)       # m^2 (geometrical area)*(1 - porosity)
@@ -285,7 +285,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     
     
     # assembling of the system
-    if generic_mode
+    if extended_LSM_domain_mode
       physics=VoronoiFVM.Physics(
           data=parameters,
           num_species=size(bulk_species,1)+size(surface_species,1),
@@ -304,8 +304,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
           storage=model_symbol.storage!,
           flux=model_symbol.flux!,
           reaction=model_symbol.reaction!,
-          breaction=model_symbol.breaction!,
-          #generic=model_symbol.generic_operator!,
+          breaction=model_symbol.breaction!,          
           bstorage=model_symbol.bstorage!
       )    
     end
@@ -334,8 +333,10 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
     inival = model_symbol.get_typical_initial_conditions(sys, parameters)
     phi0 = parameters.phi_eq
 
-    if generic_mode
-      ZETA_fac = 1
+    if extended_LSM_domain_mode
+      # TODO --- change
+      #ZETA_fac = 1
+      ZETA_fac = (1 + parameters.e_fac)
     else
       ZETA_fac = (1 + parameters.e_fac)
     end
@@ -382,7 +383,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
 #     U1 = unknowns(sys)
 #     
 #     eta_sim = -0.8
-#     if generic_mode
+#     if extended_LSM_domain_mode
 #       sys.physics.data.phiLSM = parameters.phiLSM_eq + eta_sim
 #     else
 #       sys.boundary_values[index_driving_species, 1]=parameters.phi_eq + eta_sim/ZETA_fac
@@ -392,7 +393,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
 #     solve!(U1, steadystate, sys, control=control)
 #     plot_solution(U1, X, 10^9, marker="x")
 #     
-#     if generic_mode
+#     if extended_LSM_domain_mode
 #       @show steadystate[iphi,1]    
 #       @show steadystate[iphiYSZ,1]
 #       @show parameters.phiLSM_eq + 1.0  - U1[iphi,1]*(1 + parameters.e_fac)
@@ -402,6 +403,8 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
 ################
 
     #@show parameters.phi_eq
+    #@show parameters.phiS_eq
+    #@show parameters.phiLSM_eq
     
     
     
@@ -513,7 +516,7 @@ function run_new(;physical_model_name="ysz_model_GAS_LoMA_Temperature",
                 # Here, we use the derivatives of the measurement functional
                 zfreq=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval,dmeas_stdy, dmeas_tran)
                 inductance = im*parameters.L*w
-                push!(z_freqdomain, inductance + (1.0/zfreq))
+                push!(z_freqdomain, inductance + (1.0/zfreq) )#   /(1 + parameters.e_fac))
                 print_bool && @show zfreq
             end
             

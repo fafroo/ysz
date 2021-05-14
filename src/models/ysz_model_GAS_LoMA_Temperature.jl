@@ -317,8 +317,8 @@ function get_conductivity_from_T(T)
   TC_list = [700, 750, 800, 850]
   # conductivity values for "OLD_MONO_110"
   #conductivity_list = [1.02, 2.07,  3.72, 5.85]
-  #conductivity_list = [1.015, 2.06,  3.63, 5.93] # S/m ... for S_styk = S_kruh*(1 - 0.3) (with porosity)
-  conductivity_list = [0.711, 1.44, 2.54, 4.15]  # S/m ... for S_kruh = pi*0.6*0.6 cm (no porosity used)
+  conductivity_list = [1.015, 2.06,  3.63, 5.93] # S/m ... for S_styk = S_kruh*(1 - 0.3) (with porosity)
+  #conductivity_list = [0.711, 1.44, 2.54, 4.15]  # S/m ... for S_kruh = pi*0.6*0.6 cm (no porosity used)
   #
   for (i, T_test) in enumerate(TC_list.+273.15)
     if abs(T_test - T) < 0.5
@@ -474,11 +474,11 @@ end
 function bstorage!(f,u,node, this::YSZParameters)
     if  node.region==1
       if this.separate_vacancy
-        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL    *0.7
-        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL      *0.7
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL
       else
-        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL    *0.7
-        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL    *0.7
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL
       end
     end
 end
@@ -815,13 +815,7 @@ function breaction!(f,u,node,this::YSZParameters)
         electroR=electroreaction(this,u)
         oxide_ads = exponential_oxide_adsorption(this, u)
         gas_ads = exponential_gas_adsorption(this, u)
-        
-        
-        
-        f[iy]= -this.mO*oxide_ads*0.7
-        
-        
-        
+        f[iy]= - this.mO*oxide_ads
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
         # sign is negative bcs of the equation implementation
         f[iyAs]= this.mO*oxide_ads - this.mO*electroR 
@@ -835,10 +829,8 @@ end
 
 function direct_capacitance(this::YSZParameters, PHI)
     # Clemens' analytic solution
-    #printfields(this)
-    
-    PHI
-    #PHI=collect(-1:0.01:1) # PHI = phi_B-phi_S, so domain as phi_S goes with minus
+        
+    PHI    
     my_eps = 0.001
     for i in collect(1:length(PHI))
         if abs(PHI[i]) < my_eps
@@ -862,12 +854,24 @@ function direct_capacitance(this::YSZParameters, PHI)
            )
          );
     #
-    Y  = yB/(1-yB)*exp.(- this.DGA/this.kB/this.T .- this.zA*this.e0/this.kB/this.T*PHI);
+    Y  = yB/(1-yB)*exp.(- this.A.DG/this.kB/this.T .- this.zA*this.e0/this.kB/this.T*PHI);
     #
     CS = this.zA^2*this.e0^2/this.kB/this.T/this.areaL*this.COmm*Y./((1.0.+Y).^2);
     CBL  = nF./F;
     return CBL, CS, y
 end
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -881,7 +885,7 @@ function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEll
     dphi_end = U[iphi, end] - U[iphi, end-1]
     dx_end = X[end] - X[end-1]
     dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
-    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.COmm            *0.7 # (e0*zA*nA_s)
+    Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.COmm # (e0*zA*nA_s)
     meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
     return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
 end
@@ -890,8 +894,8 @@ end
 # Steady part of measurement functional
 #
 function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
-    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))               *0.7
-    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))                  *0.7
+    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
+    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
 end
 
 

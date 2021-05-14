@@ -25,27 +25,26 @@ using LeastSquaresOptim
 using SparseArrays
 
 const bulk_species = (iphi, iy) = (1, 2)
-const surface_species = (iyAs, iyOs, iphiYSZ) = (3, 4, 5)
-const surface_names = ("yAs", "yOs", "phiYSZ")
+const surface_species = (iyAs, iyOs, iphiYSZ, iphiLSM) = (3, 4, 5, 6)
+const surface_names = ("yAs", "yOs", "phiYSZ", "phiLSM")
 
-
-const index_driving_species = iphi
+const index_driving_species = iphiLSM
 
 
 include("../../src/general_supporting_stuff.jl")
 
 
 mutable struct reaction_struct
-  r::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
+  r::Float64   # surface reaction coefficient [ m^-2 s^-1 ]
   r_A::Float64
   r_B::Float64
   r_C::Float64
-  DG::Float64 # difference of gibbs free energy of adsorption  [ J ]
+  DG::Float64 # difference of gibbs free energy of reaction  [ J ]
   DG_A::Float64
   DG_B::Float64
   DG_C::Float64
-  beta::Float64 # symmetry of the adsorption    
-  S::Float64 # stechiometry compensatoin of the adsorption
+  beta::Float64 # symmetry of the reaction
+  S::Float64 # stechiometry compensatoin of the reaction
   exp::Float64 # bool deciding if EXP should be used instead of LoMA
   #
   
@@ -56,6 +55,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     # switches
     separate_vacancy::Bool
     weird_DD::Bool
+    unknown_phiLSM_bool::Bool
     
     # reactions
     A::reaction_struct    # oxide adsorption from YSZ
@@ -132,6 +132,7 @@ function YSZParameters(this)
     #swithes
     this.separate_vacancy = true
     this.weird_DD = true
+    this.unknown_phiLSM_bool = true
     
     # experimental conditions
     this.pO2=1.0                   # O2 atmosphere 
@@ -199,7 +200,7 @@ function YSZParameters(this)
     this.COmm_B=-Inf
     this.COmm_C=-Inf
     #
-    this.e_fac = 0.0    
+    this.e_fac = 0.0
     
 
     # known
@@ -284,10 +285,12 @@ end
 
 # boundary conditions
 function set_typical_boundary_conditions!(sys, parameters::YSZParameters)
-    #sys.boundary_values[index_driving_species,1]=parameters.phi_eq
-    #sys.boundary_factors[index_driving_species,1]=VoronoiFVM.Dirichlet
-    #
-    parameters.phiLSM = parameters.phiLSM_eq
+    if parameters.unknown_phiLSM_bool
+      sys.boundary_values[index_driving_species,1]=parameters.phi_eq
+      sys.boundary_factors[index_driving_species,1]=VoronoiFVM.Dirichlet
+    else
+      parameters.phiLSM = parameters.phiLSM_eq
+    end
     #
     sys.boundary_values[iphi,2]=0.0
     sys.boundary_factors[iphi,2]=VoronoiFVM.Dirichlet
@@ -330,8 +333,8 @@ function get_conductivity_from_T(T)
   TC_list = [700, 750, 800, 850]
   # conductivity values for "OLD_MONO_110"
   #conductivity_list = [1.02, 2.07,  3.72, 5.85]
-  #conductivity_list = [1.015, 2.06,  3.63, 5.93] # S/m ... for S_styk = S_kruh*(1 - 0.3) (with porosity)
-  conductivity_list = [0.711, 1.44, 2.54, 4.15]  # S/m ... for S_kruh = pi*0.6*0.6 cm (no porosity used)
+  conductivity_list = [1.015, 2.06,  3.63, 5.93] # S/m ... for S_styk = S_kruh*(1 - 0.3) (with porosity)
+  #conductivity_list = [0.711, 1.44, 2.54, 4.15]  # S/m ... for S_kruh = pi*0.6*0.6 cm (no porosity used)
   #
   for (i, T_test) in enumerate(TC_list.+273.15)
     if abs(T_test - T) < 0.5
@@ -830,15 +833,14 @@ end
 # surface reaction + adsorption
 function breaction!(f,u,node,this::YSZParameters)     
     
-    # u is the array for unknown at some point X -> u = (u[iy], u[iy], u[iAs], u[iOs]}
-    my_u = u    
+    # u is the array for unknown at some point X -> u = (u[iy], u[iy], u[iAs], u[iOs]}  
             
     f .= 0.0
     
     if node.region==1        
-        oxide_ads = exponential_oxide_adsorption(this, my_u)
-        electroR=electroreaction(this,my_u)
-        gas_ads = exponential_gas_adsorption(this, my_u)
+        oxide_ads = exponential_oxide_adsorption(this, u)
+        electroR=electroreaction(this,u)
+        gas_ads = exponential_gas_adsorption(this, u)
         
         f[iy]= - this.mO*oxide_ads
         # if bulk chem. pot. > surf. ch.p. then positive flux from bulk to surf
@@ -847,7 +849,11 @@ function breaction!(f,u,node,this::YSZParameters)
         f[iyOs]= this.mO*electroR - this.mO*2*gas_ads
         
         #### E^LSM = zeta E^YSZ
-        f[iphi]= 1e6*(this.phiLSM + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        if this.unknown_phiLSM_bool
+          f[iphi]= 1e6*(u[iphiLSM] + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        else
+          f[iphi]= 1e6*(this.phiLSM + this.e_fac*u[iphiYSZ] - u[iphi]*(1 + this.e_fac))
+        end
         #### E^LSM = zeta ( E^YSZ + IR )
         #f[iphi]= 1e6*(this.phiLSM  - u[iphi]*(1 + this.e_fac))
         

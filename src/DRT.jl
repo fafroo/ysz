@@ -2,7 +2,7 @@ using Printf
 using PyPlot
 #using Plots
 using DataFrames
-using LeastSquaresOptim
+#using LeastSquaresOptim
 
 using NNLS
 using LinearAlgebra
@@ -20,10 +20,19 @@ mutable struct DRT_control_struct
   tau_max_fac::Float32
   tau_range_fac::Float32
   peak_merge_tol::Float32
+  specified_f_range
 end
 
 function DRT_control_struct()
-  return DRT_control_struct(0.0, 1, 1, 2,0)
+  return DRT_control_struct(0.0, 1, 1, 2,0, Nothing)
+end
+
+function DRT_control_sturct(a, b, c, d; specified_f_range=Nothing)
+  return DRT_control_struct(a, b, c, d, specified_f_range)
+end
+
+function DRT_control_struct(specified_f_range)  
+  return DRT_control_struct(0.0, 1, 1, 2,0, specified_f_range)
 end
 
 mutable struct DRT_struct
@@ -267,34 +276,26 @@ function get_expspace(A, B, n)
   res
 end
 
-
-function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=false)
-  #println(control.lambda)
-  #@show tau_max_fac
-  tau_min = 1.0/(2*pi*EIS_df.f[end]) / control.tau_min_fac
-  tau_max = 1.0/(2*pi*EIS_df.f[1]) * control.tau_max_fac
-  tau_range = get_expspace(tau_min, tau_max, control.tau_range_fac*size(EIS_df.f, 1)-2)
-  #tau_range = [0.001]
-  
-  N_f = size(EIS_df.f, 1)
+function construct_A_matrix_and_b(f_nodes, tau_range, Z, lambda)
+  N_f = size(f_nodes, 1)
   N_tau = size(tau_range, 1)
   
   # h, R_ohm, L
   n_cols = N_tau + 2  
   # real(Z), imag(Z), regularization
-  if control.lambda == 0.0
+  if lambda == 0.0
     n_rows = 2*N_f
   else
     n_rows = 2*N_f + n_cols
   end
 #   @show tau_range
-#   @show EIS_df.f
-  
+#   @show f_nodes
+    
   A = Matrix{Float64}(undef, n_rows, n_cols)
   b = Vector{Float64}(undef, n_rows)
   
-  # assemble "RC" part of A and b
-  for (i, f) in enumerate(EIS_df.f)
+  # assemble A and b
+  for (i, f) in enumerate(f_nodes)
     #RC
     for (j, tau) in enumerate(tau_range)
       A[i, j]       = real(1/(1 + im*(2*pi*f)*tau))
@@ -308,25 +309,42 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
     A[N_f + i, N_tau + 2] = 2*pi*f
     
     # b
-    b[i] = real(EIS_df.Z[i])
-    b[N_f + i] = imag(EIS_df.Z[i])
+    if Z != Nothing
+      b[i] = real(Z[i])
+      b[N_f + i] = imag(Z[i])
+    end
   end
   
+  if lambda != 0.0
+    # assemble "regularization" part of A and b
+    A[2*N_f + 1 : end, :] .= Diagonal([lambda for i in 1:n_cols])
+    b[2*N_f + 1 : end] .= 0
+  end
   
 #   @show A[N_f,:]
 #   @show b[N_f]
 #   @show 2222222
 #   @show A[2*N_f,:]
 #   @show b[2*N_f]
+
+  return (A, b, N_f, N_tau)
+end
+
+function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=false)
+  #println(control.lambda)
+  #@show tau_max_fac
+  tau_min = 1.0/(2*pi*EIS_df.f[end]) / control.tau_min_fac
+  tau_max = 1.0/(2*pi*EIS_df.f[1]) * control.tau_max_fac
+  tau_range = get_expspace(tau_min, tau_max, control.tau_range_fac*size(EIS_df.f, 1)-2)
+  #tau_range = [0.001]
   
-  if control.lambda != 0.0
-    # assemble "regularization" part of A and b
-    A[2*N_f + 1 : end, :] .= Diagonal([control.lambda for i in 1:n_cols])
-    b[2*N_f + 1 : end] .= 0
-  end
+  (A, b, N_f, N_tau) = construct_A_matrix_and_b(EIS_df.f, tau_range, EIS_df.Z, control.lambda)
   
   work_l = NNLSWorkspace(A, b);
-  solution = solve!(work_l)  
+  
+  solution = solve!(work_l)
+  #max_iter = 1000
+  #solution = solve!(work_l, max_iter)
   
   if solution[1] > 0.000001
     println(" !!!!!!!!!!!!!!!!!!!!!!!  Low frequency adjustment ---------------------- ")
@@ -339,18 +357,6 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
     
     work_l = NNLSWorkspace(A, b);
     solution = solve!(work_l)     
-  end
-  
-  if size(A,1) == size(A,2)
-#     @show det(A)
-#     @show A
-#     exact_solution = A \ b
-#     @show exact_solution
-#     @show solution
-#     @show exact_solution - solution
-#     println()
-#     @show A*exact_solution - b
-#     @show A*solution - b
   end
   
 #   @show solution
@@ -366,11 +372,27 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
     solution[1 : 3] .=0
   end
   
-  EIS_post = A*solution
+  if control.specified_f_range != Nothing  
+    f_nodes = EIS_get_checknodes_geometrical(control.specified_f_range...)
+        
+    # assemble new A w.r.t. specified_f_range
+    (A, b, N_f, N_tau) = construct_A_matrix_and_b(f_nodes, tau_range, Nothing, 0.0)
   
-  EIS_new = deepcopy(EIS_df)
-  for i in 1:N_f
-    EIS_new.Z[i] = EIS_post[i] + im*EIS_post[N_f + i]
+    EIS_post = A*solution
+    
+    Z_specified = Array{Complex}(undef, N_f)
+    for i in 1:N_f
+      Z_specified[i] = Complex(EIS_post[i], EIS_post[N_f + i])
+    end
+    
+    EIS_new = DataFrame(f = f_nodes, Z = Z_specified)
+  else      
+    EIS_post = A*solution
+    
+    EIS_new = deepcopy(EIS_df)
+    for i in 1:N_f
+      EIS_new.Z[i] = EIS_post[i] + im*EIS_post[N_f + i]
+    end
   end
   
   DRT_out = DRT_struct(EIS_new, tau_range, solution[1:end - 2], solution[end-1], solution[end], DataFrame(), control)
