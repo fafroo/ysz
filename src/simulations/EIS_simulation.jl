@@ -116,7 +116,7 @@ function setting_legend(SIM::EIS_simulation; latex=true)
   end
 end
 
-function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_string="", to_standard_figure=true; marker_style="x-")  
+function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_string="", to_standard_figure=true; marker_style="x-", color=Nothing)  
   if to_standard_figure
     figure(SIM.fig_num, figsize=SIM.fig_size)
   end
@@ -220,22 +220,22 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
   end
 end
 
-function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
+function typical_plot_sim(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true; color=Nothing)
   if length(additional_string)>0 && additional_string[1]=='!'
     my_label = additional_string[2:end]
   else
     my_label = "sim $(setting_legend(SIM))$(additional_string)"
   end
-  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x-")
+  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x-", color=color)
 end
 
-function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true)
+function typical_plot_exp(SIM::EIS_simulation, EIS_df, additional_string="", to_standard_figure=true; color=Nothing)
   if length(additional_string)>0 && additional_string[1]=='!'
     my_label = additional_string[2:end]
   else
     my_label = "exp $(setting_legend(SIM))$(additional_string)"
   end
-  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x:")
+  typical_plot_general(SIM, EIS_df, my_label, additional_string, to_standard_figure, marker_style="x:", color=color)
 end
 
 function fitness_error_report(SIM::EIS_simulation, plot_prms_string, EIS_exp, EIS_sim)
