@@ -23,6 +23,7 @@ mutable struct EIS_preprocessing_control
   scale_factor
   add_inductance
   trim_inductance
+  leave_only_inductance_points
   outlayers_threshold
   use_DRT
   DRT_control
@@ -36,7 +37,8 @@ function EIS_preprocessing_control(;
                                     f_interval=Nothing, 
                                     add_inductance=0, 
                                     scale_factor=Nothing,
-                                    trim_inductance=false, 
+                                    trim_inductance=false,
+                                    leave_only_inductance_points=Nothing,
                                     outlayers_threshold=1.5,                                    
                                     use_DRT=false, DRT_control=DRT_control_struct(),
                                     #
@@ -47,6 +49,7 @@ function EIS_preprocessing_control(;
   this.scale_factor = scale_factor
   this.add_inductance = add_inductance
   this.trim_inductance = trim_inductance
+  this.leave_only_inductance_points = leave_only_inductance_points
   this.outlayers_threshold = outlayers_threshold
   this.use_DRT = use_DRT
   this.DRT_control = DRT_control
@@ -79,7 +82,7 @@ end
 #####################
 #####################
 # old version
-function f_interval_auto_processing(EIS_df, trim_inductance=false)
+function f_interval_auto_processing(EIS_df, trim_inductance=false, leave_only_inductance_points=false)
   
   function get_lowest_freq_idx(EIS_df; find_at_least_negative=10)
     lowest_freq_idx = -1
@@ -137,6 +140,10 @@ function f_interval_auto_processing(EIS_df, trim_inductance=false)
     # (non)-inductance cut off
     if trim_inductance
       highest_freq_idx = x_intersection_freq_idx
+    elseif leave_only_inductance_points!=Nothing   
+      lowest_freq_idx = x_intersection_freq_idx
+      highest_freq_idx = min(lowest_freq_idx + leave_only_inductance_points - 1, length(EIS_df.f))
+      return DataFrame(f = EIS_df.f[lowest_freq_idx:highest_freq_idx], Z = EIS_df.Z[lowest_freq_idx:highest_freq_idx])
     else
       accepted_inductance_real_axis_threshold = 0.00*real(EIS_df.Z[lowest_freq_idx]) + 1.00*real(EIS_df.Z[x_intersection_freq_idx])
       highest_freq_idx = -1
@@ -160,9 +167,12 @@ end
 function f_interval_trim(EIS_exp, EIS_preprocessing_control)
   f_interval = EIS_preprocessing_control.f_interval  
   if f_interval!=Nothing
-    if f_interval == "auto"
+    if f_interval == "auto"      
       #typical_plot_exp(SIM, EIS_exp, "! before")
-      EIS_exp = f_interval_auto_processing(EIS_exp, EIS_preprocessing_control.trim_inductance)               
+      EIS_exp = f_interval_auto_processing( EIS_exp, 
+                                            EIS_preprocessing_control.trim_inductance,
+                                            EIS_preprocessing_control.leave_only_inductance_points
+                                          )               
       #typical_plot_exp(SIM, EIS_exp, "! after")
     else
       EIS_exp = EIS_crop_to_f_interval(EIS_exp, f_interval)      
@@ -276,7 +286,7 @@ end
 function EIS_preprocessing(EIS_df, EIS_preprocessing_control::EIS_preprocessing_control)            
     new_EIS_df = deepcopy(EIS_df)
     
-    new_EIS_df = f_interval_trim(new_EIS_df, EIS_preprocessing_control)
+    new_EIS_df = f_interval_trim(new_EIS_df, EIS_preprocessing_control)    
     #
     new_EIS_df = EIS_scale_data(new_EIS_df, EIS_preprocessing_control)
     #

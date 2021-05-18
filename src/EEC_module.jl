@@ -270,6 +270,9 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     
     err = fitnessFunction(SIM, EIS_EEC, EIS_exp, error_type=error_type)
     
+    
+    
+    ################### 
 #     EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 1.4)...))
 #     if check_dramatic_change(x) || true
 #       typical_plot_sim(SIM, EIS_EEC_plot)
@@ -277,19 +280,19 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
 #     
 #     PyPlot.show()
 #     pause(0.1)
-      
+#       
 #     EEC_plot_error_projection(
 #       take_only_masked(mask, EEC_actual.prms_values), 
 #       take_only_masked(mask, EEC_actual.prms_names), 
 #       err)
-    
+#     
 #      println("~~~~~ LM e = $(err)\nx = $(x)")
-    
+    ##################
     
     
     if !(check_x_in(x, lowM, uppM))
       
-#      println("    OUT OF THE BOUNDS   \n")
+      println("    OUT OF THE BOUNDS   \n")
       
       return 1000
     end
@@ -546,9 +549,16 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
   
   # R | L | RCPE | RCPE structure REQUIERED!
   
+  RCPE_count = get_count_of_RCPEs(EEC)
+  
   # R_ohm
-  lower_limits[1] = left/2
-  upper_limits[1] = right
+  if RCPE_count > 0
+    lower_limits[1] = left/2
+    upper_limits[1] = right
+  else
+    lower_limits[1] = -Inf
+    upper_limits[1] = Inf
+  end
   
   # L2    
   if imag(EIS_exp.Z[end]) < 0.0
@@ -559,7 +569,6 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
     upper_limits[2] = max(0.1, (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))*10 )  
   end
   
-  RCPE_count = get_count_of_RCPEs(EEC)
   
   for i in 1:RCPE_count
     #R
@@ -891,7 +900,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
 ## HERE
     init_values_list = []
     if init_values == Nothing || cycle_number > 1
-      if which_initial_guess == "both"
+      if  which_initial_guess == "alg"
+        push!(init_values_list, get_init_values(EIS_exp, EEC_actual))      
+      elseif which_initial_guess == "both"
         push!(init_values_list, get_init_values(EIS_exp, EEC_actual))
         if cycle_number > 1
           push!(init_values_list, deepcopy(EEC_actual.prms_values))
