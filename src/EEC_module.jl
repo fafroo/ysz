@@ -292,7 +292,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     
     if !(check_x_in(x, lowM, uppM))
       
-      println("    OUT OF THE BOUNDS   \n")
+#       println("    OUT OF THE BOUNDS   \n")
       
       return 1000
     end
@@ -600,7 +600,7 @@ function view_EEC(;
       EEC_structure="RL-R-L-RCPE-RCPE", 
       prms_values=[1, 0.001,      1.7, 0,        1. , 0.001, 1.0,    1.0, 0.01, 0.8], 
       f_range=(0.01, 10000, 1.2),
-      print_bool=false, pyplot=1, plot_legend=true, use_DRT=true, DRT_draw_semicircles=DRT_draw_semicircles,
+      print_bool=false, pyplot=1, plot_legend=true, use_DRT=true, DRT_draw_semicircles=false,
       )
   
   EEC = get_EEC(EEC_structure)

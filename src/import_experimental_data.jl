@@ -265,7 +265,20 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
       ocp_token = "_ocp_konec"
       backward_string = ""
     end
-    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 3 otocene kabely/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")        
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 3 otocene kabely/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")  
+    
+  ##  
+    
+  elseif data_set=="HebbWagner_111_GOLD_4"
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 4 pm2V/$(TC) C/EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")
+  
+  elseif data_set=="HebbWagner_111_GOLD_4_backward"
+    backward_string = "backward_"
+    if ocp_token != ""
+      ocp_token = "_ocp_konec"
+      backward_string = ""
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 4 pm2V/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")    
       
   ##########################################################
   
