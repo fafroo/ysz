@@ -3,6 +3,10 @@ using DataFrames
 using PyPlot
 using Printf
 
+function it_starts_with(str, pattern)
+  return length(str) >= length(pattern) && str[1:length(pattern)]==pattern
+end
+
 function import_CVtoDataFrame_path(f_name)
     df = DataFrame(U = Float32[], I = Float32[], t = Float32[])
     line_is_valid=false
@@ -280,6 +284,86 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
     end
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 4 pm2V/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")    
       
+  ##########################################################  
+  elseif it_starts_with(data_set, "cyc_HebbWagner")
+    # cyc means ->  >> bias << has the meaning of >> number with respect to time order << of experiments
+    plane = data_set[16:18]
+    total_order_str = ""
+    if plane == "100"
+      total_order_str = "09"
+    elseif plane == "110"
+      total_order_str = "10"
+    elseif plane == "111"
+      total_order_str = "11"
+    end
+    
+    bias_return_value = 1
+    sequence_str = ""
+    if plane == "110"
+      sequence_str = "druhe_mereni/"
+    end    
+    if plane == "111"
+      if data_set[25] == '1'
+        sequence_str = "mereni 1/"
+      elseif data_set[25] == '2'
+        sequence_str = "mereni 2/"
+      elseif data_set[25] == '3'
+        sequence_str = "mereni 3 otocene kabely/"
+      elseif data_set[25] == '4'        
+        sequence_str = "mereni 4 pm2V/"
+        bias_return_value = 2
+      end
+    end
+    
+    bias_digit_precision = 3
+    bias_epsilon = 10e-5
+    
+    bias_idx = Int(bias)
+    bias_step = 0.05
+    dir = 1
+    bias_value = 0.0
+    bias_str = ""
+    
+    return_counter = 0
+    for i in 1:(bias_idx - 1)    
+      bias_value = round(bias_value + dir*bias_step, digits=bias_digit_precision)
+      if bias_value > bias_return_value && dir > 0
+        return_counter += 1
+        bias_value = round(bias_value + -2*bias_step, digits=bias_digit_precision)
+        dir = -1
+      end
+      if bias_value < -bias_return_value && dir < 0
+        return_counter += 1
+        bias_value = round(bias_value + 2*bias_step, digits=bias_digit_precision)
+        dir = 1
+      end
+      if return_counter > 1 && bias_value > 0        
+        bias_value = Inf
+        break
+      end
+    end
+    bias_value = round(bias_value, digits=bias_digit_precision)
+    
+    
+    bias_str = "$(bias_value)"
+    backward_string = ""
+    ocp_token = ""
+    if bias_idx == 1      
+      ocp_token = "_ocp"
+    elseif (bias_value > 0 + bias_epsilon) && (dir < 0)      
+      backward_string = "backward_"
+    elseif bias_value == 0.0 && dir < 0      
+      bias_str = "-0.0"
+      ocp_token = "_ocp"
+    elseif bias_value < 0 - bias_epsilon && dir > 0
+      backward_string = "backward_"
+    elseif bias_idx > 1 && bias_value == 0.0 && dir > 0
+      ocp_token = "_ocp_konec"
+    end                
+    
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/$(total_order_str) YSZ $(plane) - Au-Au/$(sequence_str)$(TC) C/$(backward_string)EIS_$(bias_str)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")    
+    
+  
   ##########################################################
   
   
