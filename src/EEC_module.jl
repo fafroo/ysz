@@ -742,6 +742,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         use_DRT=false, DRT_draw_semicircles=false,
                         trim_inductance=false,
                         save_file_bool=true, save_to_folder="../data/EEC/", file_name="default_output.txt", save_R1_file=false,
+                        print_headers_bool=false,
                         EIS_preprocessing_control = EIS_preprocessing_control()
 #                           ,EIS_preprocessing_control = ysz_fitting.EIS_preprocessing_control(
 #                                   f_interval=Nothing, 
@@ -847,6 +848,8 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   
   cycle_number = 0
   previous_bias = Inf
+  
+  
   
   for   (TC_idx, TC_item) in enumerate(TC), 
         (pO2_idx, pO2_item) in enumerate(pO2), 
@@ -956,7 +959,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
           best_init_values_idx = init_values_idx
         end
         
-        if show_all_initial_guesses && !(save_file_bool)
+        if show_all_initial_guesses && !(save_file_bool) 
           println(" --------- $(init_values_idx) --------- ")
                   
           output_string = "========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) ==========\n"
@@ -975,7 +978,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     end
     
     EEC_actual.prms_values .= best_prms_values
-    if !save_file_bool     
+    if !save_file_bool   
       if show_all_initial_guesses
         println(" ------------ BEST ---------- ")
       end
@@ -986,6 +989,9 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       println("best init_values = $(init_values_list[best_init_values_idx])")
       println("best FITTED_values = $(best_prms_values)")
       println(">>> best error >>> $(best_error)\n")
+    end
+    if print_headers_bool
+      println("========== TC, pO2, bias: ($TC_item, $(pO2_item), $bias_item) --- data_set_item = $data_set_item) ========== ")
     end
     
     
@@ -1148,7 +1154,8 @@ function plot_EEC_data_general(EEC_data_holder;
                                 #
                                 fig_num=102, 
                                 plot_legend=true, plot_all_prms=true,
-                                reversed_x = false
+                                reversed_x = false,
+                                x_mapping = Nothing
                                 )
   
   function make_range_list(prm_name, interval)
@@ -1237,6 +1244,10 @@ function plot_EEC_data_general(EEC_data_holder;
     return eval.(Meta.parse.(substitued_template_list))
   end
   
+  function x_mapping_default(x)
+    return x
+  end
+  
   y_to_plot = []
   for TC_idx in (x_name_idx != 1 ? range_list[1] : [range_list[1]]),
       pO2_idx in (x_name_idx != 2 ? range_list[2] : [range_list[2]]),
@@ -1247,6 +1258,10 @@ function plot_EEC_data_general(EEC_data_holder;
         EEC_data_holder, 
         Symbol(identifier_list[x_name_idx])
       )[range_list[x_name_idx]]
+               
+    if x_mapping!=Nothing
+      x_to_plot = map(x_mapping, x_to_plot)
+    end
                
     y_to_plot = get_plot_list_from_template(plot_template, EEC_data_holder, TC_idx, pO2_idx, bias_idx, data_set_idx)
         
