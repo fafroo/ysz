@@ -19,13 +19,15 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[700,], pO2=[100], bias=collect(-
               alpha_low=0.2, alpha_upp=1,            
               which_initial_guess="both",
               save_file_bool=false, file_name="test_alg.txt", save_R1_file=false,
+              print_headers_bool=false,
               plot_bool=true, plot_legend=true, DRT_draw_semicircles=false, plot_fit=true, use_DRT=false, plot_exp=true,
-              plot_best_initial_guess=true, show_all_initial_guesses=false,
+              plot_best_initial_guess=true, show_all_initial_guesses=false,              
               EIS_preprocessing_control = ysz_fitting.EIS_preprocessing_control(
                                   f_interval=(-Inf, 500), 
                                   #add_inductance=0,
                                   #scale_factor=1.0,
                                   #trim_inductance=true, 
+                                  #leave_only_inductance_points=10000,
                                   outlayers_threshold=1.5,                                    
                                   use_DRT=false, DRT_control=ysz_fitting.DRT_control_struct()
                            )
@@ -61,6 +63,7 @@ computed_data = ysz_fitting.run_EEC_fitting(TC=[700,], pO2=[100], bias=collect(-
 ### - save_file_bool decides, if the output is printed into terminal (=false) or is saved to a file (=true)
 ### - default values are << save_to_folder="../data/EEC/" >> and  << file_name="default_output.txt" >>
 ### - save_R1_file -> if true, it saves file with only one column with R1 values. The name is "$(file_name)_R1" (before the extension)
+### - print_headers_bool=true ... if save_file_bool==true, this keyword=true will print name of processed file to the console
 ### - fixed_prms_names: defines which parameters should NOT be fitted. e.g. ["R1", "L2"]
 ### - fixed_prms_values: defines the values of the fixed_prms_names. e.g. [0.4, 1.4e-6]    
 ### - alpha_low=0.2, alpha_upp=1.0 (default values) defines lower and upper bound for fitting alphas  
