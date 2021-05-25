@@ -9,6 +9,7 @@ using CSV
 using NNLS
 #using LinearAlgebra
 using LsqFit
+using ProgressMeter
 
 #include("../src/DRT.jl")
 
@@ -849,14 +850,21 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   cycle_number = 0
   previous_bias = Inf
   
-  
+  progress_meter = Progress( 
+                        length(TC)*length(pO2)*length(bias)*length(data_set), 
+                        dt=0.5                        
+                      )
   
   for   (TC_idx, TC_item) in enumerate(TC), 
         (pO2_idx, pO2_item) in enumerate(pO2), 
         (bias_idx, bias_item) in enumerate(bias), 
         (data_set_idx, data_set_item) in enumerate(data_set)
     cycle_number += 1
-
+    
+    if save_file_bool
+      ProgressMeter.update!(progress_meter, cycle_number)
+      ProgressMeter.update!(progress_meter, cycle_number)    
+    end
   
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
                   use_DRT=use_DRT, DRT_draw_semicircles=DRT_draw_semicircles, 
@@ -975,6 +983,10 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
         if plot_fit && show_all_initial_guesses
           plot_bool && ysz_fitting.typical_plot_sim(SIM, EIS_EEC, "!EEC fit $(init_values_idx)")
         end
+    end
+    
+    if save_file_bool
+      ProgressMeter.update!(progress_meter, cycle_number)
     end
     
     EEC_actual.prms_values .= best_prms_values
