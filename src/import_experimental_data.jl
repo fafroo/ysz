@@ -135,9 +135,6 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
   #
   bias=Float64(bias)
   bias_mV = Int32(bias*1000)
-  if abs(bias_mV) < 10 && data_set!="DAN_kapacity"
-    bias_mV = "0_1"
-  end
   #
   if bias == 0.0
     ocp_token = "_ocp"
@@ -150,6 +147,9 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
   end
   #
   if length(data_set) >= 4 && data_set[1:4]=="POLY"
+    if abs(bias_mV) < 10 && data_set!="DAN_kapacity"
+      bias_mV = "0_1"
+    end
     fNAME=string("../snehurka/experimental_data_PSS/jako asi 6/$(TC) $(pO2_Dan) 6/eis_$(bias_mV).z") 
   elseif data_set=="Zahner"
     fNAME=string("../snehurka/experimental_data_PSS/individual_files/TEST DRT - Zahner - dummy cell.z")
@@ -158,6 +158,15 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
   elseif data_set=="HebbWagner"
     # TC \in (600 : 20 : 720) ... bias = 0.3 ... pO2 = nizke, temer nulove
     fNAME=string("../snehurka/experimental_data_PSS/HebbWagner/$(TC) C/$(TC)_EIS $(bias)V v ref 50mV amplituda.z")
+  
+  elseif data_set=="NEW_MONO_111"    
+    if bias_mV == 0
+      bias_mV = "mid_1"
+    end
+    fNAME=string("../snehurka/experimental_data_PSS/DAN_nove_MONO/111/$(TC) $(pO2_Dan)/eis_$(bias_mV).z")
+  
+  
+  
   
   
   
@@ -218,6 +227,7 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
       backward_string = ""
     end
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/09 YSZ100 - Au-Au/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")
+    
     
   ##  
     
@@ -368,6 +378,9 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
   
   
   elseif length(data_set) >= 8 && data_set[1:8]=="MONO_110"
+    if abs(bias_mV) < 10 && data_set!="DAN_kapacity"
+      bias_mV = "0_1"
+    end  
     fNAME=string("../snehurka/experimental_data_PSS/YSZ 110/110 $(TC) $(pO2_Dan)/eis_$(bias_mV).z")
   elseif data_set=="OLD_MONO_100"
     fNAME=string("../snehurka/experimental_data_PSS/YSZ_09-2019_oxygen100/100 750to850 0to100%O2/$(TC)C/100 $(TC)C $(pO2_Dan)% do 1V/is $(bias)DC 50AC.z")
