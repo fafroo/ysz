@@ -24,6 +24,7 @@ Pkg.add("CSV")
 Pkg.add("LeastSquaresOptim")
 Pkg.add("Optim")
 Pkg.add("SparseArrays")
+Pkg.add("ProgressMeter")
 
 # for NNLS
 Pkg.add("MathProgBase")
