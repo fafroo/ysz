@@ -769,7 +769,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   ####  [x] upravit hranice parametrickeho prostoru, aby nehledal kraviny!
   ####  [ ] fixed_prms_names ... bug for *3 a *4  ... elements can be interchanged !!!
   ####  [ ] maybe try several automatic initial guesses and pick up the best one?
-  ####  [ ] progress bar
+  ####  [x] progress bar
   ####  [ ] plot_EEC_data_general -> vymyslet zaznamenavani stabilnich velicin
   ####  [ ] !!! 750, 100, 0.0, "MONO_110" dost blbe trefuje nizke frekvence
   ####  [ ] !!! kolem TC 800, MONO_110 se dejou divne veci v R1
@@ -848,6 +848,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
   end
   
   cycle_number = 0
+  cycle_number_for_progressbar = 0
   previous_bias = Inf
   
   progress_meter = Progress( 
@@ -861,10 +862,12 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
         (data_set_idx, data_set_item) in enumerate(data_set)
     cycle_number += 1
     
+    
     if save_file_bool
-      ProgressMeter.update!(progress_meter, cycle_number)
-      ProgressMeter.update!(progress_meter, cycle_number)    
+      ProgressMeter.update!(progress_meter, cycle_number_for_progressbar)
+      ProgressMeter.update!(progress_meter, cycle_number_for_progressbar)    
     end
+    cycle_number_for_progressbar +=1
   
     SIM_list = ysz_fitting.EIS_simulation(TC_item, pO2_item, bias_item, 
                   use_DRT=use_DRT, DRT_draw_semicircles=DRT_draw_semicircles, 
@@ -894,6 +897,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
           save_EEC_prms_item_to_file(TC_item, pO2_item, bias_item, data_set_item, EEC_actual.prms_names, missing_array, save_to_folder*R1_file_name, save_only_R1=true)
         end
       end
+      ProgressMeter.update!(progress_meter, cycle_number_for_progressbar)
       cycle_number += -1
       continue
     end
@@ -986,8 +990,8 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     end
     
     if save_file_bool
-      ProgressMeter.update!(progress_meter, cycle_number)
-    end
+      ProgressMeter.update!(progress_meter, cycle_number_for_progressbar)
+    end    
     
     EEC_actual.prms_values .= best_prms_values
     if !save_file_bool   

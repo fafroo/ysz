@@ -47,7 +47,7 @@ mutable struct EIS_simulation <: abstract_simulation
 end
 
 function string(SIM::EIS_simulation)
-  return "$(SIM.name)_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)"
+  return "$(SIM.name)_TC_$(SIM.TC)_pO2_$(SIM.pO2)_bias_$(SIM.bias)_data_set_$(SIM.data_set)"
 end
 
 function EIS_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_name=EIS_default_physical_model_name, width=0.0005, dx_exp=-9, f_range=EIS_get_shared_f_range(), f_interval=(-Inf, Inf), fig_size=(9, 6), fig_num=-1, fitness_factor=1.0, use_TDS=0, tref=0, use_DRT=true, DRT_control=DRT_control_struct(), DRT_draw_semicircles=false, DRT_backward_check=false, plot_option="Nyq Bode DRT RC leg", plot_legend=false)
@@ -321,7 +321,7 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", use_checknodes=false, plot_legend=true, fig_num=12, DRT_control=DRT_control_struct(), use_DRT=true,                                
+function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", use_checknodes=false, plot_legend=true, fig_num=12, DRT_control=DRT_control_struct(), use_DRT=true, save_to_folder=Nothing,                             
                   EIS_preprocessing_control = EIS_preprocessing_control(
                                   f_interval=Nothing, 
                                   add_inductance=0,
@@ -348,7 +348,20 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
         # NEW branch                
         EIS_exp_NEW = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
         #  
-        typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp_NEW, "")       
+        loc_SIM = EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)[1]
+        typical_plot_exp(loc_SIM, EIS_exp_NEW, "")       
+        #
+        if save_to_folder!=Nothing
+          if contains(pwd()[end-3 : end], "src")
+            save_dir = "../data/experimental/"
+          elseif contains(pwd()[end-3 : end], "ysz")
+            save_dir = "./data/experimental/"
+          else
+            println("ERROR: please, go to directory \"ysz\" or \"ysz/src\"")
+            return
+          end
+          save_file_prms(loc_SIM, EIS_exp_NEW, "$(save_dir)$(save_to_folder)", [], [], []; mode="exp")
+        end
       end
     end
   end
